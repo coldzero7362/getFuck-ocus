@@ -24,6 +24,12 @@ app/src/main/java/com/getfuckocus/
 tools/make_icon.py   design/logo_source.webp에서 앱 아이콘을 만든다
 ```
 
+## 브랜치
+- `main`: 항상 빌드되는 상태. 직접 커밋하지 않고 PR로만 병합한다 (PR마다 GitHub Actions가 `assembleDebug`를 돌린다).
+- 작업 브랜치: `feat/…`, `fix/…`, `ui/…`, `chore/…`. 주제 하나에 하나, 병합 후 삭제한다.
+- Room 스키마를 바꾸는 작업은 마이그레이션까지 한 브랜치에 담는다.
+- 폰에 깔 만한 시점마다 `v0.1.0` 같은 태그를 붙이고 `versionName`/`versionCode`를 올린다.
+
 ## 안전 원칙 (코드로 강제)
 - 본인 기기에서 본인이 설정. 원격 제어, 아이콘 숨김, 은밀한 실행 없음. 동작 중 상시 알림.
 - 긴급전화, 전화, 문자, 알람, 설정, 홈 화면, 키보드는 항상 허용.
