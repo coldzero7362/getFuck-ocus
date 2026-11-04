@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 잠금 화면 배경과 같은 짙은 남색 (ui/theme/Theme.kt LockColors.background) -->
+    <color name="ic_launcher_background">#151A33</color>
+</resources>
