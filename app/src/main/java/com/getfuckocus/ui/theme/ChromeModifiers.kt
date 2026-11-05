@@ -56,6 +56,14 @@ fun Modifier.circleBevel(
     drawArc(shadow, 20f, 140f, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(stroke))
 }
 
+/** 판에 파인 홈처럼 보이게 한다: 위쪽과 왼쪽에 어두운 선. 입력칸에 쓴다. */
+fun Modifier.insetBevel(shadow: Color = Color(0x663D4F97), width: Dp = 2.dp): Modifier = drawWithContent {
+    drawContent()
+    val w = width.toPx()
+    drawRect(shadow, topLeft = Offset.Zero, size = size.copy(height = w))
+    drawRect(shadow, topLeft = Offset.Zero, size = size.copy(width = w / 2))
+}
+
 /** 모양대로 자르고, 색을 칠하고, 테두리를 단 판 하나. */
 fun Modifier.plate(color: Color, shape: Shape = ChromeShapes.panel, bevel: Boolean = true): Modifier =
     clip(shape).background(color).then(if (bevel) Modifier.bevel() else Modifier)

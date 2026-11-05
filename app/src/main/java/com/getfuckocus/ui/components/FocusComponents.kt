@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -39,6 +40,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -84,6 +86,7 @@ import com.getfuckocus.ui.theme.ChromeShapes
 import com.getfuckocus.ui.theme.bevel
 import com.getfuckocus.ui.theme.circleBevel
 import com.getfuckocus.ui.theme.halftone
+import com.getfuckocus.ui.theme.insetBevel
 import com.getfuckocus.ui.theme.plate
 import kotlin.math.abs
 
@@ -350,7 +353,12 @@ fun FocusSwitch(
     }
 }
 
-/** 위에 라벨이 붙는 흰 입력칸. 포커스되면 테두리가 남색으로 두꺼워진다. */
+/**
+ * 판에 파인 홈 같은 입력칸.
+ * - 라벨은 칸 왼쪽 위에 붙은 카본 탭이고, 입력 중이면 앰버 탭으로 바뀐다.
+ * - 칸은 위·왼쪽에 어두운 선이 있어 판 안으로 파여 보인다. 입력 중이면 테두리가 앰버로 두꺼워진다.
+ * - [trailing]은 칸 오른쪽 끝의 하늘색 버튼 칸에 들어간다.
+ */
 @Composable
 fun FocusTextField(
     value: String,
@@ -365,27 +373,35 @@ fun FocusTextField(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    val frame by animateColorAsState(if (focused) Chrome.amber else Chrome.carbon, label = "fieldFrame")
     val borderWidth by animateDpAsState(if (focused) 2.dp else 1.dp, label = "fieldBorder")
+    val fieldShape = RoundedCornerShape(topStart = 0.dp, topEnd = 2.dp, bottomEnd = 2.dp, bottomStart = 2.dp)
 
-    Column(
-        modifier.graphicsLayer { alpha = if (enabled) 1f else 0.5f },
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = Chrome.chromeIndigo)
+    Column(modifier.graphicsLayer { alpha = if (enabled) 1f else 0.5f }) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (focused) Chrome.carbon else Chrome.sky,
+            modifier = Modifier
+                .clip(CutCornerShape(topEnd = 8.dp))
+                .background(frame)
+                .padding(start = 10.dp, end = 14.dp, top = 4.dp, bottom = 3.dp),
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(IntrinsicSize.Min)
                 .heightIn(min = 50.dp)
-                .clip(ChromeShapes.control)
+                .clip(fieldShape)
                 .background(Chrome.white)
-                .border(borderWidth, if (focused) Chrome.chromeIndigo else Chrome.hairline, ChromeShapes.control)
-                .padding(start = 14.dp, end = 4.dp),
+                .insetBevel()
+                .border(borderWidth, if (focused) Chrome.amber else Chrome.carbon, fieldShape),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
-                modifier = Modifier.weight(1f).padding(vertical = 13.dp),
+                modifier = Modifier.weight(1f).padding(start = 14.dp, end = 8.dp, top = 14.dp, bottom = 13.dp),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = Chrome.carbon),
                 cursorBrush = SolidColor(Chrome.chromeIndigo),
                 enabled = enabled,
@@ -402,7 +418,18 @@ fun FocusTextField(
                     }
                 },
             )
-            trailing?.invoke()
+            if (trailing != null) {
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .width(52.dp)
+                        .background(Chrome.sky)
+                        .border(width = 1.dp, color = Chrome.carbon.copy(alpha = 0.25f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CompositionLocalProvider(LocalContentColor provides Chrome.carbon) { trailing() }
+                }
+            }
         }
     }
 }

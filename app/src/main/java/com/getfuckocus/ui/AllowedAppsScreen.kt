@@ -86,12 +86,7 @@ fun AllowedAppsScreen(onBack: () -> Unit) {
                     label = "앱 검색",
                     placeholder = "앱 이름",
                     trailing = {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 12.dp),
-                        )
+                        Icon(Icons.Default.Search, contentDescription = null)
                     },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 )
