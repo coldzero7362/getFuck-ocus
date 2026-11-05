@@ -7,6 +7,7 @@ import com.getfuckocus.safety.DeviceClock
 import com.getfuckocus.safety.PhotoRetention
 import com.getfuckocus.safety.Whitelist
 import com.getfuckocus.task.DeadlineEvaluator
+import com.getfuckocus.task.DeadlineScheduler
 import com.getfuckocus.verify.EvidenceCollector
 import com.getfuckocus.verify.PhotoVerifier
 import com.getfuckocus.verify.VerificationFlow
@@ -19,8 +20,9 @@ class AppContainer(context: Context) {
     val taskDao = AppDatabase.build(appContext).taskDao()
     val lockController = LockController(appContext, deviceClock)
     val whitelist = Whitelist(appContext)
-    val deadlineEvaluator = DeadlineEvaluator(taskDao, lockController)
+    val deadlineEvaluator = DeadlineEvaluator(taskDao, lockController, deviceClock)
+    val deadlineScheduler = DeadlineScheduler(appContext)
     val evidenceCollector = EvidenceCollector(appContext, deviceClock)
-    val verificationFlow = VerificationFlow(taskDao, evidenceCollector, PhotoVerifier(), lockController)
+    val verificationFlow = VerificationFlow(taskDao, evidenceCollector, PhotoVerifier(), lockController, deviceClock)
     val photoRetention = PhotoRetention(taskDao)
 }

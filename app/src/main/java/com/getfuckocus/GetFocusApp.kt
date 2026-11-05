@@ -19,6 +19,8 @@ class GetFocusApp : Application() {
         container = AppContainer(this)
         NotificationHelper.createChannel(this)
         appScope.launch { container.photoRetention.purgeExpired() }
+        // 과제가 추가·수정·삭제되거나 "바로 시작"할 때마다 다음 마감 알람을 다시 건다
+        appScope.launch { container.taskDao.observeAll().collect { container.deadlineScheduler.schedule(it) } }
     }
 }
 

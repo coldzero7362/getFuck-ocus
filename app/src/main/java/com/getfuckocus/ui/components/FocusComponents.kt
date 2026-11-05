@@ -211,6 +211,7 @@ fun FocusChip(
     modifier: Modifier = Modifier,
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
+    enabled: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
     val container by animateColorAsState(
@@ -221,11 +222,18 @@ fun FocusChip(
     val shape = RoundedCornerShape(12.dp)
     Row(
         modifier = modifier
+            .graphicsLayer { alpha = if (enabled) 1f else 0.4f }
             .height(40.dp)
             .clip(shape)
             .background(container)
             .border(1.dp, if (selected) Color.Transparent else colors.outlineVariant, shape)
-            .clickable(remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClick = onClick)
+            .clickable(
+                remember { MutableInteractionSource() },
+                indication = null,
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -249,12 +257,18 @@ fun FocusChip(
 
 /** 켜고 끄는 토글. 손잡이가 미끄러지듯 움직인다. */
 @Composable
-fun FocusSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+fun FocusSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
     val colors = MaterialTheme.colorScheme
     val track by animateColorAsState(if (checked) colors.primary else colors.outlineVariant, label = "switchTrack")
     val thumbOffset by animateDpAsState(if (checked) 22.dp else 2.dp, label = "switchThumb")
     Box(
         modifier = modifier
+            .graphicsLayer { alpha = if (enabled) 1f else 0.4f }
             .size(width = 52.dp, height = 32.dp)
             .clip(RoundedCornerShape(50))
             .background(track)
@@ -262,6 +276,7 @@ fun FocusSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: 
                 value = checked,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                enabled = enabled,
                 role = Role.Switch,
                 onValueChange = onCheckedChange,
             ),
@@ -288,6 +303,7 @@ fun FocusTextField(
     placeholder: String? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    enabled: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -296,7 +312,10 @@ fun FocusTextField(
     val border by animateColorAsState(if (focused) colors.primary else Color.Transparent, label = "fieldBorder")
     val shape = RoundedCornerShape(14.dp)
 
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(
+        modifier.graphicsLayer { alpha = if (enabled) 1f else 0.5f },
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
         Row(
             modifier = Modifier
@@ -314,6 +333,7 @@ fun FocusTextField(
                 modifier = Modifier.weight(1f).padding(vertical = 14.dp),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface),
                 cursorBrush = SolidColor(colors.primary),
+                enabled = enabled,
                 singleLine = true,
                 keyboardOptions = keyboardOptions,
                 keyboardActions = keyboardActions,

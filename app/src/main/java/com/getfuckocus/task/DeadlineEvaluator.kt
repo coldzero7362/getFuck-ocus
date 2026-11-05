@@ -2,15 +2,20 @@ package com.getfuckocus.task
 
 import com.getfuckocus.data.TaskDao
 import com.getfuckocus.lock.LockController
+import com.getfuckocus.safety.DeviceClock
 import com.getfuckocus.safety.SafetyPolicy
 import java.time.ZonedDateTime
 
 class DeadlineEvaluator(
     private val dao: TaskDao,
     private val lock: LockController,
+    private val clock: DeviceClock,
 ) {
-    /** 마감이 지났는데 통과 기록이 없는 회차가 있으면 잠근다. 새로 잠갔으면 true. */
-    suspend fun evaluate(now: ZonedDateTime = ZonedDateTime.now()): Boolean {
+    /**
+     * 마감이 지났는데 통과 기록이 없는 회차가 있으면 잠근다. 새로 잠갔으면 true.
+     * 기본값은 시계를 뒤로 돌려도 줄어들지 않는 시각이라, 시계 조작으로 마감을 미룰 수 없다.
+     */
+    suspend fun evaluate(now: ZonedDateTime = clock.trustedNow()): Boolean {
         if (lock.current() != null) return false
         val nowMillis = now.toInstant().toEpochMilli()
 

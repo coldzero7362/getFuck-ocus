@@ -6,6 +6,7 @@ import com.getfuckocus.data.TaskDao
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.hasGeoFence
 import com.getfuckocus.lock.LockController
+import com.getfuckocus.safety.DeviceClock
 import com.getfuckocus.task.TaskSchedule
 import java.time.Instant
 import java.time.LocalDate
@@ -17,13 +18,17 @@ class VerificationFlow(
     private val collector: EvidenceCollector,
     private val verifier: PhotoVerifier,
     private val lock: LockController,
+    private val clock: DeviceClock,
 ) {
     suspend fun run(task: TaskEntity, imageCapture: ImageCapture): VerificationResult {
         // 장소 조건이 있는 과제만 위치를 측정한다
         val location = if (task.hasGeoFence()) collector.currentLocation() else null
+        // 시계를 뒤로 돌려 시간창 안인 척하지 못하게, 믿을 수 있는 시각과 기기 시계의 차이만큼 보정한다
+        val clockShift = clock.trustedNowMillis() - System.currentTimeMillis()
         val evidence = collector.capture(imageCapture, location)
 
-        val captured = Instant.ofEpochMilli(evidence.capturedAt.wallMillis).atZone(ZoneId.systemDefault())
+        val capturedMillis = evidence.capturedAt.wallMillis + clockShift
+        val captured = Instant.ofEpochMilli(capturedMillis).atZone(ZoneId.systemDefault())
         // 시간창 안이면 그 회차, 이 과제 때문에 잠겨 있으면 잠금의 원인이 된 회차로 늦은 인증을 받는다
         val lockedByThis = lock.current()?.takeIf { it.taskId == task.id }
         val occurrence = TaskSchedule.occurrenceContaining(task, captured)
@@ -35,7 +40,7 @@ class VerificationFlow(
             AttemptEntity(
                 taskId = task.id,
                 dayKey = TaskSchedule.dayKey(occurrence ?: captured.toLocalDate()),
-                capturedAt = evidence.capturedAt.wallMillis,
+                capturedAt = capturedMillis,
                 photoPath = evidence.photo.absolutePath,
                 latitude = location?.latitude,
                 longitude = location?.longitude,

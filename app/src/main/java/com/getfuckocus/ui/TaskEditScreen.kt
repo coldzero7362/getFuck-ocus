@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -43,7 +44,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -56,6 +60,7 @@ import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.requiredLabels
 import com.getfuckocus.hasPermission
 import com.getfuckocus.task.TaskSchedule
+import com.getfuckocus.task.editFreezeReason
 import com.getfuckocus.ui.components.FocusButton
 import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusCard
@@ -81,25 +86,33 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
     val container = context.container
     val scope = rememberCoroutineScope()
 
+    // 화면 회전 등으로 Activity가 다시 만들어져도 입력 중인 값이 남도록 rememberSaveable로 둔다
     var original by remember { mutableStateOf<TaskEntity?>(null) }
-    var title by remember { mutableStateOf("") }
-    var startMinute by remember { mutableIntStateOf(TaskSchedule.defaultStartMinute()) }
-    var durationMinutes by remember { mutableIntStateOf(TaskSchedule.DEFAULT_DURATION_MINUTES) }
-    var picking by remember { mutableStateOf<TimeField?>(null) }
-    val labels = remember { mutableStateListOf<String>() }
-    var labelInput by remember { mutableStateOf("") }
-    var radiusMeters by remember { mutableFloatStateOf(DEFAULT_RADIUS_M) }
-    var geo by remember { mutableStateOf<Pair<Double, Double>?>(null) }
-    var enabled by remember { mutableStateOf(true) }
-    var message by remember { mutableStateOf<String?>(null) }
-    var confirmDelete by remember { mutableStateOf(false) }
+    var loaded by rememberSaveable { mutableStateOf(false) }
+    var title by rememberSaveable { mutableStateOf("") }
+    var startMinute by rememberSaveable { mutableIntStateOf(TaskSchedule.defaultStartMinute()) }
+    var durationMinutes by rememberSaveable { mutableIntStateOf(TaskSchedule.DEFAULT_DURATION_MINUTES) }
+    var picking by rememberSaveable { mutableStateOf<TimeField?>(null) }
+    val labels = rememberSaveable(saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })) {
+        mutableStateListOf<String>()
+    }
+    var labelInput by rememberSaveable { mutableStateOf("") }
+    var radiusMeters by rememberSaveable { mutableFloatStateOf(DEFAULT_RADIUS_M) }
+    var geo by rememberSaveable { mutableStateOf<Pair<Double, Double>?>(null) }
+    var enabled by rememberSaveable { mutableStateOf(true) }
+    var message by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var freezeReason by remember { mutableStateOf<String?>(null) }
+    val frozen = freezeReason != null
 
     val suggestions by produceState(emptyList<String>()) { value = recentLabelSuggestions(container.taskDao) }
 
     LaunchedEffect(taskId) {
         if (taskId == 0L) return@LaunchedEffect
-        container.taskDao.get(taskId)?.let { t ->
-            original = t
+        val t = container.taskDao.get(taskId) ?: return@LaunchedEffect
+        original = t
+        // 회전 후 다시 불러올 때는 저장된 원본으로 입력 중인 값을 덮어쓰지 않는다
+        if (!loaded) {
             title = t.title
             startMinute = t.windowStartMinute
             durationMinutes = t.durationMinutes
@@ -108,6 +121,15 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
             radiusMeters = t.geoRadiusMeters ?: DEFAULT_RADIUS_M
             geo = if (t.geoLat != null && t.geoLng != null) t.geoLat to t.geoLng else null
             enabled = t.enabled
+            loaded = true
+        }
+    }
+
+    // 진행 중인 회차가 끝나면 다시 편집할 수 있게 30초마다 확인한다
+    val now = rememberNow(30_000)
+    LaunchedEffect(original, now) {
+        freezeReason = original?.let {
+            editFreezeReason(it, container.taskDao, container.lockController, container.deviceClock.trustedNow())
         }
     }
 
@@ -139,7 +161,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
     }
 
     fun save() {
-        if (labelInput.isNotBlank()) addLabel(labelInput)
+        if (labelInput.isNotBlank() && !frozen) addLabel(labelInput)
         message = when {
             title.isBlank() -> "과제 이름을 입력하세요"
             durationMinutes !in 1..TaskSchedule.MAX_DURATION_MINUTES -> "소요 시간은 1분 이상이어야 해요"
@@ -148,7 +170,8 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
         if (message != null) return
 
         val base = original ?: TaskEntity(title = "", windowStartMinute = 0, durationMinutes = 0)
-        val task = base.copy(
+        // 편집이 막힌 동안에는 이름만 바꾼다 (화면에서 막는 것과 별개로 저장 단계에서도 지킨다)
+        val task = if (frozen) base.copy(title = title.trim()) else base.copy(
             title = title.trim(),
             windowStartMinute = startMinute,
             durationMinutes = durationMinutes,
@@ -170,7 +193,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                 title = if (original == null) "새 과제" else "과제 편집",
                 onBack = onDone,
                 actions = {
-                    if (original != null) {
+                    if (original != null && !frozen) {
                         FocusIconButton(
                             Icons.Default.Delete,
                             contentDescription = "삭제",
@@ -204,6 +227,20 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            freezeReason?.let { reason ->
+                FocusCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Lock, contentDescription = null)
+                        Spacer(Modifier.width(12.dp))
+                        Text(reason, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+
             SectionCard(title = "과제") {
                 FocusTextField(
                     title, { title = it },
@@ -220,7 +257,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    FocusSwitch(checked = enabled, onCheckedChange = { enabled = it })
+                    FocusSwitch(checked = enabled, onCheckedChange = { enabled = it }, enabled = !frozen)
                 }
             }
 
@@ -228,7 +265,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                 FocusCard(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    onClick = { picking = TimeField.START },
+                    onClick = if (frozen) null else ({ picking = TimeField.START }),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -244,7 +281,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                                 fontWeight = FontWeight.SemiBold,
                             )
                         }
-                        Icon(Icons.Default.Edit, contentDescription = "시작 시각 바꾸기")
+                        if (!frozen) Icon(Icons.Default.Edit, contentDescription = "시작 시각 바꾸기")
                     }
                 }
 
@@ -258,6 +295,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                             TaskSchedule.formatDuration(preset),
                             selected = durationMinutes == preset,
                             onClick = { durationMinutes = preset },
+                            enabled = !frozen,
                         )
                     }
                     FocusChip(
@@ -265,6 +303,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                         selected = durationMinutes !in DURATION_PRESETS,
                         onClick = { picking = TimeField.DURATION },
                         leadingIcon = Icons.Default.Edit,
+                        enabled = !frozen,
                     )
                 }
                 Text(
@@ -286,6 +325,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         style = FocusButtonStyle.Outline,
                         icon = Icons.Default.LocationOn,
+                        enabled = !frozen,
                     )
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -296,7 +336,10 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.weight(1f),
                         )
-                        FocusButton("없애기", onClick = { geo = null }, style = FocusButtonStyle.Ghost, height = 40.dp)
+                        FocusButton(
+                            "없애기", onClick = { geo = null },
+                            style = FocusButtonStyle.Ghost, height = 40.dp, enabled = !frozen,
+                        )
                     }
                     Text("반경", style = MaterialTheme.typography.labelLarge)
                     Row(
@@ -308,6 +351,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                                 "${preset.toInt()}m",
                                 selected = radiusMeters == preset,
                                 onClick = { radiusMeters = preset },
+                                enabled = !frozen,
                             )
                         }
                     }
@@ -325,7 +369,8 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                                 label,
                                 selected = true,
                                 onClick = { labels.remove(label) },
-                                trailingIcon = Icons.Default.Close,
+                                trailingIcon = if (frozen) null else Icons.Default.Close,
+                                enabled = !frozen,
                             )
                         }
                     }
@@ -340,19 +385,20 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                     placeholder = "영문, 예: Dog",
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { addLabel(labelInput) }),
+                    enabled = !frozen,
                     trailing = {
                         FocusIconButton(
                             Icons.Default.Add,
                             contentDescription = "라벨 추가",
                             onClick = { addLabel(labelInput) },
-                            enabled = labelInput.isNotBlank(),
+                            enabled = !frozen && labelInput.isNotBlank(),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 val available = suggestions.filter { s -> labels.none { it.equals(s, ignoreCase = true) } }
-                if (available.isNotEmpty()) {
+                if (available.isNotEmpty() && !frozen) {
                     Text(
                         "최근 사진에서 인식된 라벨",
                         style = MaterialTheme.typography.labelMedium,
@@ -392,7 +438,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
     }
 
     val toDelete = original
-    if (confirmDelete && toDelete != null) {
+    if (confirmDelete && toDelete != null && !frozen) {
         FocusDialog(
             title = "과제를 삭제할까요?",
             onDismiss = { confirmDelete = false },
