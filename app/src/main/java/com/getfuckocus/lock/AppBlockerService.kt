@@ -24,7 +24,9 @@ class AppBlockerService : AccessibilityService() {
         NotificationHelper.showServiceActive(this)
         scope.launch {
             while (isActive) {
-                if (container.deadlineEvaluator.evaluate()) lastForeground?.let(::enforce)
+                container.deadlineEvaluator.evaluate()
+                // 잠금은 마감 알람 쪽에서 걸릴 수도 있으므로, 새로 잠갔는지와 상관없이 지금 앞에 있는 앱을 다시 확인한다
+                lastForeground?.let(::enforce)
                 delay(EVALUATE_INTERVAL_MS)
             }
         }

@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 재부팅 뒤에도 마감 알람을 다시 걸기 위해 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- 잠금 중 항상 허용할 앱(런처, 전화, 문자, 알람, 설정)과 사용자 허용 목록을 찾기 위한 패키지 가시성 -->
     <queries>
@@ -61,6 +63,16 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:taskAffinity="com.getfuckocus.lock" />
+
+        <!-- 마감 알람(앱 내부 명시적 인텐트)과 재부팅·업데이트 브로드캐스트를 받는다 -->
+        <receiver
+            android:name=".task.DeadlineReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".lock.AppBlockerService"

@@ -38,6 +38,15 @@ object TaskSchedule {
     fun candidateDates(at: ZonedDateTime): List<LocalDate> =
         listOf(at.toLocalDate(), at.toLocalDate().minusDays(1))
 
+    /** [now] 이후 가장 가까운 마감. 꺼진 과제는 뺀다. 마감 알람을 걸 때 쓴다. */
+    fun nextDeadline(tasks: List<TaskEntity>, now: ZonedDateTime): ZonedDateTime? {
+        val today = now.toLocalDate()
+        return tasks.filter { it.enabled }
+            .flatMap { task -> listOf(today.minusDays(1), today, today.plusDays(1)).map { deadline(task, it, now.zone) } }
+            .filter { it.isAfter(now) }
+            .minByOrNull { it.toInstant() }
+    }
+
     /** 새 과제의 기본 시작 시각: 지금 시각을 10분 단위로 내린 값 (예: 14:37 → 14:30). */
     fun defaultStartMinute(now: LocalTime = LocalTime.now()): Int =
         now.hour * 60 + now.minute / 10 * 10

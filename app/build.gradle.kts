@@ -39,6 +39,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        // JVM 단위 테스트에서 android.* 메서드는 예외 대신 기본값을 돌려준다
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 ksp {
@@ -70,4 +75,6 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
+
+    testImplementation(libs.junit)
 }
