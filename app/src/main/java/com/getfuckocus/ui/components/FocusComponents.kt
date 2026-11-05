@@ -82,6 +82,7 @@ import androidx.compose.ui.window.Dialog
 import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.ChromeShapes
 import com.getfuckocus.ui.theme.bevel
+import com.getfuckocus.ui.theme.circleBevel
 import com.getfuckocus.ui.theme.halftone
 import com.getfuckocus.ui.theme.plate
 import kotlin.math.abs
@@ -201,7 +202,7 @@ fun FocusPlayButton(
             .padding(3.dp)
             .clip(CircleShape)
             .background(Chrome.signal)
-            .bevel(highlight = if (pressed) Color.Transparent else Chrome.highlight, shadow = Color(0x55000000))
+            .circleBevel(highlight = if (pressed) Color.Transparent else Chrome.highlight)
             .clickable(interaction, indication = null, role = Role.Button, onClickLabel = contentDescription, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -247,7 +248,7 @@ fun FocusFab(
                 .padding(4.dp)
                 .clip(CircleShape)
                 .background(Chrome.signal)
-                .bevel(highlight = if (pressed) Color.Transparent else Chrome.highlight, shadow = Color(0x55000000))
+                .circleBevel(highlight = if (pressed) Color.Transparent else Chrome.highlight)
                 .clickable(interaction, indication = null, role = Role.Button, onClickLabel = contentDescription, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {

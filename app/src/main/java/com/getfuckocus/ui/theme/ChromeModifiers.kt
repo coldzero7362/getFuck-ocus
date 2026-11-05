@@ -10,6 +10,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -36,6 +37,23 @@ fun Modifier.bevel(
     val bottom = shadowWidth.toPx()
     drawRect(highlight, topLeft = Offset.Zero, size = size.copy(height = top))
     drawRect(shadow, topLeft = Offset(0f, size.height - bottom), size = size.copy(height = bottom))
+}
+
+/**
+ * 원형 부품용 테두리. 사각형 선을 원 안에 그리면 위아래가 잘려 평평한 띠처럼 보이므로,
+ * 원 둘레를 따라 위쪽은 밝은 호, 아래쪽은 어두운 호로 그린다.
+ */
+fun Modifier.circleBevel(
+    highlight: Color = Chrome.highlight,
+    shadow: Color = Color(0x55000000),
+    width: Dp = 2.5.dp,
+): Modifier = drawWithContent {
+    drawContent()
+    val stroke = width.toPx()
+    val arcSize = size.copy(width = size.width - stroke, height = size.height - stroke)
+    val topLeft = Offset(stroke / 2, stroke / 2)
+    drawArc(highlight, 200f, 140f, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(stroke))
+    drawArc(shadow, 20f, 140f, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(stroke))
 }
 
 /** 모양대로 자르고, 색을 칠하고, 테두리를 단 판 하나. */

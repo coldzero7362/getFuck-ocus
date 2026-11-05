@@ -89,7 +89,7 @@ import com.getfuckocus.ui.components.FocusSpinner
 import com.getfuckocus.ui.components.FocusTopBar
 import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.ChromeShapes
-import com.getfuckocus.ui.theme.bevel
+import com.getfuckocus.ui.theme.circleBevel
 import com.getfuckocus.ui.theme.plate
 import com.getfuckocus.verify.DetectedLabel
 import com.getfuckocus.verify.VerificationResult
@@ -294,7 +294,7 @@ private fun ShutterButton(enabled: Boolean, busy: Boolean, onClick: () -> Unit) 
                 .padding(8.dp)
                 .clip(CircleShape)
                 .background(if (active) Chrome.signal else colors.outlineVariant)
-                .bevel(shadow = Color(0x55000000))
+                .circleBevel()
                 .clickable(remember { MutableInteractionSource() }, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
                 .semantics { contentDescription = "촬영해서 인증" },
         )
