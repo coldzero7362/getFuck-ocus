@@ -244,7 +244,8 @@ private fun ConditionRow(task: TaskEntity) {
     if (!task.hasGeoFence() && labels.isEmpty()) return
     val colors = MaterialTheme.colorScheme
     Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        // 위쪽 보조 띠에 붙지 않게 여백을 둔다
+        modifier = Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (task.hasGeoFence()) {
