@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.border
-import com.getfuckocus.ui.theme.Chrome
-import com.getfuckocus.ui.theme.ChromeShapes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -62,6 +59,7 @@ import com.getfuckocus.ui.components.FocusButton
 import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusCard
 import com.getfuckocus.ui.components.FocusDialog
+import com.getfuckocus.ui.components.FocusFab
 import com.getfuckocus.ui.components.FocusIconButton
 import com.getfuckocus.ui.components.FocusPlayButton
 import com.getfuckocus.ui.components.FocusProgressBar
@@ -108,14 +106,7 @@ fun TaskListScreen(
             )
         },
         floatingActionButton = {
-            FocusButton(
-                "과제 추가",
-                onClick = onAdd,
-                icon = Icons.Default.Add,
-                height = 56.dp,
-                // 흐린 그림자 대신 남색 테두리로 판 위에 떠 있는 버튼처럼 보이게 한다
-                modifier = Modifier.border(2.dp, Chrome.chromeIndigo, ChromeShapes.control),
-            )
+            FocusFab(Icons.Default.Add, contentDescription = "과제 추가", onClick = onAdd)
         },
     ) { padding ->
         LazyColumn(
