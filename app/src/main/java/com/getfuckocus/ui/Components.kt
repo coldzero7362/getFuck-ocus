@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,8 +17,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.getfuckocus.ui.theme.ChromeShapes
 
-/** 아이콘 + 짧은 글자로 된 둥근 표시. 상태 배지, 조건 표시, 통과한 라벨에 함께 쓴다. */
+/** 아이콘 + 짧은 글자로 된 각진 배지. 상태 배지, 조건 표시, 통과한 라벨에 함께 쓴다. */
 @Composable
 fun Pill(
     text: String,
@@ -30,19 +30,19 @@ fun Pill(
 ) {
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(50))
+            .clip(ChromeShapes.control)
             .background(containerColor)
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(4.dp))
         }
         Text(
             text,
             color = contentColor,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

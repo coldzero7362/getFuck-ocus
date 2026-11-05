@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
+import com.getfuckocus.ui.theme.Chrome
+import com.getfuckocus.ui.theme.ChromeShapes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -41,7 +43,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -65,6 +66,7 @@ import com.getfuckocus.ui.components.FocusIconButton
 import com.getfuckocus.ui.components.FocusPlayButton
 import com.getfuckocus.ui.components.FocusProgressBar
 import com.getfuckocus.ui.components.FocusTopBar
+import com.getfuckocus.ui.components.OutlinedDisplayText
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.ZonedDateTime
@@ -111,7 +113,8 @@ fun TaskListScreen(
                 onClick = onAdd,
                 icon = Icons.Default.Add,
                 height = 56.dp,
-                modifier = Modifier.shadow(8.dp, RoundedCornerShape(16.dp)),
+                // 흐린 그림자 대신 남색 테두리로 판 위에 떠 있는 버튼처럼 보이게 한다
+                modifier = Modifier.border(2.dp, Chrome.chromeIndigo, ChromeShapes.control),
             )
         },
     ) { padding ->
@@ -203,10 +206,10 @@ private fun SummaryCard(
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(
+        // 게임 상자 표지 글씨처럼 외곽선 + 그림자를 두른 큰 시계
+        OutlinedDisplayText(
             TaskSchedule.formatMinute(now.hour * 60 + now.minute),
             style = MaterialTheme.typography.displayMedium,
-            fontWeight = FontWeight.SemiBold,
         )
         Text(message, style = MaterialTheme.typography.bodyLarge)
         if (lock != null) {
@@ -306,7 +309,7 @@ private fun TaskCard(
                 Text(
                     "마감까지 ${formatMinutesLeft(Duration.between(now, status.deadline).toMillis())}",
                     style = MaterialTheme.typography.labelLarge,
-                    color = colors.secondary,
+                    color = colors.onSurfaceVariant,
                 )
                 FocusButton("촬영해서 인증", onClick = onCapture, modifier = Modifier.fillMaxWidth())
             }

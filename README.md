@@ -25,6 +25,7 @@ app/src/main/java/com/getfuckocus/
 ├─ safety/   안전 상한, 허용 목록, 시계 조작 대응, 사진 보존 기간
 └─ ui/       Compose 화면, components/(앱 전용 UI 부품), theme/
 tools/make_icon.py   design/logo_source.webp에서 앱 아이콘을 만든다
+design/DESIGN.md     UI 디자인 언어 기준 문서 (`npx getdesign add nintendo-2001`로 받은 "콘솔 크롬" 스타일)
 ```
 
 ## 브랜치
