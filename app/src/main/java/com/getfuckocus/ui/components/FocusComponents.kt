@@ -317,7 +317,8 @@ fun FocusSwitch(
     enabled: Boolean = true,
 ) {
     val track by animateColorAsState(if (checked) Chrome.amber else Chrome.mutedIndigo, label = "switchTrack")
-    val thumbOffset by animateDpAsState(if (checked) 24.dp else 3.dp, label = "switchThumb")
+    // 홈 안쪽(50×26)에서 손잡이(22×22)를 위·아래·옆 모두 2dp씩 띄운다
+    val thumbOffset by animateDpAsState(if (checked) 26.dp else 2.dp, label = "switchThumb")
     Box(
         modifier = modifier
             .graphicsLayer { alpha = if (enabled) 1f else 0.4f }
@@ -336,12 +337,15 @@ fun FocusSwitch(
                 onValueChange = onCheckedChange,
             ),
     ) {
+        // 아래쪽에만 그림자 선을 넣으면 손잡이가 위로 쏠려 보여서, 테두리를 사방 똑같이 둔다
         Box(
             Modifier
                 .align(Alignment.CenterStart)
-                .offset(x = thumbOffset - 2.dp)
-                .size(width = 24.dp, height = 22.dp)
-                .plate(Chrome.white, ChromeShapes.control)
+                .offset(x = thumbOffset)
+                .size(22.dp)
+                .clip(ChromeShapes.control)
+                .background(Chrome.white)
+                .border(1.dp, Chrome.hairline, ChromeShapes.control)
         )
     }
 }
