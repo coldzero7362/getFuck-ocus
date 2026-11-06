@@ -41,7 +41,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
@@ -88,6 +87,10 @@ import com.getfuckocus.ui.components.FocusButton
 import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusSpinner
 import com.getfuckocus.ui.components.FocusTopBar
+import com.getfuckocus.ui.theme.Chrome
+import com.getfuckocus.ui.theme.ChromeShapes
+import com.getfuckocus.ui.theme.circleBevel
+import com.getfuckocus.ui.theme.plate
 import com.getfuckocus.verify.DetectedLabel
 import com.getfuckocus.verify.VerificationResult
 import com.getfuckocus.verify.Verdict
@@ -150,7 +153,10 @@ fun CaptureScreen(taskId: Long, onBack: () -> Unit) {
                         .weight(1f)
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clip(RoundedCornerShape(28.dp))
+                        // 카본 베젤 안에 끼운 화면
+                        .plate(Chrome.carbon, ChromeShapes.panel)
+                        .padding(6.dp)
+                        .clip(ChromeShapes.small)
                         .background(Color.Black),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -238,7 +244,8 @@ private fun ConditionRow(task: TaskEntity) {
     if (!task.hasGeoFence() && labels.isEmpty()) return
     val colors = MaterialTheme.colorScheme
     Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        // 위쪽 보조 띠에 붙지 않게 여백을 둔다
+        modifier = Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (task.hasGeoFence()) {
@@ -283,10 +290,11 @@ private fun ShutterButton(enabled: Boolean, busy: Boolean, onClick: () -> Unit) 
         Box(
             modifier = Modifier
                 .size(76.dp)
-                .border(4.dp, if (active) colors.primary else colors.outlineVariant, CircleShape)
+                .border(4.dp, if (active) Chrome.chromeIndigo else colors.outlineVariant, CircleShape)
                 .padding(8.dp)
                 .clip(CircleShape)
-                .background(if (active) colors.primary else colors.outlineVariant)
+                .background(if (active) Chrome.signal else colors.outlineVariant)
+                .circleBevel()
                 .clickable(remember { MutableInteractionSource() }, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
                 .semantics { contentDescription = "촬영해서 인증" },
         )
@@ -311,8 +319,7 @@ private fun ResultPanel(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-            .background(colors.surfaceContainerLow)
+            .plate(Chrome.platinum, ChromeShapes.sheet)
             .clickable(remember { MutableInteractionSource() }, indication = null) { }
             .navigationBarsPadding()
             .padding(start = 24.dp, top = 12.dp, end = 24.dp, bottom = 24.dp),
@@ -322,8 +329,8 @@ private fun ResultPanel(
             Modifier
                 .align(Alignment.CenterHorizontally)
                 .size(width = 40.dp, height = 4.dp)
-                .clip(RoundedCornerShape(50))
-                .background(colors.outlineVariant)
+                .clip(ChromeShapes.control)
+                .background(Chrome.hairline)
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(

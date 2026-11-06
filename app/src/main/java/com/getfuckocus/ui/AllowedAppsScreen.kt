@@ -15,7 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import com.getfuckocus.ui.theme.Chrome
+import com.getfuckocus.ui.theme.ChromeShapes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
@@ -85,12 +86,7 @@ fun AllowedAppsScreen(onBack: () -> Unit) {
                     label = "앱 검색",
                     placeholder = "앱 이름",
                     trailing = {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 12.dp),
-                        )
+                        Icon(Icons.Default.Search, contentDescription = null)
                     },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 )
@@ -108,7 +104,7 @@ fun AllowedAppsScreen(onBack: () -> Unit) {
                 }
                 FocusCard(
                     modifier = Modifier.fillMaxWidth(),
-                    color = if (checked) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                    color = if (checked) Chrome.ice
                     else MaterialTheme.colorScheme.surfaceContainerLow,
                     onClick = { toggle(!checked) },
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -148,7 +144,7 @@ private fun AppIcon(packageName: String) {
     Box(
         Modifier
             .size(44.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(ChromeShapes.small)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {

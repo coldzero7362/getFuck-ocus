@@ -67,6 +67,7 @@ import com.getfuckocus.ui.components.FocusCard
 import com.getfuckocus.ui.components.FocusChip
 import com.getfuckocus.ui.components.FocusDialog
 import com.getfuckocus.ui.components.FocusIconButton
+import com.getfuckocus.ui.components.FocusPanel
 import com.getfuckocus.ui.components.FocusSwitch
 import com.getfuckocus.ui.components.FocusTextField
 import com.getfuckocus.ui.components.FocusTopBar
@@ -467,18 +468,13 @@ private fun SectionCard(
     trailing: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    FocusCard(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                subtitle?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            trailing?.invoke()
-        }
-        content()
-    }
+    FocusPanel(
+        title = title,
+        subtitle = subtitle,
+        trailing = trailing,
+        modifier = Modifier.fillMaxWidth(),
+        content = content,
+    )
 }
 
 /** 시간창을 고를 때 기준이 되도록 현재 시각을 24시간제로 보여준다. */

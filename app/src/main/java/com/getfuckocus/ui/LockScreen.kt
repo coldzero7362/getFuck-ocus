@@ -43,6 +43,7 @@ import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusProgressBar
 import com.getfuckocus.ui.components.FocusRing
 import com.getfuckocus.ui.theme.LockColors
+import com.getfuckocus.ui.theme.halftone
 import kotlinx.coroutines.delay
 
 @Composable
@@ -77,6 +78,7 @@ fun LockScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(LockColors.background)
+                .halftone()
                 .systemBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 32.dp),
