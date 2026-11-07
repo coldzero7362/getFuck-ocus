@@ -1,6 +1,7 @@
 package com.getfuckocus.ui
 
 import android.Manifest
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -80,6 +81,7 @@ private enum class TimeField { START, DURATION }
 
 private val DURATION_PRESETS = listOf(10, 30, 60, 90, 120, 180)
 private val RADIUS_PRESETS = listOf(50f, 100f, 150f, 300f, 500f)
+private val REMIND_BEFORE_PRESETS = listOf(0, 5, 15, 30)
 private const val DEFAULT_RADIUS_M = 150f
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -96,6 +98,17 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
     var startMinute by rememberSaveable { mutableIntStateOf(TaskSchedule.defaultStartMinute()) }
     var durationMinutes by rememberSaveable { mutableIntStateOf(TaskSchedule.DEFAULT_DURATION_MINUTES) }
     var repeatDays by rememberSaveable { mutableIntStateOf(RepeatDays.EVERY_DAY) }
+    var remindAtStart by rememberSaveable { mutableStateOf(true) }
+    var remindBeforeMinutes by rememberSaveable { mutableIntStateOf(15) }
+    var notificationsGranted by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+        )
+    }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> notificationsGranted = granted }
     var picking by rememberSaveable { mutableStateOf<TimeField?>(null) }
     val labels = rememberSaveable(saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })) {
         mutableStateListOf<String>()
@@ -121,6 +134,8 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
             startMinute = t.windowStartMinute
             durationMinutes = t.durationMinutes
             repeatDays = t.repeatDays
+            remindAtStart = t.remindAtStart
+            remindBeforeMinutes = t.remindBeforeMinutes
             labels.clear()
             labels.addAll(t.requiredLabels())
             radiusMeters = t.geoRadiusMeters ?: DEFAULT_RADIUS_M
@@ -177,7 +192,12 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
 
         val base = original ?: TaskEntity(title = "", windowStartMinute = 0, durationMinutes = 0)
         // 편집이 막힌 동안에는 이름만 바꾼다 (화면에서 막는 것과 별개로 저장 단계에서도 지킨다)
-        val task = if (frozen) base.copy(title = title.trim()) else base.copy(
+        // 알림 설정은 잠금 조건이 아니므로 편집이 막힌 동안에도 바꿀 수 있다
+        val task = if (frozen) {
+            base.copy(title = title.trim(), remindAtStart = remindAtStart, remindBeforeMinutes = remindBeforeMinutes)
+        } else base.copy(
+            remindAtStart = remindAtStart,
+            remindBeforeMinutes = remindBeforeMinutes,
             title = title.trim(),
             windowStartMinute = startMinute,
             durationMinutes = durationMinutes,
@@ -341,6 +361,31 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+
+            SectionCard(title = "알림", subtitle = "잠금과 상관없이 언제든 바꿀 수 있어요") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("시작할 때 알림", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    FocusSwitch(checked = remindAtStart, onCheckedChange = { remindAtStart = it })
+                }
+                Text("마감 전 알림", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    REMIND_BEFORE_PRESETS.forEach { minutes ->
+                        FocusChip(
+                            if (minutes == 0) "끄기" else "${minutes}분 전",
+                            selected = remindBeforeMinutes == minutes,
+                            onClick = { remindBeforeMinutes = minutes },
+                        )
+                    }
+                }
+                if (!notificationsGranted && (remindAtStart || remindBeforeMinutes > 0)) {
+                    FocusButton(
+                        "알림 권한 허용",
+                        onClick = { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                        style = FocusButtonStyle.Tonal,
+                        height = 44.dp,
+                    )
+                }
             }
 
             SectionCard(title = "장소", subtitle = "선택 · 지정한 곳 근처에서 찍어야 통과해요") {

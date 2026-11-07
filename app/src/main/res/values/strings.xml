@@ -4,6 +4,7 @@
     <string name="accessibility_service_description">과제 마감을 놓쳤을 때 허용되지 않은 앱 실행을 막습니다. 지금 열린 앱의 이름(패키지명)만 확인하며 화면 내용이나 입력한 글자는 읽지 않습니다. 이 설정에서 언제든 끌 수 있습니다.</string>
     <string name="channel_active">잠금 서비스 상태</string>
     <string name="channel_alerts">잠금 알림</string>
+    <string name="channel_reminders">과제 알림</string>
     <string name="notification_active_title">getFuck-ocus 잠금 서비스 실행 중</string>
     <string name="notification_active_text">과제 마감을 놓치면 허용 목록 외 앱이 잠깁니다.</string>
 </resources>
