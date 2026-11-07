@@ -100,7 +100,8 @@ private const val AMBER_ALPHA = 0.9f
 /** 숨어 있을 때 아래로 내려가 있는 거리. 표시 높이 + 아래 여백 + 내비게이션 바보다 크게 */
 private val HIDDEN_DROP = 140.dp
 /** 다 넘어간 뒤 사라지기 전에 머무는 시간 */
-private const val LINGER_MS = 700L
+private const val LINGER_MS = 350L
+private const val POP_STIFFNESS = Spring.StiffnessMediumLow * 4
 
 /**
  * 카본 판 위에 쪽 이름을 나란히 두고, 앰버 조각이 손가락을 따라 미끄러지며 지금 쪽을 덮는다.
@@ -125,9 +126,10 @@ private fun PageIndicator(pager: PagerState, onSelect: (Int) -> Unit, modifier: 
     val drop by animateDpAsState(
         if (shown) 0.dp else HIDDEN_DROP,
         animationSpec = if (shown) {
-            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
+            // 스프링 속도는 강성의 제곱근에 비례하므로, 2배 빠르게 하려고 강성을 4배(400 → 1600)로 둔다
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = POP_STIFFNESS)
         } else {
-            tween(durationMillis = 220)
+            tween(durationMillis = 110)
         },
         label = "indicatorDrop",
     )
