@@ -164,7 +164,9 @@ private fun EmergencyUnlock(remaining: Long?, onRequest: () -> Unit, onComplete:
             "비상 해제 요청 · ${SafetyPolicy.EMERGENCY_DELAY_MS / 60_000}분 대기",
             onClick = onRequest,
             modifier = Modifier.fillMaxWidth(),
-            style = FocusButtonStyle.Outline,
+            // 테두리 버튼은 흰 바탕이라 밝은 글자가 묻혔다. 카본 위에 반투명 밝은 판 + 밝은 글자로 둔다
+            style = FocusButtonStyle.Tonal,
+            containerColor = LockColors.secondary,
             contentColor = LockColors.content,
         )
 
