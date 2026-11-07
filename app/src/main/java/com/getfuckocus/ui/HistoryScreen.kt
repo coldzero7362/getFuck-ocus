@@ -215,7 +215,7 @@ private fun dayStyle(result: DayResult): DayStyle = when (result) {
     DayResult.PASSED -> DayStyle("✓", "통과", Chrome.ice, Chrome.teal)
     DayResult.PARTIAL -> DayStyle("△", "일부", Chrome.amber, Chrome.carbon)
     DayResult.MISSED -> DayStyle("✗", "놓침", Color(0xFFFFD6D2), Color(0xFF7A0009))
-    DayResult.PENDING -> DayStyle("…", "진행 중", Chrome.sky, Chrome.carbon)
+    DayResult.PENDING -> DayStyle("…", "마감 전", Chrome.sky, Chrome.carbon)
     DayResult.NONE -> DayStyle("", "없음", Chrome.white, Chrome.hairline)
     DayResult.FUTURE -> DayStyle("", "", Chrome.white.copy(alpha = 0.5f), Chrome.hairline)
 }
@@ -302,7 +302,7 @@ private fun ResultPill(result: OccurrenceResult) {
         OccurrenceResult.PASSED -> Pill("통과", Chrome.ice, Chrome.teal, icon = Icons.Default.CheckCircle)
         OccurrenceResult.LATE -> Pill("늦게 통과", Chrome.amber, Chrome.carbon, icon = Icons.Default.Warning)
         OccurrenceResult.MISSED -> Pill("놓침", Color(0xFFFFD6D2), Color(0xFF7A0009), icon = Icons.Default.Close)
-        OccurrenceResult.PENDING -> Pill("진행 중", Chrome.sky, Chrome.carbon)
+        OccurrenceResult.PENDING -> Pill("마감 전", Chrome.sky, Chrome.carbon)
         OccurrenceResult.NONE -> Unit
     }
 }
