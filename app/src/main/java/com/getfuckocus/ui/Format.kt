@@ -1,5 +1,20 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.task.TaskSchedule
+import java.time.Duration
+import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
+
+/** 오늘이면 "45분 뒤 시작", 내일이면 "내일 07:00 시작", 그 뒤면 "목요일 07:00 시작" */
+fun formatStartsIn(now: ZonedDateTime, startsAt: ZonedDateTime): String {
+    val time = TaskSchedule.formatMinute(startsAt.hour * 60 + startsAt.minute)
+    return when (ChronoUnit.DAYS.between(now.toLocalDate(), startsAt.toLocalDate())) {
+        0L -> "${formatMinutesLeft(Duration.between(now, startsAt).toMillis())} 뒤 시작"
+        1L -> "내일 $time 시작"
+        else -> "${TaskSchedule.dayName(startsAt.dayOfWeek)}요일 $time 시작"
+    }
+}
+
 fun formatRemaining(ms: Long): String {
     val totalSeconds = (ms.coerceAtLeast(0) + 999) / 1000
     val hours = totalSeconds / 3600

@@ -1,5 +1,6 @@
 package com.getfuckocus
 
+import com.getfuckocus.data.RepeatDays
 import com.getfuckocus.data.TaskEntity
 import java.time.LocalDate
 import java.time.LocalTime
@@ -22,6 +23,7 @@ fun task(
     enabled: Boolean = true,
     createdAt: Long = at(0, date = DAY.minusDays(30)).toInstant().toEpochMilli(),
     startedAt: Long? = null,
+    repeatDays: Int = RepeatDays.EVERY_DAY,
 ) = TaskEntity(
     id = id,
     title = "과제$id",
@@ -31,4 +33,5 @@ fun task(
     enabled = enabled,
     createdAt = createdAt,
     startedAt = startedAt,
+    repeatDays = repeatDays,
 )

@@ -21,6 +21,8 @@ class DeadlineEvaluator(
 
         for (task in dao.enabledTasks()) {
             for (date in TaskSchedule.candidateDates(now)) {
+                // 반복 요일이 아니면 그날은 회차가 없다
+                if (!TaskSchedule.hasOccurrence(task, date, now.zone)) continue
                 val deadlineMillis = TaskSchedule.deadline(task, date, now.zone).toInstant().toEpochMilli()
                 val dayKey = TaskSchedule.dayKey(date)
                 val missed = nowMillis >= deadlineMillis &&

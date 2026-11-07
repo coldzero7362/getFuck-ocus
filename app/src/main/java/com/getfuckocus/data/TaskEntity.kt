@@ -1,9 +1,11 @@
 package com.getfuckocus.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import java.time.DayOfWeek
 
-/** 매일 반복되는 과제. 시작 시각부터 소요 시간이 지날 때까지 통과한 인증이 없으면 잠금이 걸린다. */
+/** 고른 요일마다 반복되는 과제. 시작 시각부터 소요 시간이 지날 때까지 통과한 인증이 없으면 잠금이 걸린다. */
 @Entity(tableName = "tasks")
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -26,7 +28,19 @@ data class TaskEntity(
      * 다른 날의 회차에는 영향이 없다.
      */
     val startedAt: Long? = null,
+    /** 반복 요일 비트마스크. 월요일이 1(비트 0), 일요일이 64(비트 6). 기본은 매일(127). */
+    @ColumnInfo(defaultValue = "127")
+    val repeatDays: Int = RepeatDays.EVERY_DAY,
 )
+
+object RepeatDays {
+    const val EVERY_DAY = 0b111_1111
+    const val WEEKDAYS = 0b001_1111
+    const val WEEKEND = 0b110_0000
+
+    fun bit(day: DayOfWeek): Int = 1 shl (day.value - 1)
+    fun contains(mask: Int, day: DayOfWeek): Boolean = (mask and bit(day)) != 0
+}
 
 fun TaskEntity.hasGeoFence(): Boolean =
     geoLat != null && geoLng != null && geoRadiusMeters != null
