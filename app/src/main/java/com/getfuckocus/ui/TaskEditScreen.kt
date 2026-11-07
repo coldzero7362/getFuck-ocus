@@ -55,7 +55,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.getfuckocus.container
+import com.getfuckocus.data.RepeatDays
 import com.getfuckocus.data.TaskDao
+import java.time.DayOfWeek
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.requiredLabels
 import com.getfuckocus.hasPermission
@@ -93,6 +95,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
     var title by rememberSaveable { mutableStateOf("") }
     var startMinute by rememberSaveable { mutableIntStateOf(TaskSchedule.defaultStartMinute()) }
     var durationMinutes by rememberSaveable { mutableIntStateOf(TaskSchedule.DEFAULT_DURATION_MINUTES) }
+    var repeatDays by rememberSaveable { mutableIntStateOf(RepeatDays.EVERY_DAY) }
     var picking by rememberSaveable { mutableStateOf<TimeField?>(null) }
     val labels = rememberSaveable(saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })) {
         mutableStateListOf<String>()
@@ -117,6 +120,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
             title = t.title
             startMinute = t.windowStartMinute
             durationMinutes = t.durationMinutes
+            repeatDays = t.repeatDays
             labels.clear()
             labels.addAll(t.requiredLabels())
             radiusMeters = t.geoRadiusMeters ?: DEFAULT_RADIUS_M
@@ -166,6 +170,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
         message = when {
             title.isBlank() -> "과제 이름을 입력하세요"
             durationMinutes !in 1..TaskSchedule.MAX_DURATION_MINUTES -> "소요 시간은 1분 이상이어야 해요"
+            (repeatDays and RepeatDays.EVERY_DAY) == 0 -> "반복할 요일을 하나 이상 골라 주세요"
             else -> null
         }
         if (message != null) return
@@ -176,6 +181,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
             title = title.trim(),
             windowStartMinute = startMinute,
             durationMinutes = durationMinutes,
+            repeatDays = repeatDays,
             geoLat = geo?.first,
             geoLng = geo?.second,
             geoRadiusMeters = if (geo != null) radiusMeters else null,
@@ -307,8 +313,31 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                         enabled = !frozen,
                     )
                 }
+                Text("반복 요일", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+                    DayOfWeek.entries.forEach { day ->
+                        FocusChip(
+                            TaskSchedule.dayName(day),
+                            selected = RepeatDays.contains(repeatDays, day),
+                            onClick = { repeatDays = repeatDays xor RepeatDays.bit(day) },
+                            enabled = !frozen,
+                            modifier = Modifier.weight(1f),
+                            compact = true,
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        "매일" to RepeatDays.EVERY_DAY,
+                        "평일" to RepeatDays.WEEKDAYS,
+                        "주말" to RepeatDays.WEEKEND,
+                    ).forEach { (name, mask) ->
+                        FocusChip(name, selected = repeatDays == mask, onClick = { repeatDays = mask }, enabled = !frozen)
+                    }
+                }
                 Text(
-                    TaskSchedule.describeWindow(startMinute, durationMinutes) + " · 마감까지 인증하지 않으면 잠겨요",
+                    TaskSchedule.describeDays(repeatDays) + " · " +
+                        TaskSchedule.describeWindow(startMinute, durationMinutes) + " · 마감까지 인증하지 않으면 잠겨요",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -270,6 +270,8 @@ fun FocusChip(
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
     enabled: Boolean = true,
+    /** 요일처럼 한 글자짜리를 한 줄에 여러 개 나눠 담을 때: 좌우 여백 없이 가운데 정렬 */
+    compact: Boolean = false,
 ) {
     val container by animateColorAsState(if (selected) Chrome.amber else Chrome.white, label = "chipContainer")
     val content = Chrome.carbon
@@ -290,7 +292,8 @@ fun FocusChip(
                 role = Role.Button,
                 onClick = onClick,
             )
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = if (compact) 0.dp else 14.dp),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leadingIcon != null) {

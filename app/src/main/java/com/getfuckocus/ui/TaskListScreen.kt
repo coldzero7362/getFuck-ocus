@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
@@ -183,10 +184,11 @@ private fun SummaryCard(
             "'${inProgress.first.title}' 진행 중 · 마감까지 " +
                 formatMinutesLeft(Duration.between(now, inProgress.second.deadline).toMillis())
         upcoming != null ->
-            "다음 과제 '${upcoming.first.title}' · " +
-                "${formatMinutesLeft(Duration.between(now, upcoming.second.startsAt).toMillis())} 뒤 시작"
+            "다음 과제 '${upcoming.first.title}' · ${formatStartsIn(now, upcoming.second.startsAt)}"
         entries.isEmpty() -> "과제를 추가해서 시작해 보세요"
-        entries.all { it.second == TaskStatus.Done || it.second == TaskStatus.Disabled } -> "오늘 과제를 모두 끝냈어요"
+        entries.all { it.second is TaskStatus.RestDay || it.second == TaskStatus.Disabled } -> "오늘은 쉬는 날이에요"
+        entries.all { it.second == TaskStatus.Done || it.second == TaskStatus.Disabled || it.second is TaskStatus.RestDay } ->
+            "오늘 과제를 모두 끝냈어요"
         else -> "오늘 남은 과제가 없어요"
     }
 
@@ -288,7 +290,7 @@ private fun TaskCard(
         }
         Text(task.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Text(
-            TaskSchedule.describeWindow(task),
+            "${TaskSchedule.describeDays(task.repeatDays)} · ${TaskSchedule.describeWindow(task)}",
             style = MaterialTheme.typography.bodyMedium,
             color = colors.onSurfaceVariant,
         )
@@ -304,21 +306,16 @@ private fun TaskCard(
                 )
                 FocusButton("촬영해서 인증", onClick = onCapture, modifier = Modifier.fillMaxWidth())
             }
-            is TaskStatus.Upcoming -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "${formatMinutesLeft(Duration.between(now, status.startsAt).toMillis())} 뒤 시작",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = colors.onSurfaceVariant,
-                    )
-                    Text(
-                        "지금 바로 시작할 수도 있어요",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.onSurfaceVariant,
-                    )
-                }
-                FocusPlayButton(onClick = onStartNow, contentDescription = "${task.title} 바로 시작")
-            }
+            is TaskStatus.Upcoming -> StartNowRow(
+                headline = formatStartsIn(now, status.startsAt),
+                taskTitle = task.title,
+                onStartNow = onStartNow,
+            )
+            is TaskStatus.RestDay -> StartNowRow(
+                headline = "오늘은 쉬는 날 · " + (status.nextStart?.let { formatStartsIn(now, it) } ?: "반복 요일이 없어요"),
+                taskTitle = task.title,
+                onStartNow = onStartNow,
+            )
             TaskStatus.Missed -> if (lockedByThis) {
                 Text("지금 인증하면 잠금이 풀려요", style = MaterialTheme.typography.labelLarge, color = colors.error)
                 FocusButton(
@@ -332,6 +329,19 @@ private fun TaskCard(
     }
 }
 
+/** 다음 시작 안내 + 오늘 회차를 바로 시작하는 재생 버튼 */
+@Composable
+private fun StartNowRow(headline: String, taskTitle: String, onStartNow: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(headline, style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+            Text("지금 바로 시작할 수도 있어요", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+        FocusPlayButton(onClick = onStartNow, contentDescription = "$taskTitle 바로 시작")
+    }
+}
+
 private data class BadgeStyle(val text: String, val icon: ImageVector, val container: Color, val content: Color)
 
 @Composable
@@ -339,6 +349,7 @@ private fun StatusBadge(status: TaskStatus) {
     val colors = MaterialTheme.colorScheme
     val style = when (status) {
         is TaskStatus.Upcoming -> BadgeStyle("시작 전", Icons.Default.DateRange, colors.surfaceVariant, colors.onSurfaceVariant)
+        is TaskStatus.RestDay -> BadgeStyle("쉬는 날", Icons.Default.Home, colors.surfaceVariant, colors.onSurfaceVariant)
         is TaskStatus.InProgress -> BadgeStyle("진행 중", Icons.Default.PlayArrow, colors.secondaryContainer, colors.onSecondaryContainer)
         TaskStatus.Done -> BadgeStyle("완료", Icons.Default.CheckCircle, colors.tertiaryContainer, colors.onTertiaryContainer)
         TaskStatus.Missed -> BadgeStyle("놓침", Icons.Default.Warning, colors.errorContainer, colors.onErrorContainer)
