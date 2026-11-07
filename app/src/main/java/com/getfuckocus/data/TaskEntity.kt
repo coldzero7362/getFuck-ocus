@@ -31,6 +31,12 @@ data class TaskEntity(
     /** 반복 요일 비트마스크. 월요일이 1(비트 0), 일요일이 64(비트 6). 기본은 매일(127). */
     @ColumnInfo(defaultValue = "127")
     val repeatDays: Int = RepeatDays.EVERY_DAY,
+    /** 회차가 시작할 때 알림 */
+    @ColumnInfo(defaultValue = "1")
+    val remindAtStart: Boolean = true,
+    /** 마감 몇 분 전에 알릴지. 0이면 알리지 않는다. */
+    @ColumnInfo(defaultValue = "15")
+    val remindBeforeMinutes: Int = 15,
 )
 
 object RepeatDays {

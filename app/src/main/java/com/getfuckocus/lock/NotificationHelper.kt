@@ -13,7 +13,11 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.getfuckocus.MainActivity
 import com.getfuckocus.R
+import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.hasPermission
+import com.getfuckocus.task.ReminderKind
+import com.getfuckocus.task.TaskSchedule
+import java.time.ZonedDateTime
 
 /**
  * - 잠금 서비스가 켜져 있는 동안 상시 알림을 띄워 숨어서 동작하지 않게 한다.
@@ -24,6 +28,8 @@ object NotificationHelper {
     private const val CHANNEL_ALERTS = "lock_alerts"
     private const val ID_SERVICE_ACTIVE = 1
     private const val ID_LOCKED = 2
+    private const val CHANNEL_REMINDERS = "task_reminders"
+    private const val ID_REMINDER_BASE = 1000
 
     fun createChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -32,6 +38,37 @@ object NotificationHelper {
         )
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ALERTS, context.getString(R.string.channel_alerts), NotificationManager.IMPORTANCE_HIGH)
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_REMINDERS, context.getString(R.string.channel_reminders), NotificationManager.IMPORTANCE_DEFAULT)
+        )
+    }
+
+    /** 과제 시작·마감 전 알림. 누르면 그 과제의 촬영 화면이 열린다. */
+    fun showReminder(context: Context, task: TaskEntity, kind: ReminderKind, deadline: ZonedDateTime) {
+        val deadlineText = TaskSchedule.formatMinute(deadline.hour * 60 + deadline.minute)
+        val (title, text) = when (kind) {
+            ReminderKind.START -> "'${task.title}' 시작했어요" to "${deadlineText}까지 사진으로 인증하세요."
+            ReminderKind.BEFORE_DEADLINE ->
+                "'${task.title}' 마감 ${task.remindBeforeMinutes}분 전" to
+                    "${deadlineText}까지 인증하지 않으면 잠겨요."
+        }
+        // 과제·종류마다 따로 쌓이고, 같은 과제의 같은 알림은 새것으로 바뀐다
+        val id = ID_REMINDER_BASE + (task.id * 2 + kind.ordinal).toInt()
+        notify(
+            context, id,
+            NotificationCompat.Builder(context, CHANNEL_REMINDERS)
+                .setSmallIcon(android.R.drawable.ic_popup_reminder)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setAutoCancel(true)
+                .setContentIntent(
+                    PendingIntent.getActivity(
+                        context, id,
+                        MainActivity.captureIntent(context, task.id),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                    )
+                ),
         )
     }
 

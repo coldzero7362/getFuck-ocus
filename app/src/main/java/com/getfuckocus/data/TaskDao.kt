@@ -40,9 +40,17 @@ interface TaskDao {
     @Query("SELECT labels FROM attempts ORDER BY id DESC LIMIT :limit")
     suspend fun recentLabelStrings(limit: Int): List<String>
 
-    @Query("SELECT * FROM attempts WHERE capturedAt < :before")
-    suspend fun attemptsBefore(before: Long): List<AttemptEntity>
+    /** 회차마다 처음 통과한 시각. 기록 화면에서 제때 통과했는지, 늦게 통과했는지 가른다. */
+    @Query("SELECT taskId, dayKey, MIN(capturedAt) AS firstPassedAt FROM attempts WHERE passed = 1 GROUP BY taskId, dayKey")
+    fun observePassRecords(): Flow<List<PassRecord>>
 
-    @Query("DELETE FROM attempts WHERE capturedAt < :before")
-    suspend fun deleteAttemptsBefore(before: Long)
+    @Query("SELECT * FROM attempts WHERE dayKey = :dayKey ORDER BY capturedAt")
+    fun observeAttemptsOn(dayKey: String): Flow<List<AttemptEntity>>
+
+    @Query("SELECT * FROM attempts WHERE capturedAt < :before AND photoPath != ''")
+    suspend fun photosBefore(before: Long): List<AttemptEntity>
+
+    /** 사진 파일만 지우고 기록은 남긴다 (기록 화면에서 결과는 계속 보이게) */
+    @Query("UPDATE attempts SET photoPath = '' WHERE capturedAt < :before")
+    suspend fun clearPhotosBefore(before: Long)
 }
