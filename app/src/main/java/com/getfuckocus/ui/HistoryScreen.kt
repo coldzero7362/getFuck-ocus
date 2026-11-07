@@ -90,7 +90,8 @@ fun HistoryScreen(onBack: () -> Unit) {
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
+            // 아래 가운데 쪽 표시에 마지막 판이 가리지 않게 아래 여백을 넉넉히 둔다
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item { StreakPanel(activeTasks, now, passes) }
