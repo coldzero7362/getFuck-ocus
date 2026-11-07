@@ -3,8 +3,8 @@ package com.getfuckocus.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -23,8 +23,11 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +41,7 @@ import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.ChromeShapes
 import com.getfuckocus.ui.theme.bevel
 import com.getfuckocus.ui.theme.plate
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val PAGE_HOME = 0
@@ -91,29 +95,47 @@ fun HomePager(
 private val SEGMENT_WIDTH = 64.dp
 private val SEGMENT_HEIGHT = 34.dp
 private val INSET = 4.dp
-private const val IDLE_PLATE_ALPHA = 0.8f
+private const val PLATE_ALPHA = 0.8f
+private const val AMBER_ALPHA = 0.9f
+/** 숨어 있을 때 아래로 내려가 있는 거리. 표시 높이 + 아래 여백 + 내비게이션 바보다 크게 */
+private val HIDDEN_DROP = 140.dp
+/** 다 넘어간 뒤 사라지기 전에 머무는 시간 */
+private const val LINGER_MS = 700L
 
 /**
  * 카본 판 위에 쪽 이름을 나란히 두고, 앰버 조각이 손가락을 따라 미끄러지며 지금 쪽을 덮는다.
- * 넘기는 도중에도 위치가 따라와서 어느 쪽으로 가고 있는지 바로 보인다.
+ * 넘기는 동안에만 아래에서 튀어나와 어느 쪽으로 가고 있는지 보여 준다.
  */
 @Composable
 private fun PageIndicator(pager: PagerState, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     // 0(과제) ~ 1(기록) 사이의 연속 위치
     val position = (pager.currentPage + pager.currentPageOffsetFraction).coerceIn(0f, (PAGE_NAMES.size - 1).toFloat())
-    // 가만히 있을 때는 살짝 비쳐 보이게 가라앉아 있다가, 넘기는 동안 떠오르며 또렷해진다
+    // 평소에는 화면 아래 밖에 숨어 있다가, 넘기기 시작하면 튀어 올라오고
+    // 다 넘어간 뒤 잠깐 머물렀다가 다시 아래로 들어간다
     val moving = pager.isScrollInProgress
-    val lift by animateDpAsState(
-        if (moving) (-10).dp else 0.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
-        label = "indicatorLift",
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(moving) {
+        if (moving) {
+            shown = true
+        } else if (shown) {
+            delay(LINGER_MS)
+            shown = false
+        }
+    }
+    val drop by animateDpAsState(
+        if (shown) 0.dp else HIDDEN_DROP,
+        animationSpec = if (shown) {
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
+        } else {
+            tween(durationMillis = 220)
+        },
+        label = "indicatorDrop",
     )
     // 바탕 판만 비치게 하고 글자는 그대로 둔다. 뒤 화면 내용이 글자와 섞여 읽기 어려워지지 않게
-    val plateAlpha by animateFloatAsState(if (moving) 1f else IDLE_PLATE_ALPHA, label = "indicatorAlpha")
     Box(
         modifier
-            .offset(y = lift)
-            .plate(Chrome.carbon.copy(alpha = plateAlpha), ChromeShapes.small)
+            .offset(y = drop)
+            .plate(Chrome.carbon.copy(alpha = PLATE_ALPHA), ChromeShapes.small)
             .padding(INSET),
     ) {
         Box(
@@ -121,7 +143,7 @@ private fun PageIndicator(pager: PagerState, onSelect: (Int) -> Unit, modifier: 
                 .offset(x = SEGMENT_WIDTH * position)
                 .size(width = SEGMENT_WIDTH, height = SEGMENT_HEIGHT)
                 .clip(ChromeShapes.control)
-                .background(Chrome.amber.copy(alpha = (plateAlpha + 0.15f).coerceAtMost(1f)))
+                .background(Chrome.amber.copy(alpha = AMBER_ALPHA))
                 .bevel(shadow = Chrome.navGold, shadowWidth = 2.dp)
         )
         Row {
