@@ -55,6 +55,8 @@ import com.getfuckocus.data.requiredLabels
 import com.getfuckocus.lock.BlockerServiceStatus
 import com.getfuckocus.lock.LockActivity
 import com.getfuckocus.lock.LockState
+import com.getfuckocus.task.History
+import com.getfuckocus.task.PassIndex
 import com.getfuckocus.task.TaskSchedule
 import com.getfuckocus.ui.components.FocusButton
 import com.getfuckocus.ui.components.FocusButtonStyle
@@ -80,6 +82,7 @@ fun TaskListScreen(
     onEdit: (Long) -> Unit,
     onCapture: (Long) -> Unit,
     onSettings: () -> Unit,
+    onHistory: () -> Unit,
 ) {
     val context = LocalContext.current
     val container = context.container
@@ -95,6 +98,12 @@ fun TaskListScreen(
 
     val passedSet = remember(passed) { passed.toSet() }
     val entries = tasks.map { it to taskStatus(it, now, passedSet) }
+    // 연속 달성은 기록이 바뀌거나 날짜가 바뀔 때만 다시 센다 (매초 다시 셀 필요가 없다)
+    val records by remember { dao.observePassRecords() }.collectAsState(initial = emptyList())
+    val streaks = remember(records, tasks, today) {
+        val passes = PassIndex(records)
+        tasks.associate { it.id to History.streak(it, now, passes) }
+    }
     val scope = rememberCoroutineScope()
     var confirmStart by remember { mutableStateOf<TaskEntity?>(null) }
 
@@ -103,7 +112,10 @@ fun TaskListScreen(
             FocusTopBar(
                 title = "오늘의 과제",
                 subtitle = now.format(DATE_FORMAT),
-                actions = { FocusIconButton(Icons.Default.Settings, contentDescription = "설정", onClick = onSettings) },
+                actions = {
+                    FocusIconButton(Icons.Default.DateRange, contentDescription = "기록", onClick = onHistory)
+                    FocusIconButton(Icons.Default.Settings, contentDescription = "설정", onClick = onSettings)
+                },
             )
         },
         floatingActionButton = {
@@ -136,6 +148,7 @@ fun TaskListScreen(
                     status = status,
                     now = now,
                     lockedByThis = lock?.taskId == task.id,
+                    streak = streaks[task.id] ?: 0,
                     onCapture = { onCapture(task.id) },
                     onEdit = { onEdit(task.id) },
                     onStartNow = { confirmStart = task },
@@ -273,6 +286,7 @@ private fun TaskCard(
     status: TaskStatus,
     now: ZonedDateTime,
     lockedByThis: Boolean,
+    streak: Int,
     onCapture: () -> Unit,
     onEdit: () -> Unit,
     onStartNow: () -> Unit,
@@ -285,6 +299,10 @@ private fun TaskCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             StatusBadge(status)
+            if (streak >= 2) {
+                Spacer(Modifier.width(6.dp))
+                Pill("${streak}일 연속", colors.secondaryContainer, colors.onSecondaryContainer, icon = Icons.Default.Star)
+            }
             Spacer(Modifier.weight(1f))
             FocusIconButton(Icons.Default.Edit, contentDescription = "편집", onClick = onEdit, tint = colors.onSurfaceVariant)
         }
