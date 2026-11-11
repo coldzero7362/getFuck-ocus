@@ -74,6 +74,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- 알림의 "완료" 버튼 전용. 다른 앱이 과제를 대신 완료하지 못하게 내보내지 않는다 -->
+        <receiver
+            android:name=".task.CheckInReceiver"
+            android:exported="false" />
+
         <service
             android:name=".lock.AppBlockerService"
             android:exported="false"

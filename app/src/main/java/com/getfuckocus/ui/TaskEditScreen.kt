@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import com.getfuckocus.container
 import com.getfuckocus.data.RepeatDays
 import com.getfuckocus.data.TaskDao
+import com.getfuckocus.data.VerifyMethod
 import java.time.DayOfWeek
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.requiredLabels
@@ -98,6 +99,8 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
     var startMinute by rememberSaveable { mutableIntStateOf(TaskSchedule.defaultStartMinute()) }
     var durationMinutes by rememberSaveable { mutableIntStateOf(TaskSchedule.DEFAULT_DURATION_MINUTES) }
     var repeatDays by rememberSaveable { mutableIntStateOf(RepeatDays.EVERY_DAY) }
+    // 새 과제는 가벼운 탭 체크로 시작한다. 잠금까지 걸고 싶은 일만 사진 인증으로 바꾼다
+    var verifyMethod by rememberSaveable { mutableStateOf(VerifyMethod.TAP) }
     var remindAtStart by rememberSaveable { mutableStateOf(true) }
     var remindBeforeMinutes by rememberSaveable { mutableIntStateOf(15) }
     var notificationsGranted by remember {
@@ -136,6 +139,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
             repeatDays = t.repeatDays
             remindAtStart = t.remindAtStart
             remindBeforeMinutes = t.remindBeforeMinutes
+            verifyMethod = t.verifyMethod
             labels.clear()
             labels.addAll(t.requiredLabels())
             radiusMeters = t.geoRadiusMeters ?: DEFAULT_RADIUS_M
@@ -198,6 +202,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
         } else base.copy(
             remindAtStart = remindAtStart,
             remindBeforeMinutes = remindBeforeMinutes,
+            verifyMethod = verifyMethod,
             title = title.trim(),
             windowStartMinute = startMinute,
             durationMinutes = durationMinutes,
@@ -288,6 +293,39 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                 }
             }
 
+            SectionCard(title = "인증 방식") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    FocusChip(
+                        "탭 체크",
+                        selected = verifyMethod == VerifyMethod.TAP,
+                        onClick = { verifyMethod = VerifyMethod.TAP },
+                        enabled = !frozen,
+                        modifier = Modifier.weight(1f),
+                        compact = true,
+                    )
+                    FocusChip(
+                        "사진 인증",
+                        selected = verifyMethod == VerifyMethod.PHOTO,
+                        onClick = { verifyMethod = VerifyMethod.PHOTO },
+                        enabled = !frozen,
+                        modifier = Modifier.weight(1f),
+                        compact = true,
+                    )
+                }
+                Text(
+                    when (verifyMethod) {
+                        VerifyMethod.TAP ->
+                            "버튼 한 번이나 알림의 \"완료\"로 체크해요. 놓쳐도 잠기지 않고 기록과 알림으로만 챙겨요. " +
+                                "약 먹기, 출퇴근 같은 일과에 맞아요."
+                        VerifyMethod.PHOTO ->
+                            "앱 카메라로 찍어서 인증해요. 마감까지 인증하지 않으면 다른 앱이 잠겨요. " +
+                                "꼭 지키고 싶은 약속에 맞아요."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             SectionCard(title = "시간", trailing = { CurrentTimeText() }) {
                 FocusCard(
                     modifier = Modifier.fillMaxWidth(),
@@ -357,7 +395,8 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                 }
                 Text(
                     TaskSchedule.describeDays(repeatDays) + " · " +
-                        TaskSchedule.describeWindow(startMinute, durationMinutes) + " · 마감까지 인증하지 않으면 잠겨요",
+                        TaskSchedule.describeWindow(startMinute, durationMinutes) +
+                        if (verifyMethod == VerifyMethod.PHOTO) " · 마감까지 인증하지 않으면 잠겨요" else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -433,7 +472,8 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                 }
             }
 
-            SectionCard(title = "사진 조건", subtitle = "선택 · 아래 라벨 중 하나가 사진에 보이면 통과해요") {
+            // 사진 조건은 사진 인증에만 쓴다. 탭 체크로 바꿔도 적어 둔 라벨은 지우지 않고 숨기기만 한다
+            if (verifyMethod == VerifyMethod.PHOTO) SectionCard(title = "사진 조건", subtitle = "선택 · 아래 라벨 중 하나가 사진에 보이면 통과해요") {
                 if (labels.isNotEmpty()) {
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),

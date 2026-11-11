@@ -4,6 +4,7 @@ import androidx.camera.core.ImageCapture
 import com.getfuckocus.data.AttemptEntity
 import com.getfuckocus.data.TaskDao
 import com.getfuckocus.data.TaskEntity
+import com.getfuckocus.data.VerifyMethod
 import com.getfuckocus.data.hasGeoFence
 import com.getfuckocus.lock.LockController
 import com.getfuckocus.safety.DeviceClock
@@ -12,7 +13,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** 촬영 → 판정 → 기록 → (통과 시) 잠금 해제. */
+/** 사진 인증: 촬영 → 판정 → 기록 → (통과 시) 잠금 해제. 탭 체크: 판정 → 기록. */
 class VerificationFlow(
     private val dao: TaskDao,
     private val collector: EvidenceCollector,
@@ -53,4 +54,42 @@ class VerificationFlow(
         if (passed) lock.releaseIfVerified(task.id)
         return VerificationResult(verdict, evidence.labels, releasedLock = passed && lockedByThis != null)
     }
+
+    /**
+     * 탭 체크: 버튼 한 번으로 회차를 기록한다. 장소 조건이 있으면 위치만 확인한다.
+     * 탭 체크 과제는 잠그지 않으므로 잠금 해제는 하지 않는다. 마감 뒤에도 늦은 체크로 기록할 수 있다.
+     * 장소 조건이 있으면 위치 권한이 필요하다 (호출하는 쪽에서 먼저 받는다).
+     */
+    suspend fun checkIn(task: TaskEntity): CheckInResult {
+        val wallNow = System.currentTimeMillis()
+        val trustedNow = clock.trustedNowMillis()
+        val now = Instant.ofEpochMilli(trustedNow).atZone(ZoneId.systemDefault())
+        val target = TaskSchedule.checkInOccurrence(task, now)
+        val location = if (task.hasGeoFence()) collector.currentLocation() else null
+
+        val reasons = buildList {
+            ConditionChecks.windowReason(task, inWindow = target != null)?.let(::add)
+            addAll(ConditionChecks.placeReasons(task, location, wallNow))
+        }
+        val verdict = if (reasons.isEmpty()) Verdict.Pass else Verdict.Fail(reasons)
+
+        dao.insertAttempt(
+            AttemptEntity(
+                taskId = task.id,
+                dayKey = TaskSchedule.dayKey(target?.date ?: now.toLocalDate()),
+                capturedAt = trustedNow,
+                photoPath = "",
+                latitude = location?.latitude,
+                longitude = location?.longitude,
+                labels = "",
+                passed = verdict is Verdict.Pass,
+                reasons = reasons.joinToString("\n"),
+                method = VerifyMethod.TAP,
+            )
+        )
+        return CheckInResult(verdict, late = target?.late == true)
+    }
 }
+
+/** 탭 체크 결과. [late]면 마감 뒤에 기록했다 (기록 화면에서 "늦게 통과"로 보인다). */
+data class CheckInResult(val verdict: Verdict, val late: Boolean)

@@ -1,5 +1,6 @@
 package com.getfuckocus.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -23,6 +24,8 @@ data class AttemptEntity(
     val passed: Boolean,
     /** 실패 사유, 줄바꿈으로 구분 */
     val reasons: String,
+    @ColumnInfo(defaultValue = "PHOTO")
+    val method: VerifyMethod = VerifyMethod.PHOTO,
 )
 
 /** 어느 과제의 어느 회차(시작 날짜)가 통과했는지. */

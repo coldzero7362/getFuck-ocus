@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -51,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import com.getfuckocus.container
 import com.getfuckocus.data.AttemptEntity
 import com.getfuckocus.data.TaskEntity
+import com.getfuckocus.data.VerifyMethod
 import com.getfuckocus.task.DayResult
 import com.getfuckocus.task.History
 import com.getfuckocus.task.OccurrenceResult
@@ -310,12 +312,14 @@ private fun ResultPill(result: OccurrenceResult) {
 @Composable
 private fun AttemptRow(attempt: AttemptEntity) {
     val time = Instant.ofEpochMilli(attempt.capturedAt).atZone(ZoneId.systemDefault())
+    val tap = attempt.method == VerifyMethod.TAP
     Row(verticalAlignment = Alignment.CenterVertically) {
-        AttemptThumbnail(attempt.photoPath)
+        if (tap) TapMark(attempt.passed) else AttemptThumbnail(attempt.photoPath)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                "${TaskSchedule.formatMinute(time.hour * 60 + time.minute)} · ${if (attempt.passed) "통과" else "실패"}",
+                "${TaskSchedule.formatMinute(time.hour * 60 + time.minute)} · " +
+                    (if (tap) "탭 체크 " else "") + (if (attempt.passed) "통과" else "실패"),
                 style = MaterialTheme.typography.labelLarge,
                 color = if (attempt.passed) Chrome.teal else Color(0xFF7A0009),
             )
@@ -323,6 +327,25 @@ private fun AttemptRow(attempt: AttemptEntity) {
                 Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
+    }
+}
+
+/** 탭 체크 기록: 사진 대신 같은 크기의 칸에 체크 표시 */
+@Composable
+private fun TapMark(passed: Boolean) {
+    Box(
+        Modifier
+            .size(52.dp)
+            .clip(ChromeShapes.small)
+            .background(if (passed) Chrome.ice else Color(0xFFFFD6D2)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (passed) Icons.Default.CheckCircle else Icons.Default.Close,
+            contentDescription = if (passed) "탭 체크 통과" else "탭 체크 실패",
+            tint = if (passed) Chrome.teal else Color(0xFF7A0009),
+            modifier = Modifier.size(28.dp),
+        )
     }
 }
 

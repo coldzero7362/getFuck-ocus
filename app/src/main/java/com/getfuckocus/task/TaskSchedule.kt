@@ -14,6 +14,9 @@ import java.time.ZonedDateTime
  * 회차는 시작 날짜로 구분하며(dayKey), 소요 시간이 하루보다 짧으므로 자정을 넘어도 어제·오늘 회차만 보면 된다.
  * 반복 요일이 아니어도 그날 "바로 시작"했다면 회차가 생긴다.
  */
+/** 탭 체크가 기록될 회차와, 마감 뒤의 늦은 체크인지. */
+data class CheckInTarget(val date: LocalDate, val late: Boolean)
+
 object TaskSchedule {
     const val DEFAULT_DURATION_MINUTES = 60
     const val MAX_DURATION_MINUTES = 24 * 60 - 1
@@ -47,6 +50,20 @@ object TaskSchedule {
             hasOccurrence(task, date, at.zone) &&
                 !at.isBefore(windowStart(task, date, at.zone)) && at.isBefore(deadline(task, date, at.zone))
         }
+
+    /**
+     * 탭 체크를 어느 회차로 기록할지.
+     * 시간창 안이면 그 회차(제때 체크), 아니면 오늘·어제 중 이미 마감된 가장 최근 회차(늦은 체크).
+     * 탭 체크 과제는 잠그지 않는 대신, 늦게라도 기록은 남길 수 있게 한다. 해당 회차가 없으면 null.
+     */
+    fun checkInOccurrence(task: TaskEntity, now: ZonedDateTime): CheckInTarget? {
+        occurrenceContaining(task, now)?.let { return CheckInTarget(it, late = false) }
+        return candidateDates(now).firstOrNull { date ->
+            val deadline = deadline(task, date, now.zone)
+            hasOccurrence(task, date, now.zone) && !now.isBefore(deadline) &&
+                task.createdAt < deadline.toInstant().toEpochMilli()
+        }?.let { CheckInTarget(it, late = true) }
+    }
 
     /** 오늘 회차와, 자정을 넘어 아직 영향이 남아 있을 수 있는 어제 회차. 최근 것부터. */
     fun candidateDates(at: ZonedDateTime): List<LocalDate> =
