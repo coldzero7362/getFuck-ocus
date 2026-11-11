@@ -17,7 +17,9 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
 
     val deviceClock = DeviceClock(appContext)
-    val taskDao = AppDatabase.build(appContext).taskDao()
+    private val database = AppDatabase.build(appContext)
+    val taskDao = database.taskDao()
+    val nfcTagDao = database.nfcTagDao()
     val lockController = LockController(appContext, deviceClock)
     val whitelist = Whitelist(appContext)
     val deadlineEvaluator = DeadlineEvaluator(taskDao, lockController, deviceClock)
