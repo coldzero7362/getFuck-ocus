@@ -12,6 +12,7 @@ private object Routes {
     const val TASKS = "tasks"
     const val SETTINGS = "settings"
     const val ALLOWED_APPS = "allowed_apps"
+    const val ADD_TAG = "add_tag"
     const val EDIT = "edit/{taskId}"
     const val CAPTURE = "capture/{taskId}"
 
@@ -36,7 +37,11 @@ fun AppNavHost(startCaptureTaskId: Long?) {
                 onEdit = { nav.navigate(Routes.edit(it)) },
                 onCapture = { nav.navigate(Routes.capture(it)) },
                 onSettings = { nav.navigate(Routes.SETTINGS) },
+                onAddTag = { nav.navigate(Routes.ADD_TAG) },
             )
+        }
+        composable(Routes.ADD_TAG) {
+            NfcTagAddScreen(onDone = { nav.popBackStack() })
         }
         composable(Routes.EDIT, arguments = taskIdArgument) { entry ->
             TaskEditScreen(

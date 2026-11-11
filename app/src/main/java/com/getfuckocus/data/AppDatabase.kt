@@ -7,15 +7,31 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [TaskEntity::class, AttemptEntity::class], version = 7, exportSchema = true)
+@Database(entities = [TaskEntity::class, AttemptEntity::class, NfcTagEntity::class], version = 8, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
+    abstract fun nfcTagDao(): NfcTagDao
 
     companion object {
         fun build(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "getfocus.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                    MIGRATION_7_8,
+                )
                 .build()
+
+        /** 등록한 NFC 태그 */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS nfc_tags (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, uid TEXT NOT NULL, " +
+                        "name TEXT NOT NULL, createdAt INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_nfc_tags_uid ON nfc_tags (uid)")
+            }
+        }
 
         /** 마감 시각(windowEndMinute) → 소요 시간(durationMinutes). SQLite 호환을 위해 테이블을 다시 만든다. */
         private val MIGRATION_1_2 = object : Migration(1, 2) {

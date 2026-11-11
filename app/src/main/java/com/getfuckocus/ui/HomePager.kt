@@ -46,12 +46,13 @@ import kotlinx.coroutines.launch
 
 private const val PAGE_HOME = 0
 private const val PAGE_HISTORY = 1
-private val PAGE_NAMES = listOf("과제", "기록")
+private const val PAGE_TAGS = 2
+private val PAGE_NAMES = listOf("과제", "기록", "태그")
 
 /**
- * 홈과 기록을 옆으로 넘기는 두 쪽짜리 화면. 기록이 홈의 오른쪽에 있어서,
- * 홈에서 왼쪽으로 밀면 기록이 오른쪽에서 들어오고, 기록에서 오른쪽으로 밀면 홈으로 돌아온다.
- * 상단 바의 달력 버튼과 기록 화면의 뒤로 버튼도 같은 페이지 이동을 한다.
+ * 과제 · 기록 · NFC 태그를 옆으로 넘기는 세 쪽짜리 화면. 홈에서 왼쪽으로 밀 때마다
+ * 오른쪽 쪽이 들어오고, 오른쪽으로 밀면 앞 쪽으로 돌아온다.
+ * 상단 바의 달력 버튼과 각 쪽의 뒤로 버튼도 같은 페이지 이동을 한다.
  * 아래 가운데의 쪽 표시가 지금 어느 쪽인지 보여 주고, 눌러서 넘길 수도 있다.
  */
 @Composable
@@ -60,17 +61,19 @@ fun HomePager(
     onEdit: (Long) -> Unit,
     onCapture: (Long) -> Unit,
     onSettings: () -> Unit,
+    onAddTag: () -> Unit,
 ) {
     val pager = rememberPagerState(initialPage = PAGE_HOME) { PAGE_NAMES.size }
     val scope = rememberCoroutineScope()
     fun goTo(page: Int) = scope.launch { pager.animateScrollToPage(page) }
 
-    // 기록에서 뒤로 가기를 누르면 앱이 닫히지 않고 홈으로 돌아온다
-    BackHandler(enabled = pager.currentPage == PAGE_HISTORY) { goTo(PAGE_HOME) }
+    // 홈이 아닌 쪽에서 뒤로 가기를 누르면 앱이 닫히지 않고 한 쪽 앞으로 돌아온다
+    BackHandler(enabled = pager.currentPage != PAGE_HOME) { goTo(pager.currentPage - 1) }
 
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(state = pager, beyondViewportPageCount = 1) { page ->
             when (page) {
+                PAGE_TAGS -> NfcTagListScreen(onBack = { goTo(PAGE_HISTORY) }, onAdd = onAddTag)
                 PAGE_HISTORY -> HistoryScreen(onBack = { goTo(PAGE_HOME) })
                 else -> TaskListScreen(
                     onAdd = onAdd,
@@ -109,7 +112,7 @@ private const val POP_STIFFNESS = Spring.StiffnessMediumLow * 4
  */
 @Composable
 private fun PageIndicator(pager: PagerState, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
-    // 0(과제) ~ 1(기록) 사이의 연속 위치
+    // 0(과제) ~ 2(태그) 사이의 연속 위치
     val position = (pager.currentPage + pager.currentPageOffsetFraction).coerceIn(0f, (PAGE_NAMES.size - 1).toFloat())
     // 평소에는 화면 아래 밖에 숨어 있다가, 넘기기 시작하면 튀어 올라오고
     // 다 넘어간 뒤 잠깐 머물렀다가 다시 아래로 들어간다
