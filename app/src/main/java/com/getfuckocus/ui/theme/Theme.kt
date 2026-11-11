@@ -116,6 +116,8 @@ object LockColors {
     val accent = Chrome.amber
     val onAccent = Chrome.carbon
     val track = Color(0x33F1F0F7)
+    /** 주 버튼(앰버) 다음가는 버튼: 카본보다 한 단 밝은 남색 판 */
+    val secondary = Chrome.chromeIndigo
     val badge = Chrome.red
     val onBadge = Chrome.white
 }

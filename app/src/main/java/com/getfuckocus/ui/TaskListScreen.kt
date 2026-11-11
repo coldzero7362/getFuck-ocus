@@ -133,6 +133,7 @@ fun TaskListScreen(
                     lock = lock,
                     entries = entries,
                     autoReleaseRemaining = lock?.let { container.lockController.autoReleaseRemaining(it) },
+                    onVerifyNow = { lock?.let { onCapture(it.taskId) } },
                     onOpenLock = { context.startActivity(LockActivity.intent(context)) },
                 )
             }
@@ -183,6 +184,7 @@ private fun SummaryCard(
     lock: LockState?,
     entries: List<Pair<TaskEntity, TaskStatus>>,
     autoReleaseRemaining: Long?,
+    onVerifyNow: () -> Unit,
     onOpenLock: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -223,7 +225,22 @@ private fun SummaryCard(
                 Text("자동 해제까지 ${formatRemaining(it)}", style = MaterialTheme.typography.bodySmall)
             }
             Spacer(Modifier.size(4.dp))
-            FocusButton("잠금 화면 열기", onClick = onOpenLock, style = FocusButtonStyle.Danger, icon = Icons.Default.Lock)
+            // 앱 안에서는 잠금 화면을 거치지 않고 바로 촬영 화면으로 간다
+            FocusButton(
+                "지금 인증하고 해제",
+                onClick = onVerifyNow,
+                modifier = Modifier.fillMaxWidth(),
+                style = FocusButtonStyle.Danger,
+            )
+            // 비상 해제와 긴급전화는 잠금 화면에만 있으므로 그리로 가는 길은 남겨 둔다
+            FocusButton(
+                "비상 해제 · 긴급전화",
+                onClick = onOpenLock,
+                style = FocusButtonStyle.Ghost,
+                height = 40.dp,
+                icon = Icons.Default.Lock,
+                contentColor = colors.onErrorContainer,
+            )
         }
     }
 }
