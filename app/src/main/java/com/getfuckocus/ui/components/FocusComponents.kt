@@ -219,8 +219,8 @@ fun FocusPlayButton(
 }
 
 /**
- * 화면 위에 떠 있는 둥근 주 버튼. 카본 테두리 + 오른쪽 아래로 비켜 찍은 단단한 그림자로
- * 페리윙클 바탕과 아래 카드들에서 확실히 떨어져 보이게 한다. 누르면 그림자 자리로 눌려 들어간다.
+ * 화면 위에 떠 있는 둥근 주 버튼. 카본 테두리 + 바로 아래로 비켜 찍은 단단한 그림자로
+ * 페리윙클 바탕과 아래 카드들에서 확실히 떨어져 보이게 한다. 누르면 그림자 자리로 곧게 눌려 내려간다.
  */
 @Composable
 fun FocusFab(
@@ -232,19 +232,19 @@ fun FocusFab(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val shadowOffset = 5.dp
+    val shadowOffset = 6.dp
     val sink by animateDpAsState(if (pressed) shadowOffset else 0.dp, label = "fabSink")
-    Box(modifier.size(size + shadowOffset)) {
+    Box(modifier.size(width = size, height = size + shadowOffset)) {
         Box(
             Modifier
-                .offset(x = shadowOffset, y = shadowOffset)
+                .offset(y = shadowOffset)
                 .size(size)
                 .clip(CircleShape)
                 .background(Chrome.carbon.copy(alpha = 0.75f))
         )
         Box(
             Modifier
-                .offset(x = sink, y = sink)
+                .offset(y = sink)
                 .size(size)
                 .clip(CircleShape)
                 .background(Chrome.carbon)

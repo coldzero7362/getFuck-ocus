@@ -269,11 +269,12 @@ private fun ShutterButton(enabled: Boolean, busy: Boolean, onClick: () -> Unit) 
         label = "shutterRotation",
     )
 
-    Box(Modifier.size(100.dp), contentAlignment = Alignment.Center) {
+    // 회전 링이 굵어도 셔터 테두리와 겹치지 않게 바깥 칸을 넉넉히 둔다
+    Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
         if (busy) {
             val head = colors.secondary
             Canvas(Modifier.fillMaxSize()) {
-                val stroke = 5.dp.toPx()
+                val stroke = 9.dp.toPx()
                 rotate(rotation) {
                     drawArc(
                         brush = Brush.sweepGradient(0f to Color.Transparent, 0.75f to head, 0.75f to Color.Transparent),

@@ -12,7 +12,6 @@ private object Routes {
     const val TASKS = "tasks"
     const val SETTINGS = "settings"
     const val ALLOWED_APPS = "allowed_apps"
-    const val HISTORY = "history"
     const val EDIT = "edit/{taskId}"
     const val CAPTURE = "capture/{taskId}"
 
@@ -32,16 +31,12 @@ fun AppNavHost(startCaptureTaskId: Long?) {
 
     NavHost(navController = nav, startDestination = Routes.TASKS) {
         composable(Routes.TASKS) {
-            TaskListScreen(
+            HomePager(
                 onAdd = { nav.navigate(Routes.edit(0)) },
                 onEdit = { nav.navigate(Routes.edit(it)) },
                 onCapture = { nav.navigate(Routes.capture(it)) },
                 onSettings = { nav.navigate(Routes.SETTINGS) },
-                onHistory = { nav.navigate(Routes.HISTORY) },
             )
-        }
-        composable(Routes.HISTORY) {
-            HistoryScreen(onBack = { nav.popBackStack() })
         }
         composable(Routes.EDIT, arguments = taskIdArgument) { entry ->
             TaskEditScreen(

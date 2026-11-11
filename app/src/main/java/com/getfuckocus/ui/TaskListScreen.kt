@@ -258,7 +258,7 @@ private fun ServiceOffBanner(onEnable: () -> Unit) {
             Icon(Icons.Default.Warning, contentDescription = null)
             Spacer(Modifier.width(12.dp))
             Text(
-                "잠금 서비스가 꺼져 있어 마감을 놓쳐도 잠기지 않아요",
+                "화면 잠금을 위해 설정 > '접근성'에서 화면 잠금을 허용해주세요.",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
