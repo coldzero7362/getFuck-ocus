@@ -1,0 +1,7 @@
+<resources>
+    <!-- 스플래시도 상단 바와 같은 딥 네이비로 맞춰 앱 첫인상을 이어지게 한다 -->
+    <style name="Theme.GetFocus" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/app_canvas</item>
+        <item name="android:windowSplashScreenBackground">@color/app_header</item>
+    </style>
+</resources>

@@ -2,7 +2,9 @@ package com.getfuckocus.ui
 
 import android.content.Intent
 import android.provider.Settings
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -37,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
@@ -54,13 +58,19 @@ import com.getfuckocus.ui.components.FocusButton
 import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusCard
 import com.getfuckocus.ui.components.FocusDialog
+import com.getfuckocus.ui.components.FocusEmptyState
+import com.getfuckocus.ui.components.FocusNotice
+import com.getfuckocus.ui.components.Tone
 import com.getfuckocus.ui.components.FocusFab
-import com.getfuckocus.ui.components.FocusIconButton
 import com.getfuckocus.ui.components.FocusPanel
 import com.getfuckocus.ui.components.FocusSpinner
 import com.getfuckocus.ui.components.FocusTextField
 import com.getfuckocus.ui.components.FocusTopBar
 import com.getfuckocus.ui.theme.Chrome
+import com.getfuckocus.ui.theme.ChromeShapes
+import com.getfuckocus.ui.theme.Dimens
+import com.getfuckocus.ui.theme.PixelIcons
+import com.getfuckocus.ui.theme.bevel
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -90,11 +100,20 @@ fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = Dimens.fabClearance),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (tags?.isEmpty() == true) {
-                item { TagEmptyState(onAdd) }
+                item {
+                    FocusEmptyState(
+                        title = "아직 등록한 태그가 없어요",
+                        body = "책상, 약통, 현관처럼 과제를 하는 곳에 NFC 스티커를 붙이고 등록해 두세요. " +
+                            "교통카드나 출입카드도 쓸 수 있어요",
+                        icon = PixelIcons.Nfc,
+                        actionLabel = "첫 태그 등록하기",
+                        onAction = onAdd,
+                    )
+                }
             }
             items(tags.orEmpty(), key = { it.id }) { tag ->
                 TagCard(tag, onDelete = { confirmDelete = tag })
@@ -118,53 +137,49 @@ fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
     }
 }
 
+/** 등록한 태그 한 장: 이름 · 등록일 · 식별 번호, 아래에 따로 떨어진 삭제 버튼 */
 @Composable
 private fun TagCard(tag: NfcTagEntity, onDelete: () -> Unit) {
     FocusCard(
         modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
+        contentPadding = PaddingValues(start = 14.dp, top = 14.dp, end = 8.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    tag.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    tag.uid,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Box(
+                Modifier.size(48.dp).clip(ChromeShapes.small).background(Chrome.sky).bevel(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(PixelIcons.Nfc, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(28.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(tag.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     Instant.ofEpochMilli(tag.createdAt).atZone(ZoneId.systemDefault()).format(REGISTERED_FORMAT),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Chrome.chromeIndigo,
                 )
             }
-            FocusIconButton(Icons.Default.Delete, contentDescription = "${tag.name} 지우기", onClick = onDelete)
         }
-    }
-}
-
-@Composable
-private fun TagEmptyState(onAdd: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text("아직 등록한 태그가 없어요", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "책상, 약통, 현관처럼 과제를 하는 곳에 NFC 스티커를 붙이고 등록해 두세요.\n" +
-                "교통카드나 출입카드도 쓸 수 있어요",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.size(8.dp))
-        FocusButton("첫 태그 등록하기", onClick = onAdd)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "ID  ${tag.uid}",
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = Chrome.chromeIndigo,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            FocusButton(
+                "삭제",
+                onClick = onDelete,
+                style = FocusButtonStyle.Ghost,
+                icon = Icons.Default.Delete,
+                height = 48.dp,
+                contentColor = Chrome.redInk,
+            )
+        }
     }
 }
 
@@ -215,38 +230,47 @@ fun NfcTagAddScreen(onDone: () -> Unit) {
             modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            val step = when (state) {
+                is ScanState.Waiting -> 0
+                is ScanState.Confirming -> 1
+                is ScanState.Ready -> 2
+            }
+            StepIndicator(step)
+
             when (availability) {
-                NfcAvailability.Unsupported -> NoticeCard("이 기기에는 NFC가 없어요. 태그를 읽을 수 없어요")
-                NfcAvailability.Off -> NoticeCard(
-                    "NFC가 꺼져 있어요. 켜고 돌아오면 바로 읽을 수 있어요",
-                    action = "NFC 설정 열기" to {
-                        context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS))
-                    },
+                // 쓸 수 없는 기기에서는 대기 안내 대신 이유를 크게 보여 준다
+                NfcAvailability.Unsupported -> if (state !is ScanState.Ready) FocusEmptyState(
+                    title = "이 기기에서는 NFC를 쓸 수 없어요",
+                    body = "NFC 칩이 없는 기기라 태그를 읽을 수 없어요. 태그 등록은 NFC가 있는 폰에서 해 주세요",
+                    icon = PixelIcons.Nfc,
+                    tone = Tone.Danger,
+                )
+                NfcAvailability.Off -> FocusNotice(
+                    "켜고 돌아오면 바로 읽을 수 있어요",
+                    title = "NFC가 꺼져 있어요",
+                    tone = Tone.Warning,
+                    icon = PixelIcons.Nfc,
+                    actionLabel = "NFC 설정",
+                    onAction = { context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) },
                 )
                 NfcAvailability.Ready -> Unit
             }
 
-            when (val s = state) {
+            if (availability != NfcAvailability.Unsupported || state is ScanState.Ready) when (val s = state) {
                 is ScanState.Waiting -> ScanPanel(
-                    step = "1 / 2",
                     title = "폰 뒷면에 태그를 대 주세요",
                     body = "보통 카메라 아래쪽에 NFC 안테나가 있어요. 태그를 대고 1초쯤 기다려 주세요",
                     notice = s.notice,
                     scanning = availability == NfcAvailability.Ready,
                 )
                 is ScanState.Confirming -> ScanPanel(
-                    step = "2 / 2",
                     title = "한 번 더 대 주세요",
                     body = "태그를 폰에서 뗐다가 다시 대 주세요. 같은 태그인지 확인해요",
                     uid = s.uid,
                     scanning = availability == NfcAvailability.Ready,
                 )
-                is ScanState.Ready -> FocusPanel(title = "확인했어요", subtitle = "이름을 붙여 저장하세요") {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Chrome.teal)
-                        Spacer(Modifier.width(8.dp))
-                        UidText(s.uid)
-                    }
+                is ScanState.Ready -> FocusPanel(title = "인식 완료", subtitle = "이름을 붙여 저장하세요", icon = Icons.Default.CheckCircle) {
+                    FocusNotice(s.uid, title = "같은 태그인지 확인했어요", tone = Tone.Success)
                     FocusTextField(
                         value = name,
                         onValueChange = { name = it.take(NAME_MAX_LENGTH) },
@@ -260,22 +284,24 @@ fun NfcTagAddScreen(onDone: () -> Unit) {
                         onClick = { save(s.uid) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = name.isNotBlank() && !saving,
+                        height = 56.dp,
                     )
                     FocusButton(
                         "다시 찍기",
                         onClick = { state = ScanState.Waiting() },
                         modifier = Modifier.fillMaxWidth(),
-                        style = FocusButtonStyle.Ghost,
+                        style = FocusButtonStyle.Outline,
                         icon = Icons.Default.Refresh,
-                        height = 40.dp,
+                        height = 48.dp,
                     )
                 }
             }
 
             if (context.isDebuggable() && state !is ScanState.Ready) {
-                // 실물 태그가 없을 때 등록 흐름을 시험하는 용도. 출시 빌드에는 보이지 않는다
+                // 실물 태그가 없을 때 등록 흐름을 시험하는 용도. 출시 빌드에는 보이지 않는다.
+                // NFC가 없는 에뮬레이터에서 쓰는 도구라 NFC 미지원이어도 켜 둔다
                 FocusButton(
-                    "가짜 태그 찍기 (디버그)",
+                    "가짜 태그 찍기 (디버그 빌드 전용)",
                     onClick = {
                         val current = state
                         handleScan(if (current is ScanState.Confirming) current.uid else NfcTags.fakeUid())
@@ -292,28 +318,70 @@ private const val NAME_MAX_LENGTH = 20
 
 @Composable
 private fun ScanPanel(
-    step: String,
     title: String,
     body: String,
     scanning: Boolean,
     notice: String? = null,
     uid: String? = null,
 ) {
-    FocusPanel(title = title, subtitle = step) {
+    FocusPanel(title = title, subtitle = if (scanning) "인식 대기 중" else "NFC를 켜면 인식을 시작해요", icon = PixelIcons.Nfc) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (scanning) FocusSpinner(Modifier.size(48.dp))
+            // 인식 대기: 태그 아이콘 주위로 링이 돈다
+            Box(Modifier.size(112.dp), contentAlignment = Alignment.Center) {
+                if (scanning) FocusSpinner(Modifier.size(112.dp), strokeWidth = 6.dp)
+                Box(
+                    Modifier.size(84.dp).clip(CircleShape).background(if (scanning) Chrome.sky else Chrome.white),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        PixelIcons.Nfc, contentDescription = null,
+                        tint = if (scanning) Chrome.carbon else Chrome.hairline,
+                        modifier = Modifier.size(44.dp),
+                    )
+                }
+            }
             Text(body, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
             uid?.let { UidText(it) }
         }
-        notice?.let {
-            Row(verticalAlignment = Alignment.Top) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = Chrome.red, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = Chrome.red)
+        notice?.let { FocusNotice(it, tone = Tone.Danger, icon = Icons.Default.Warning) }
+    }
+}
+
+/** 1 태그 대기 → 2 한 번 더 → 완료, 세 칸짜리 진행 표시 */
+@Composable
+private fun StepIndicator(step: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        listOf("1 태그 대기", "2 한 번 더", "완료").forEachIndexed { index, label ->
+            val done = index < step
+            val current = index == step
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(ChromeShapes.control)
+                    .background(
+                        when {
+                            done -> Chrome.ice
+                            current -> Chrome.amber
+                            else -> Chrome.periwinkle
+                        }
+                    )
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (done) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Chrome.teal, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (done) Chrome.teal else Chrome.carbon,
+                )
             }
         }
     }
@@ -326,29 +394,4 @@ private fun UidText(uid: String) {
         style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-}
-
-@Composable
-private fun NoticeCard(text: String, action: Pair<String, () -> Unit>? = null) {
-    val colors = MaterialTheme.colorScheme
-    FocusCard(
-        modifier = Modifier.fillMaxWidth(),
-        color = colors.secondaryContainer,
-        contentColor = colors.onSecondaryContainer,
-        contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 8.dp, bottom = 8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Warning, contentDescription = null)
-            Spacer(Modifier.width(12.dp))
-            Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            action?.let { (label, onClick) ->
-                FocusButton(
-                    label, onClick = onClick,
-                    style = FocusButtonStyle.Ghost,
-                    height = 40.dp,
-                    contentColor = colors.onSecondaryContainer,
-                )
-            }
-        }
-    }
 }

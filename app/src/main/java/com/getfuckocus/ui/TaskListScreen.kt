@@ -1,25 +1,34 @@
 package com.getfuckocus.ui
 
-import androidx.compose.foundation.horizontalScroll
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
@@ -41,24 +50,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.getfuckocus.container
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.VerifyMethod
-import com.getfuckocus.data.locksOnMiss
-import com.getfuckocus.hasPermission
-import com.getfuckocus.verify.Verdict
 import com.getfuckocus.data.hasGeoFence
+import com.getfuckocus.data.locksOnMiss
 import com.getfuckocus.data.requiredLabels
+import com.getfuckocus.hasPermission
 import com.getfuckocus.lock.BlockerServiceStatus
 import com.getfuckocus.lock.LockActivity
 import com.getfuckocus.lock.LockState
@@ -69,12 +75,22 @@ import com.getfuckocus.ui.components.FocusButton
 import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusCard
 import com.getfuckocus.ui.components.FocusDialog
+import com.getfuckocus.ui.components.FocusEmptyState
 import com.getfuckocus.ui.components.FocusFab
 import com.getfuckocus.ui.components.FocusIconButton
+import com.getfuckocus.ui.components.FocusNotice
 import com.getfuckocus.ui.components.FocusPlayButton
 import com.getfuckocus.ui.components.FocusProgressBar
+import com.getfuckocus.ui.components.FocusSectionLabel
+import com.getfuckocus.ui.components.FocusStatBox
+import com.getfuckocus.ui.components.FocusTab
 import com.getfuckocus.ui.components.FocusTopBar
-import com.getfuckocus.ui.components.OutlinedDisplayText
+import com.getfuckocus.ui.components.Tone
+import com.getfuckocus.ui.theme.Chrome
+import com.getfuckocus.ui.theme.DigitStyle
+import com.getfuckocus.ui.theme.Dimens
+import com.getfuckocus.ui.theme.PixelIcons
+import com.getfuckocus.verify.Verdict
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.ZonedDateTime
@@ -138,11 +154,22 @@ fun TaskListScreen(
         }
     }
 
+    // 맨 위 큰 카드에 올릴 과제: 잠금 > 진행 중(마감 빠른 순) > 다음 시작
+    val inProgress = entries.filter { it.second is TaskStatus.InProgress }
+        .minByOrNull { (it.second as TaskStatus.InProgress).deadline }
+    val upcoming = entries.filter { it.second is TaskStatus.Upcoming }
+        .minByOrNull { (it.second as TaskStatus.Upcoming).startsAt }
+    val currentLock = lock
+    val focus = if (currentLock != null) null else inProgress ?: upcoming
+    val heroTaskId = currentLock?.taskId ?: focus?.first?.id
+    val others = entries.filter { it.first.id != heroTaskId }
+
     Scaffold(
         topBar = {
             FocusTopBar(
                 title = "오늘의 과제",
                 subtitle = now.format(DATE_FORMAT),
+                subtitleTrailing = TaskSchedule.formatMinute(now.hour * 60 + now.minute),
                 actions = {
                     FocusIconButton(Icons.Default.DateRange, contentDescription = "기록", onClick = onHistory)
                     FocusIconButton(Icons.Default.Settings, contentDescription = "설정", onClick = onSettings)
@@ -155,31 +182,76 @@ fun TaskListScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(
+                start = Dimens.screenPadding,
+                top = Dimens.screenPadding,
+                end = Dimens.screenPadding,
+                bottom = Dimens.fabClearance,
+            ),
+            verticalArrangement = Arrangement.spacedBy(Dimens.cardGap),
         ) {
-            item {
-                SummaryCard(
-                    now = now,
-                    lock = lock,
-                    entries = entries,
-                    autoReleaseRemaining = lock?.let { container.lockController.autoReleaseRemaining(it) },
-                    onVerifyNow = { lock?.let { onCapture(it.taskId) } },
-                    onOpenLock = { context.startActivity(LockActivity.intent(context)) },
-                )
-            }
+            // 큰 경고 배너 대신 한 줄 상태 안내
             if (!serviceEnabled) {
-                item { ServiceOffBanner(onEnable = { BlockerServiceStatus.openSettings(context) }) }
+                item {
+                    FocusNotice(
+                        title = "잠금 서비스 꺼짐",
+                        text = "마감을 놓쳐도 앱이 잠기지 않아요",
+                        tone = Tone.Warning,
+                        icon = PixelIcons.Shield,
+                        actionLabel = "켜기",
+                        onAction = { BlockerServiceStatus.openSettings(context) },
+                    )
+                }
+            }
+            when {
+                currentLock != null -> item {
+                    LockHeroCard(
+                        lock = currentLock,
+                        autoReleaseRemaining = container.lockController.autoReleaseRemaining(currentLock),
+                        onVerifyNow = { onCapture(currentLock.taskId) },
+                        onOpenLock = { context.startActivity(LockActivity.intent(context)) },
+                    )
+                }
+                focus != null -> item {
+                    val (task, status) = focus
+                    HeroCard(
+                        task = task,
+                        status = status,
+                        now = now,
+                        streak = streaks[task.id] ?: 0,
+                        onEdit = { onEdit(task.id) },
+                        onStartNow = { confirmStart = task },
+                        onCapture = { onCapture(task.id) },
+                        onCheckIn = { checkIn(task) },
+                    )
+                }
+                tasks.isNotEmpty() -> item { DaySummaryCard(entries) }
             }
             if (tasks.isEmpty()) {
-                item { EmptyState(onAdd) }
+                item {
+                    FocusEmptyState(
+                        title = "아직 과제가 없어요",
+                        body = "시작 시각과 인증 방법을 정해 첫 과제를 만들어 보세요",
+                        icon = PixelIcons.Flag,
+                        actionLabel = "첫 과제 만들기",
+                        onAction = onAdd,
+                    )
+                }
             }
-            items(entries, key = { it.first.id }) { (task, status) ->
+            if (others.isNotEmpty()) {
+                item {
+                    FocusSectionLabel(
+                        if (heroTaskId != null) "다른 과제" else "오늘의 과제",
+                        count = others.size,
+                    )
+                }
+            }
+            items(others, key = { it.first.id }) { (task, status) ->
                 TaskCard(
                     task = task,
                     status = status,
                     now = now,
-                    lockedByThis = lock?.taskId == task.id,
+                    lockedByThis = currentLock?.taskId == task.id,
                     streak = streaks[task.id] ?: 0,
                     onCapture = { onCapture(task.id) },
                     onCheckIn = { checkIn(task) },
@@ -222,125 +294,209 @@ fun TaskListScreen(
     }
 }
 
+/**
+ * 맨 위 큰 카드: 지금 가장 먼저 할 과제 하나. 실행 가능한 시간과 남은 시간을 나눠 보여 주고,
+ * 주 버튼 하나로 바로 다음 행동(시작, 촬영, 체크)을 하게 한다.
+ */
 @Composable
-private fun SummaryCard(
+private fun HeroCard(
+    task: TaskEntity,
+    status: TaskStatus,
     now: ZonedDateTime,
-    lock: LockState?,
-    entries: List<Pair<TaskEntity, TaskStatus>>,
-    autoReleaseRemaining: Long?,
+    streak: Int,
+    onEdit: () -> Unit,
+    onStartNow: () -> Unit,
+    onCapture: () -> Unit,
+    onCheckIn: () -> Unit,
+) {
+    val tap = task.verifyMethod == VerifyMethod.TAP
+    val inProgress = status as? TaskStatus.InProgress
+    val start = TaskSchedule.formatMinute(task.windowStartMinute)
+    val end = TaskSchedule.formatMinute((task.windowStartMinute + task.durationMinutes) % (24 * 60))
+
+    FocusCard(
+        modifier = Modifier.fillMaxWidth(),
+        color = Chrome.lavender,
+        onClick = onEdit,
+        contentPadding = PaddingValues(0.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FocusTab(
+                if (inProgress != null) "진행 중" else "다음 과제",
+                icon = if (inProgress != null) Icons.Default.PlayArrow else PixelIcons.Flag,
+            )
+            Spacer(Modifier.weight(1f))
+            if (streak >= 2) {
+                Pill("${streak}일 연속", Chrome.amber, Chrome.carbon, icon = Icons.Default.Star)
+                Spacer(Modifier.width(12.dp))
+            }
+        }
+        Column(
+            Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column {
+                Text(
+                    task.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    TaskSchedule.describeDays(task.repeatDays) + " · " + TaskSchedule.formatDuration(task.durationMinutes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Chrome.chromeIndigo,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                val (label, value) = when {
+                    inProgress != null ->
+                        "마감까지" to formatMinutesLeft(Duration.between(now, inProgress.deadline).toMillis())
+                    status is TaskStatus.Upcoming && status.startsAt.toLocalDate() == now.toLocalDate() ->
+                        "시작까지" to formatMinutesLeft(Duration.between(now, status.startsAt).toMillis())
+                    status is TaskStatus.Upcoming ->
+                        "다음 시작" to formatStartsIn(now, status.startsAt).removeSuffix(" 시작")
+                    else -> "상태" to "-"
+                }
+                FocusStatBox(
+                    label = label,
+                    value = value,
+                    icon = PixelIcons.Hourglass,
+                    large = true,
+                    valueColor = if (inProgress != null) Chrome.redInk else Chrome.carbon,
+                    modifier = Modifier.weight(1.15f).fillMaxHeight(),
+                )
+                FocusStatBox(
+                    label = "실행 가능",
+                    value = start,
+                    caption = "~ $end 마감",
+                    icon = PixelIcons.Clock,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
+            }
+            inProgress?.let { FocusProgressBar(it.progress) }
+            ConditionPills(task)
+            when {
+                inProgress != null && tap -> FocusButton(
+                    "완료 체크", onClick = onCheckIn,
+                    modifier = Modifier.fillMaxWidth(), icon = Icons.Default.CheckCircle, height = 56.dp,
+                )
+                inProgress != null -> FocusButton(
+                    "촬영해서 인증", onClick = onCapture,
+                    modifier = Modifier.fillMaxWidth(), icon = PixelIcons.Camera, height = 56.dp,
+                )
+                else -> FocusButton(
+                    "지금 바로 시작", onClick = onStartNow,
+                    modifier = Modifier.fillMaxWidth(), icon = Icons.Default.PlayArrow, height = 56.dp,
+                )
+            }
+        }
+    }
+}
+
+/** 잠긴 동안의 맨 위 카드. 일반 홈과 같은 판 구조에 빨간 탭으로 잠금 상태만 바꿔 보여 준다. */
+@Composable
+private fun LockHeroCard(
+    lock: LockState,
+    autoReleaseRemaining: Long,
     onVerifyNow: () -> Unit,
     onOpenLock: () -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
-    val inProgress = entries.mapNotNull { (t, s) -> (s as? TaskStatus.InProgress)?.let { t to it } }
-        .minByOrNull { it.second.deadline }
-    val upcoming = entries.mapNotNull { (t, s) -> (s as? TaskStatus.Upcoming)?.let { t to it } }
-        .minByOrNull { it.second.startsAt }
-
-    val message = when {
-        lock != null -> "'${lock.taskTitle}' 마감을 놓쳐서 잠겨 있어요"
-        inProgress != null ->
-            "'${inProgress.first.title}' 진행 중 · 마감까지 " +
-                formatMinutesLeft(Duration.between(now, inProgress.second.deadline).toMillis())
-        upcoming != null ->
-            "다음 과제 '${upcoming.first.title}' · ${formatStartsIn(now, upcoming.second.startsAt)}"
-        entries.isEmpty() -> "과제를 추가해서 시작해 보세요"
-        entries.all { it.second is TaskStatus.RestDay || it.second == TaskStatus.Disabled } -> "오늘은 쉬는 날이에요"
-        entries.all { it.second == TaskStatus.Done || it.second == TaskStatus.Disabled || it.second is TaskStatus.RestDay } ->
-            "오늘 과제를 모두 끝냈어요"
-        else -> "오늘 남은 과제가 없어요"
-    }
-
     FocusCard(
         modifier = Modifier.fillMaxWidth(),
-        color = if (lock != null) colors.errorContainer else colors.primaryContainer,
-        contentColor = if (lock != null) colors.onErrorContainer else colors.onPrimaryContainer,
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        color = Chrome.platinum,
+        contentPadding = PaddingValues(0.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        // 게임 상자 표지 글씨처럼 외곽선 + 그림자를 두른 큰 시계
-        OutlinedDisplayText(
-            TaskSchedule.formatMinute(now.hour * 60 + now.minute),
-            style = MaterialTheme.typography.displayMedium,
-        )
-        Text(message, style = MaterialTheme.typography.bodyLarge)
-        if (lock != null) {
-            autoReleaseRemaining?.let {
-                Text("자동 해제까지 ${formatRemaining(it)}", style = MaterialTheme.typography.bodySmall)
+        Box(Modifier.fillMaxWidth().height(4.dp).background(Chrome.red))
+        FocusTab("잠금 중", icon = Icons.Default.Lock, container = Chrome.red, content = Chrome.white)
+        Column(
+            Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column {
+                Text(lock.taskTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                Text(
+                    "마감까지 인증하지 못해서 다른 앱이 잠겨 있어요",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Chrome.redInk,
+                )
             }
-            Spacer(Modifier.size(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                FocusStatBox(
+                    label = "자동 해제까지",
+                    value = formatMinutesLeft(autoReleaseRemaining),
+                    icon = PixelIcons.Hourglass,
+                    large = true,
+                    valueColor = Chrome.redInk,
+                    modifier = Modifier.weight(1.15f).fillMaxHeight(),
+                )
+                FocusStatBox(
+                    label = "바로 푸는 법",
+                    value = "인증하기",
+                    caption = "늦어도 통과하면 해제",
+                    icon = PixelIcons.Camera,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
+            }
             // 앱 안에서는 잠금 화면을 거치지 않고 바로 촬영 화면으로 간다
             FocusButton(
-                "지금 인증하고 해제",
-                onClick = onVerifyNow,
-                modifier = Modifier.fillMaxWidth(),
-                style = FocusButtonStyle.Danger,
+                "지금 인증하고 해제", onClick = onVerifyNow,
+                modifier = Modifier.fillMaxWidth(), icon = PixelIcons.Camera, height = 56.dp,
             )
             // 비상 해제와 긴급전화는 잠금 화면에만 있으므로 그리로 가는 길은 남겨 둔다
             FocusButton(
-                "비상 해제 · 긴급전화",
-                onClick = onOpenLock,
-                style = FocusButtonStyle.Ghost,
-                height = 40.dp,
-                icon = Icons.Default.Lock,
-                contentColor = colors.onErrorContainer,
+                "비상 해제 · 긴급전화", onClick = onOpenLock,
+                modifier = Modifier.fillMaxWidth(), style = FocusButtonStyle.Outline,
+                icon = Icons.Default.Lock, height = 48.dp,
             )
         }
     }
 }
 
+/** 지금 할 과제가 없을 때 맨 위 카드: 오늘 상황을 한 줄로 */
 @Composable
-private fun ServiceOffBanner(onEnable: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
+private fun DaySummaryCard(entries: List<Pair<TaskEntity, TaskStatus>>) {
+    val (message, icon) = when {
+        entries.all { it.second is TaskStatus.RestDay || it.second == TaskStatus.Disabled } ->
+            "오늘은 쉬는 날이에요" to Icons.Default.Home
+        entries.all { it.second == TaskStatus.Done || it.second == TaskStatus.Disabled || it.second is TaskStatus.RestDay } ->
+            "오늘 과제를 모두 끝냈어요" to PixelIcons.Sparkle
+        else -> "오늘 남은 과제가 없어요" to Icons.Default.CheckCircle
+    }
+    val done = entries.count { it.second == TaskStatus.Done }
+    val total = entries.count { it.second != TaskStatus.Disabled && it.second !is TaskStatus.RestDay }
     FocusCard(
         modifier = Modifier.fillMaxWidth(),
-        color = colors.secondaryContainer,
-        contentColor = colors.onSecondaryContainer,
-        contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 8.dp, bottom = 8.dp),
+        color = Chrome.lavender,
+        contentPadding = PaddingValues(0.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Warning, contentDescription = null)
+        FocusTab("오늘", icon = PixelIcons.Flag)
+        Row(
+            Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(28.dp))
             Spacer(Modifier.width(12.dp))
-            Text(
-                "화면 잠금을 위해 설정 > '접근성'에서 화면 잠금을 허용해주세요.",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
-            FocusButton(
-                "켜기", onClick = onEnable,
-                style = FocusButtonStyle.Ghost,
-                height = 40.dp,
-                contentColor = colors.onSecondaryContainer,
-            )
+            Text(message, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            if (total > 0) {
+                Text(
+                    "$done/$total",
+                    style = DigitStyle.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
+                    color = Chrome.carbon,
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun EmptyState(onAdd: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(
-            Icons.Default.Star,
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text("아직 과제가 없어요", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "시작 시각과 인증 조건을 정해 첫 과제를 만들어 보세요",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.size(8.dp))
-        FocusButton("첫 과제 만들기", onClick = onAdd)
-    }
-}
-
+/**
+ * 목록의 간결한 과제 카드. 이름·시간·상태를 먼저 보여 주고, 행동 버튼은 모든 카드에서
+ * 오른쪽 같은 자리·같은 크기에 둔다. 카드를 누르면 편집 화면으로 간다.
+ */
 @Composable
 private fun TaskCard(
     task: TaskEntity,
@@ -353,90 +509,108 @@ private fun TaskCard(
     onEdit: () -> Unit,
     onStartNow: () -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
     val tap = task.verifyMethod == VerifyMethod.TAP
     FocusCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onEdit,
+        contentPadding = PaddingValues(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            StatusBadge(status)
-            if (streak >= 2) {
-                Spacer(Modifier.width(6.dp))
-                Pill("${streak}일 연속", colors.secondaryContainer, colors.onSecondaryContainer, icon = Icons.Default.Star)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StatusBadge(status)
+                    if (streak >= 2) {
+                        Spacer(Modifier.width(6.dp))
+                        Pill("${streak}일 연속", Chrome.amber, Chrome.carbon, icon = Icons.Default.Star)
+                    }
+                }
+                Text(
+                    task.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(PixelIcons.Clock, contentDescription = null, tint = Chrome.chromeIndigo, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "${TaskSchedule.describeDays(task.repeatDays)} · ${TaskSchedule.describeWindow(task)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Chrome.chromeIndigo,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-            Spacer(Modifier.weight(1f))
-            FocusIconButton(Icons.Default.Edit, contentDescription = "편집", onClick = onEdit, tint = colors.onSurfaceVariant)
+            Spacer(Modifier.width(12.dp))
+            CardAction(task, status, tap, lockedByThis, onStartNow, onCapture, onCheckIn)
         }
-        Text(task.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Text(
-            "${TaskSchedule.describeDays(task.repeatDays)} · ${TaskSchedule.describeWindow(task)}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.onSurfaceVariant,
-        )
         ConditionPills(task)
-
         when (status) {
             is TaskStatus.InProgress -> {
                 FocusProgressBar(status.progress)
-                Text(
-                    "마감까지 ${formatMinutesLeft(Duration.between(now, status.deadline).toMillis())}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.onSurfaceVariant,
-                )
-                if (tap) {
-                    FocusButton("완료", onClick = onCheckIn, modifier = Modifier.fillMaxWidth(), icon = Icons.Default.CheckCircle)
-                } else {
-                    FocusButton("촬영해서 인증", onClick = onCapture, modifier = Modifier.fillMaxWidth())
-                }
+                StatusLine("마감까지 ${formatMinutesLeft(Duration.between(now, status.deadline).toMillis())}", PixelIcons.Hourglass)
             }
-            is TaskStatus.Upcoming -> StartNowRow(
-                headline = formatStartsIn(now, status.startsAt),
-                taskTitle = task.title,
-                onStartNow = onStartNow,
-            )
-            is TaskStatus.RestDay -> StartNowRow(
-                headline = "오늘은 쉬는 날 · " + (status.nextStart?.let { formatStartsIn(now, it) } ?: "반복 요일이 없어요"),
-                taskTitle = task.title,
-                onStartNow = onStartNow,
+            is TaskStatus.Upcoming -> StatusLine(formatStartsIn(now, status.startsAt), PixelIcons.Hourglass)
+            is TaskStatus.RestDay -> StatusLine(
+                "오늘은 쉬는 날 · " + (status.nextStart?.let { formatStartsIn(now, it) } ?: "반복 요일이 없어요"),
+                Icons.Default.Home,
             )
             // 탭 체크는 잠기지 않는 대신, 늦게라도 했으면 기록을 남길 수 있다 (기록 화면에는 "늦게 통과")
-            TaskStatus.Missed -> if (tap) {
-                Text(
-                    "마감이 지났어요. 늦었더라도 했다면 기록해 두세요",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.onSurfaceVariant,
-                )
-                FocusButton(
-                    "늦게라도 체크", onClick = onCheckIn,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = FocusButtonStyle.Tonal,
-                    icon = Icons.Default.CheckCircle,
-                )
-            } else if (lockedByThis) {
-                Text("지금 인증하면 잠금이 풀려요", style = MaterialTheme.typography.labelLarge, color = colors.error)
-                FocusButton(
-                    "지금 인증하기", onClick = onCapture,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = FocusButtonStyle.Danger,
-                )
+            TaskStatus.Missed -> when {
+                tap -> StatusLine("마감이 지났어요 · 했다면 늦게라도 체크해 두세요", Icons.Default.Warning)
+                lockedByThis -> StatusLine("지금 인증하면 잠금이 풀려요", Icons.Default.Lock, Chrome.redInk)
+                else -> StatusLine("마감을 놓쳤어요", Icons.Default.Warning, Chrome.redInk)
             }
-            TaskStatus.Done, TaskStatus.Disabled -> Unit
+            TaskStatus.Done -> StatusLine("오늘 회차를 마쳤어요", Icons.Default.CheckCircle, Chrome.teal)
+            TaskStatus.Disabled -> StatusLine("꺼 둔 과제예요 · 눌러서 켤 수 있어요", Icons.Default.Close)
         }
     }
 }
 
-/** 다음 시작 안내 + 오늘 회차를 바로 시작하는 재생 버튼 */
+/** 카드 오른쪽의 행동 버튼. 모든 상태에서 같은 52dp 원형 자리를 쓴다. */
 @Composable
-private fun StartNowRow(headline: String, taskTitle: String, onStartNow: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(headline, style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
-            Text("지금 바로 시작할 수도 있어요", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+private fun CardAction(
+    task: TaskEntity,
+    status: TaskStatus,
+    tap: Boolean,
+    lockedByThis: Boolean,
+    onStartNow: () -> Unit,
+    onCapture: () -> Unit,
+    onCheckIn: () -> Unit,
+) {
+    val title = task.title
+    when {
+        status is TaskStatus.Upcoming || status is TaskStatus.RestDay ->
+            FocusPlayButton(onClick = onStartNow, contentDescription = "$title 바로 시작")
+        status is TaskStatus.InProgress && tap ->
+            FocusPlayButton(onClick = onCheckIn, contentDescription = "$title 완료 체크", icon = Icons.Default.Check)
+        status is TaskStatus.InProgress ->
+            FocusPlayButton(onClick = onCapture, contentDescription = "$title 촬영해서 인증", icon = PixelIcons.Camera, iconScale = 0.45f)
+        status == TaskStatus.Missed && tap ->
+            FocusPlayButton(
+                onClick = onCheckIn, contentDescription = "$title 늦게라도 체크",
+                icon = Icons.Default.Check, containerColor = Chrome.amber,
+            )
+        status == TaskStatus.Missed && lockedByThis ->
+            FocusPlayButton(onClick = onCapture, contentDescription = "$title 지금 인증하기", icon = PixelIcons.Camera, iconScale = 0.45f)
+        status == TaskStatus.Done -> Box(
+            Modifier.size(52.dp).clip(CircleShape).background(Chrome.ice),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Default.Check, contentDescription = "완료", tint = Chrome.teal, modifier = Modifier.size(28.dp))
         }
-        FocusPlayButton(onClick = onStartNow, contentDescription = "$taskTitle 바로 시작")
+        else -> Spacer(Modifier.size(52.dp))
+    }
+}
+
+@Composable
+private fun StatusLine(text: String, icon: ImageVector, color: Color = Chrome.chromeIndigo) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(text, style = MaterialTheme.typography.labelLarge, color = color)
     }
 }
 
@@ -444,41 +618,40 @@ private data class BadgeStyle(val text: String, val icon: ImageVector, val conta
 
 @Composable
 private fun StatusBadge(status: TaskStatus) {
-    val colors = MaterialTheme.colorScheme
     val style = when (status) {
-        is TaskStatus.Upcoming -> BadgeStyle("시작 전", Icons.Default.DateRange, colors.surfaceVariant, colors.onSurfaceVariant)
-        is TaskStatus.RestDay -> BadgeStyle("쉬는 날", Icons.Default.Home, colors.surfaceVariant, colors.onSurfaceVariant)
-        is TaskStatus.InProgress -> BadgeStyle("진행 중", Icons.Default.PlayArrow, colors.secondaryContainer, colors.onSecondaryContainer)
-        TaskStatus.Done -> BadgeStyle("완료", Icons.Default.CheckCircle, colors.tertiaryContainer, colors.onTertiaryContainer)
-        TaskStatus.Missed -> BadgeStyle("놓침", Icons.Default.Warning, colors.errorContainer, colors.onErrorContainer)
-        TaskStatus.Disabled -> BadgeStyle("꺼짐", Icons.Default.Close, colors.surfaceVariant, colors.onSurfaceVariant)
+        is TaskStatus.Upcoming -> BadgeStyle("시작 전", PixelIcons.Hourglass, Chrome.sky, Chrome.carbon)
+        is TaskStatus.RestDay -> BadgeStyle("쉬는 날", Icons.Default.Home, Chrome.sky, Chrome.carbon)
+        is TaskStatus.InProgress -> BadgeStyle("진행 중", Icons.Default.PlayArrow, Chrome.amber, Chrome.carbon)
+        TaskStatus.Done -> BadgeStyle("완료", Icons.Default.CheckCircle, Chrome.ice, Chrome.teal)
+        TaskStatus.Missed -> BadgeStyle("놓침", Icons.Default.Warning, Chrome.redSoft, Chrome.redInk)
+        TaskStatus.Disabled -> BadgeStyle("꺼짐", Icons.Default.Close, Chrome.white, Chrome.hairline)
     }
     Pill(style.text, style.container, style.content, icon = style.icon)
 }
 
+/** 인증 방식·장소·사진 조건을 아이콘과 짧은 라벨로. 좁은 화면에서는 다음 줄로 넘긴다. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ConditionPills(task: TaskEntity) {
     // 사진 조건은 사진 인증 과제에만 의미가 있다
     val labels = if (task.verifyMethod == VerifyMethod.PHOTO) task.requiredLabels() else emptyList()
-    val colors = MaterialTheme.colorScheme
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         when (task.verifyMethod) {
-            VerifyMethod.TAP -> Pill("탭 체크", colors.surfaceContainerHigh, colors.onSurface, icon = Icons.Default.CheckCircle)
-            VerifyMethod.PHOTO -> Pill("사진 인증 · 잠금", colors.surfaceContainerHigh, colors.onSurface, icon = Icons.Default.Lock)
+            VerifyMethod.TAP -> Pill("탭 체크", Chrome.white, Chrome.carbon, icon = Icons.Default.CheckCircle)
+            VerifyMethod.PHOTO -> {
+                Pill("사진 인증", Chrome.white, Chrome.carbon, icon = PixelIcons.Camera)
+                if (task.locksOnMiss()) Pill("놓치면 잠금", Chrome.white, Chrome.redInk, icon = Icons.Default.Lock)
+            }
         }
         if (task.hasGeoFence()) {
-            Pill(
-                "${task.geoRadiusMeters!!.toInt()}m 이내",
-                colors.surfaceContainerHigh,
-                colors.onSurface,
-                icon = Icons.Default.LocationOn,
-            )
+            Pill("${task.geoRadiusMeters!!.toInt()}m 이내", Chrome.white, Chrome.carbon, icon = Icons.Default.LocationOn)
         }
         if (labels.isNotEmpty()) {
-            Pill(labels.joinToString(" · "), colors.surfaceContainerHigh, colors.onSurface, icon = Icons.Default.Search)
+            val text = if (labels.size <= 2) labels.joinToString(" · ") else "${labels.first()} 외 ${labels.size - 1}개"
+            Pill(text, Chrome.white, Chrome.carbon, icon = Icons.Default.Search)
         }
     }
 }

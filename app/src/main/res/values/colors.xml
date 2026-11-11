@@ -2,4 +2,7 @@
 <resources>
     <!-- 잠금 화면 배경과 같은 짙은 남색 (ui/theme/Theme.kt LockColors.background) -->
     <color name="ic_launcher_background">#151A33</color>
+    <!-- ui/theme/Theme.kt Chrome.canvas / Chrome.carbon -->
+    <color name="app_canvas">#8094C5</color>
+    <color name="app_header">#171E35</color>
 </resources>
