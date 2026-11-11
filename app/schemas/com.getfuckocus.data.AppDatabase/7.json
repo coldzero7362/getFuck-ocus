@@ -1,0 +1,220 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 7,
+    "identityHash": "5c993cd4e483568d7db6deb742849d11",
+    "entities": [
+      {
+        "tableName": "tasks",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `windowStartMinute` INTEGER NOT NULL, `durationMinutes` INTEGER NOT NULL, `geoLat` REAL, `geoLng` REAL, `geoRadiusMeters` REAL, `requiredLabel` TEXT, `minLabelConfidence` REAL NOT NULL, `enabled` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `startedAt` INTEGER, `repeatDays` INTEGER NOT NULL DEFAULT 127, `remindAtStart` INTEGER NOT NULL DEFAULT 1, `remindBeforeMinutes` INTEGER NOT NULL DEFAULT 15, `verifyMethod` TEXT NOT NULL DEFAULT 'PHOTO')",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "windowStartMinute",
+            "columnName": "windowStartMinute",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMinutes",
+            "columnName": "durationMinutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "geoLat",
+            "columnName": "geoLat",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "geoLng",
+            "columnName": "geoLng",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "geoRadiusMeters",
+            "columnName": "geoRadiusMeters",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "requiredLabel",
+            "columnName": "requiredLabel",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "minLabelConfidence",
+            "columnName": "minLabelConfidence",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enabled",
+            "columnName": "enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "startedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "repeatDays",
+            "columnName": "repeatDays",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "127"
+          },
+          {
+            "fieldPath": "remindAtStart",
+            "columnName": "remindAtStart",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "remindBeforeMinutes",
+            "columnName": "remindBeforeMinutes",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "15"
+          },
+          {
+            "fieldPath": "verifyMethod",
+            "columnName": "verifyMethod",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'PHOTO'"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "attempts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `taskId` INTEGER NOT NULL, `dayKey` TEXT NOT NULL, `capturedAt` INTEGER NOT NULL, `photoPath` TEXT NOT NULL, `latitude` REAL, `longitude` REAL, `labels` TEXT NOT NULL, `passed` INTEGER NOT NULL, `reasons` TEXT NOT NULL, `method` TEXT NOT NULL DEFAULT 'PHOTO')",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taskId",
+            "columnName": "taskId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dayKey",
+            "columnName": "dayKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "capturedAt",
+            "columnName": "capturedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "photoPath",
+            "columnName": "photoPath",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": false
+          },
+          {
+            "fieldPath": "labels",
+            "columnName": "labels",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "passed",
+            "columnName": "passed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reasons",
+            "columnName": "reasons",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "method",
+            "columnName": "method",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'PHOTO'"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_attempts_taskId_dayKey",
+            "unique": false,
+            "columnNames": [
+              "taskId",
+              "dayKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_attempts_taskId_dayKey` ON `${TABLE_NAME}` (`taskId`, `dayKey`)"
+          }
+        ],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5c993cd4e483568d7db6deb742849d11')"
+    ]
+  }
+}

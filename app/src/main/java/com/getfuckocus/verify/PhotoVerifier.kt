@@ -1,13 +1,9 @@
 package com.getfuckocus.verify
 
-import android.location.Location
-import android.os.Build
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.hasGeoFence
 import com.getfuckocus.data.requiredLabels
-import com.getfuckocus.task.TaskSchedule
 import kotlin.math.abs
-import kotlin.math.min
 
 /**
  * 과제 조건과 촬영 증거를 비교한다.
@@ -24,9 +20,7 @@ class PhotoVerifier {
         val capturedMillis = evidence.capturedAt.wallMillis
 
         // 1. 시간창
-        if (!inWindow) {
-            reasons += "지금은 인증 가능 시간이 아니에요 · ${TaskSchedule.describeWindow(task)}"
-        }
+        ConditionChecks.windowReason(task, inWindow)?.let { reasons += it }
 
         // 2. EXIF 교차검증: 파일에 기록된 촬영 시각이 셔터 시점과 크게 다르면 거부
         evidence.exif.dateTimeOriginalMillis?.let { exifMillis ->
@@ -35,27 +29,18 @@ class PhotoVerifier {
             }
         }
 
-        // 3. 위치
+        // 3. 위치 (탭 체크와 같은 판정) + 사진 EXIF 위치 교차검증
         if (task.hasGeoFence()) {
             val location = evidence.location
-            when {
-                location == null -> reasons += "위치를 확인할 수 없어요"
-                location.isMockLocation() -> reasons += "모의 위치는 인정되지 않아요"
-                // 위치 측정 시각(위성/네트워크 기준)과 기기 시계가 크게 다르면 시계 조작을 의심한다
-                abs(location.time - capturedMillis) > LOCATION_FRESHNESS_MS ->
-                    reasons += "위치 정보 시각이 촬영 시각과 맞지 않아요"
-                else -> {
-                    val distance = distanceMeters(location.latitude, location.longitude, task.geoLat!!, task.geoLng!!)
-                    val allowed = task.geoRadiusMeters!! + min(location.accuracy, MAX_ACCURACY_SLACK_M)
-                    if (distance > allowed) reasons += "지정한 장소에서 ${distance.toInt()}m 떨어져 있어요"
-                    if (evidence.exif.latitude != null && evidence.exif.longitude != null) {
-                        val exifGap = distanceMeters(
-                            evidence.exif.latitude, evidence.exif.longitude,
-                            location.latitude, location.longitude,
-                        )
-                        if (exifGap > EXIF_LOCATION_TOLERANCE_M) reasons += "사진 메타데이터의 위치가 일치하지 않아요"
-                    }
-                }
+            reasons += ConditionChecks.placeReasons(task, location, capturedMillis)
+            if (location != null && ConditionChecks.usable(location, capturedMillis) &&
+                evidence.exif.latitude != null && evidence.exif.longitude != null
+            ) {
+                val exifGap = ConditionChecks.distanceMeters(
+                    evidence.exif.latitude, evidence.exif.longitude,
+                    location.latitude, location.longitude,
+                )
+                if (exifGap > EXIF_LOCATION_TOLERANCE_M) reasons += "사진 메타데이터의 위치가 일치하지 않아요"
             }
         }
 
@@ -84,20 +69,8 @@ class PhotoVerifier {
         return if (reasons.isEmpty()) Verdict.Pass else Verdict.Fail(reasons)
     }
 
-    private fun distanceMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Float {
-        val result = FloatArray(1)
-        Location.distanceBetween(lat1, lng1, lat2, lng2, result)
-        return result[0]
-    }
-
-    private fun Location.isMockLocation(): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) isMock
-        else @Suppress("DEPRECATION") isFromMockProvider
-
     private companion object {
         const val EXIF_TIME_TOLERANCE_MS = 2 * 60 * 1000L
-        const val LOCATION_FRESHNESS_MS = 5 * 60 * 1000L
-        const val MAX_ACCURACY_SLACK_M = 50f
         const val EXIF_LOCATION_TOLERANCE_M = 50f
     }
 }

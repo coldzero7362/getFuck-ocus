@@ -49,7 +49,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.getfuckocus.container
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.getfuckocus.data.TaskEntity
+import com.getfuckocus.data.VerifyMethod
+import com.getfuckocus.data.locksOnMiss
+import com.getfuckocus.hasPermission
+import com.getfuckocus.verify.Verdict
 import com.getfuckocus.data.hasGeoFence
 import com.getfuckocus.data.requiredLabels
 import com.getfuckocus.lock.BlockerServiceStatus
@@ -107,6 +114,30 @@ fun TaskListScreen(
     val scope = rememberCoroutineScope()
     var confirmStart by remember { mutableStateOf<TaskEntity?>(null) }
 
+    // 탭 체크. 통과하면 카드가 곧바로 "완료"로 바뀌므로 따로 알리지 않고, 실패할 때만 이유를 보여 준다
+    var checkFailure by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
+    var waitingForLocation by remember { mutableStateOf<TaskEntity?>(null) }
+    fun runCheckIn(task: TaskEntity) = scope.launch {
+        val result = container.verificationFlow.checkIn(task)
+        (result.verdict as? Verdict.Fail)?.let { checkFailure = task.title to it.reasons }
+    }
+    val locationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        waitingForLocation?.let { task ->
+            if (granted) runCheckIn(task) else checkFailure = task.title to listOf("위치 권한이 없어 장소를 확인할 수 없어요")
+        }
+        waitingForLocation = null
+    }
+    fun checkIn(task: TaskEntity) {
+        if (task.hasGeoFence() && !context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            waitingForLocation = task
+            locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        } else {
+            runCheckIn(task)
+        }
+    }
+
     Scaffold(
         topBar = {
             FocusTopBar(
@@ -150,6 +181,7 @@ fun TaskListScreen(
                     lockedByThis = lock?.taskId == task.id,
                     streak = streaks[task.id] ?: 0,
                     onCapture = { onCapture(task.id) },
+                    onCheckIn = { checkIn(task) },
                     onEdit = { onEdit(task.id) },
                     onStartNow = { confirmStart = task },
                 )
@@ -170,9 +202,21 @@ fun TaskListScreen(
         ) {
             Text(
                 "'${task.title}'을(를) 지금 시작하면 ${TaskSchedule.formatMinute(deadline.hour * 60 + deadline.minute)}까지 " +
-                    "인증해야 해요. 못 하면 잠겨요. 오늘 정해진 시작 시각은 이번 한 번만 바뀌어요.",
+                    (if (task.locksOnMiss()) "인증해야 해요. 못 하면 잠겨요. " else "체크하면 돼요. ") +
+                    "오늘 정해진 시작 시각은 이번 한 번만 바뀌어요.",
                 style = MaterialTheme.typography.bodyMedium,
             )
+        }
+    }
+
+    checkFailure?.let { (title, reasons) ->
+        FocusDialog(
+            title = "'$title' 체크하지 못했어요",
+            onDismiss = { checkFailure = null },
+            confirmText = "확인",
+            onConfirm = { checkFailure = null },
+        ) {
+            reasons.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
         }
     }
 }
@@ -288,10 +332,12 @@ private fun TaskCard(
     lockedByThis: Boolean,
     streak: Int,
     onCapture: () -> Unit,
+    onCheckIn: () -> Unit,
     onEdit: () -> Unit,
     onStartNow: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
+    val tap = task.verifyMethod == VerifyMethod.TAP
     FocusCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onEdit,
@@ -322,7 +368,11 @@ private fun TaskCard(
                     style = MaterialTheme.typography.labelLarge,
                     color = colors.onSurfaceVariant,
                 )
-                FocusButton("촬영해서 인증", onClick = onCapture, modifier = Modifier.fillMaxWidth())
+                if (tap) {
+                    FocusButton("완료", onClick = onCheckIn, modifier = Modifier.fillMaxWidth(), icon = Icons.Default.CheckCircle)
+                } else {
+                    FocusButton("촬영해서 인증", onClick = onCapture, modifier = Modifier.fillMaxWidth())
+                }
             }
             is TaskStatus.Upcoming -> StartNowRow(
                 headline = formatStartsIn(now, status.startsAt),
@@ -334,7 +384,20 @@ private fun TaskCard(
                 taskTitle = task.title,
                 onStartNow = onStartNow,
             )
-            TaskStatus.Missed -> if (lockedByThis) {
+            // 탭 체크는 잠기지 않는 대신, 늦게라도 했으면 기록을 남길 수 있다 (기록 화면에는 "늦게 통과")
+            TaskStatus.Missed -> if (tap) {
+                Text(
+                    "마감이 지났어요. 늦었더라도 했다면 기록해 두세요",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.onSurfaceVariant,
+                )
+                FocusButton(
+                    "늦게라도 체크", onClick = onCheckIn,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = FocusButtonStyle.Tonal,
+                    icon = Icons.Default.CheckCircle,
+                )
+            } else if (lockedByThis) {
                 Text("지금 인증하면 잠금이 풀려요", style = MaterialTheme.typography.labelLarge, color = colors.error)
                 FocusButton(
                     "지금 인증하기", onClick = onCapture,
@@ -378,13 +441,17 @@ private fun StatusBadge(status: TaskStatus) {
 
 @Composable
 private fun ConditionPills(task: TaskEntity) {
-    val labels = task.requiredLabels()
-    if (!task.hasGeoFence() && labels.isEmpty()) return
+    // 사진 조건은 사진 인증 과제에만 의미가 있다
+    val labels = if (task.verifyMethod == VerifyMethod.PHOTO) task.requiredLabels() else emptyList()
     val colors = MaterialTheme.colorScheme
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        when (task.verifyMethod) {
+            VerifyMethod.TAP -> Pill("탭 체크", colors.surfaceContainerHigh, colors.onSurface, icon = Icons.Default.CheckCircle)
+            VerifyMethod.PHOTO -> Pill("사진 인증 · 잠금", colors.surfaceContainerHigh, colors.onSurface, icon = Icons.Default.Lock)
+        }
         if (task.hasGeoFence()) {
             Pill(
                 "${task.geoRadiusMeters!!.toInt()}m 이내",

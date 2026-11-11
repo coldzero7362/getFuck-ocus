@@ -7,14 +7,14 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [TaskEntity::class, AttemptEntity::class], version = 6, exportSchema = true)
+@Database(entities = [TaskEntity::class, AttemptEntity::class], version = 7, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
 
     companion object {
         fun build(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "getfocus.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
 
         /** 마감 시각(windowEndMinute) → 소요 시간(durationMinutes). SQLite 호환을 위해 테이블을 다시 만든다. */
@@ -77,6 +77,14 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tasks ADD COLUMN remindAtStart INTEGER NOT NULL DEFAULT 1")
                 db.execSQL("ALTER TABLE tasks ADD COLUMN remindBeforeMinutes INTEGER NOT NULL DEFAULT 15")
+            }
+        }
+
+        /** 인증 방식. 기존 과제와 기록은 모두 사진 인증이었다 */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN verifyMethod TEXT NOT NULL DEFAULT 'PHOTO'")
+                db.execSQL("ALTER TABLE attempts ADD COLUMN method TEXT NOT NULL DEFAULT 'PHOTO'")
             }
         }
     }

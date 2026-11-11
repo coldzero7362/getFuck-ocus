@@ -2,6 +2,7 @@ package com.getfuckocus.task
 
 import com.getfuckocus.data.TaskDao
 import com.getfuckocus.data.TaskEntity
+import com.getfuckocus.data.locksOnMiss
 import com.getfuckocus.lock.LockController
 import java.time.ZonedDateTime
 
@@ -19,7 +20,8 @@ suspend fun editFreezeReason(
     now: ZonedDateTime,
 ): String? {
     if (lock.current()?.taskId == task.id) return "이 과제 때문에 잠겨 있는 동안에는 조건을 바꿀 수 없어요"
-    if (!task.enabled) return null
+    // 잠기지 않는 과제(탭 체크)는 조건을 바꿔도 빠져나갈 잠금이 없으므로 막지 않는다
+    if (!task.enabled || !task.locksOnMiss()) return null
     val date = TaskSchedule.occurrenceContaining(task, now) ?: return null
     if (dao.passedOn(task.id, TaskSchedule.dayKey(date))) return null
     val deadline = TaskSchedule.deadline(task, date, now.zone)

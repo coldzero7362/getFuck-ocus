@@ -37,7 +37,21 @@ data class TaskEntity(
     /** 마감 몇 분 전에 알릴지. 0이면 알리지 않는다. */
     @ColumnInfo(defaultValue = "15")
     val remindBeforeMinutes: Int = 15,
+    /** 인증 방식. 탭 체크 과제는 잠금을 걸지 않는다 (놓쳐도 알림과 기록으로만 관리). */
+    @ColumnInfo(defaultValue = "PHOTO")
+    val verifyMethod: VerifyMethod = VerifyMethod.PHOTO,
 )
+
+enum class VerifyMethod {
+    /** 버튼 한 번으로 체크. 장소 조건이 있으면 위치도 확인한다. 약 먹기, 출퇴근처럼 가벼운 일과용. */
+    TAP,
+
+    /** 앱 카메라로 찍어서 인증. 시각·장소·사진 내용을 확인하고, 놓치면 잠근다. */
+    PHOTO,
+}
+
+/** 놓쳤을 때 잠금을 거는 과제인지. 지금은 사진 인증 과제만 잠근다. */
+fun TaskEntity.locksOnMiss(): Boolean = verifyMethod == VerifyMethod.PHOTO
 
 object RepeatDays {
     const val EVERY_DAY = 0b111_1111
