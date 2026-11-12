@@ -62,12 +62,13 @@ import com.getfuckocus.container
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.VerifyMethod
 import com.getfuckocus.data.hasGeoFence
-import com.getfuckocus.data.locksOnMiss
+import com.getfuckocus.data.MissAction
 import com.getfuckocus.data.requiredLabels
 import com.getfuckocus.hasPermission
 import com.getfuckocus.lock.BlockerServiceStatus
 import com.getfuckocus.lock.LockActivity
 import com.getfuckocus.lock.LockState
+import com.getfuckocus.lock.NagPolicy
 import com.getfuckocus.task.History
 import com.getfuckocus.task.PassIndex
 import com.getfuckocus.task.TaskSchedule
@@ -104,6 +105,7 @@ fun TaskListScreen(
     onAdd: () -> Unit,
     onEdit: (Long) -> Unit,
     onCapture: (Long) -> Unit,
+    onCheckScreen: (Long) -> Unit,
     onSettings: () -> Unit,
     onHistory: () -> Unit,
 ) {
@@ -130,7 +132,7 @@ fun TaskListScreen(
     val scope = rememberCoroutineScope()
     var confirmStart by remember { mutableStateOf<TaskEntity?>(null) }
 
-    // 탭 체크. 통과하면 카드가 곧바로 "완료"로 바뀌므로 따로 알리지 않고, 실패할 때만 이유를 보여 준다
+    // 탭·위치 체크는 홈에서 바로 한다. 통과하면 카드가 곧바로 "완료"로 바뀌므로 따로 알리지 않고, 실패할 때만 이유를 보여 준다
     var checkFailure by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
     var waitingForLocation by remember { mutableStateOf<TaskEntity?>(null) }
     fun runCheckIn(task: TaskEntity) = scope.launch {
@@ -145,12 +147,19 @@ fun TaskListScreen(
         }
         waitingForLocation = null
     }
-    fun checkIn(task: TaskEntity) {
-        if (task.hasGeoFence() && !context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
-            waitingForLocation = task
-            locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        } else {
-            runCheckIn(task)
+    /** 인증 방식에 맞게: 사진은 촬영 화면, NFC는 태그 화면, 탭·위치는 그 자리에서 체크 */
+    fun verify(task: TaskEntity) {
+        when (task.verifyMethod) {
+            VerifyMethod.PHOTO -> onCapture(task.id)
+            VerifyMethod.NFC -> onCheckScreen(task.id)
+            VerifyMethod.LOCATION ->
+                if (!context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    waitingForLocation = task
+                    locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                } else {
+                    runCheckIn(task)
+                }
+            VerifyMethod.TAP -> runCheckIn(task)
         }
     }
 
@@ -205,10 +214,12 @@ fun TaskListScreen(
             }
             when {
                 currentLock != null -> item {
+                    val lockTask = tasks.firstOrNull { it.id == currentLock.taskId }
                     LockHeroCard(
                         lock = currentLock,
+                        method = lockTask?.verifyMethod ?: VerifyMethod.PHOTO,
                         autoReleaseRemaining = container.lockController.autoReleaseRemaining(currentLock),
-                        onVerifyNow = { onCapture(currentLock.taskId) },
+                        onVerifyNow = { lockTask?.let(::verify) ?: onCapture(currentLock.taskId) },
                         onOpenLock = { context.startActivity(LockActivity.intent(context)) },
                     )
                 }
@@ -221,8 +232,7 @@ fun TaskListScreen(
                         streak = streaks[task.id] ?: 0,
                         onEdit = { onEdit(task.id) },
                         onStartNow = { confirmStart = task },
-                        onCapture = { onCapture(task.id) },
-                        onCheckIn = { checkIn(task) },
+                        onVerify = { verify(task) },
                     )
                 }
                 tasks.isNotEmpty() -> item { DaySummaryCard(entries) }
@@ -253,8 +263,7 @@ fun TaskListScreen(
                     now = now,
                     lockedByThis = currentLock?.taskId == task.id,
                     streak = streaks[task.id] ?: 0,
-                    onCapture = { onCapture(task.id) },
-                    onCheckIn = { checkIn(task) },
+                    onVerify = { verify(task) },
                     onEdit = { onEdit(task.id) },
                     onStartNow = { confirmStart = task },
                 )
@@ -275,7 +284,11 @@ fun TaskListScreen(
         ) {
             Text(
                 "'${task.title}'을(를) 지금 시작하면 ${TaskSchedule.formatMinute(deadline.hour * 60 + deadline.minute)}까지 " +
-                    (if (task.locksOnMiss()) "인증해야 해요. 못 하면 잠겨요. " else "체크하면 돼요. ") +
+                    when (task.missAction) {
+                        MissAction.LOCK -> "인증해야 해요. 못 하면 잠겨요. "
+                        MissAction.NAG -> "인증해야 해요. 못 하면 억제 화면이 떠요. "
+                        MissAction.NOTIFY -> "체크하면 돼요. "
+                    } +
                     "오늘 정해진 시작 시각은 이번 한 번만 바뀌어요.",
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -306,10 +319,9 @@ private fun HeroCard(
     streak: Int,
     onEdit: () -> Unit,
     onStartNow: () -> Unit,
-    onCapture: () -> Unit,
-    onCheckIn: () -> Unit,
+    onVerify: () -> Unit,
 ) {
-    val tap = task.verifyMethod == VerifyMethod.TAP
+    val method = task.verifyMethod
     val inProgress = status as? TaskStatus.InProgress
     val start = TaskSchedule.formatMinute(task.windowStartMinute)
     val end = TaskSchedule.formatMinute((task.windowStartMinute + task.durationMinutes) % (24 * 60))
@@ -379,13 +391,9 @@ private fun HeroCard(
             inProgress?.let { FocusProgressBar(it.progress) }
             ConditionPills(task)
             when {
-                inProgress != null && tap -> FocusButton(
-                    "완료 체크", onClick = onCheckIn,
-                    modifier = Modifier.fillMaxWidth(), icon = Icons.Default.CheckCircle, height = 56.dp,
-                )
                 inProgress != null -> FocusButton(
-                    "촬영해서 인증", onClick = onCapture,
-                    modifier = Modifier.fillMaxWidth(), icon = PixelIcons.Camera, height = 56.dp,
+                    method.actionLabel, onClick = onVerify,
+                    modifier = Modifier.fillMaxWidth(), icon = method.actionIcon, height = 56.dp,
                 )
                 else -> FocusButton(
                     "지금 바로 시작", onClick = onStartNow,
@@ -396,14 +404,16 @@ private fun HeroCard(
     }
 }
 
-/** 잠긴 동안의 맨 위 카드. 일반 홈과 같은 판 구조에 빨간 탭으로 잠금 상태만 바꿔 보여 준다. */
+/** 잠기거나 억제 화면이 걸린 동안의 맨 위 카드. 일반 홈과 같은 판 구조에 빨간 탭으로 상태만 바꿔 보여 준다. */
 @Composable
 private fun LockHeroCard(
     lock: LockState,
+    method: VerifyMethod,
     autoReleaseRemaining: Long,
     onVerifyNow: () -> Unit,
     onOpenLock: () -> Unit,
 ) {
+    val nag = lock.mode == MissAction.NAG
     FocusCard(
         modifier = Modifier.fillMaxWidth(),
         color = Chrome.platinum,
@@ -411,7 +421,12 @@ private fun LockHeroCard(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         Box(Modifier.fillMaxWidth().height(4.dp).background(Chrome.red))
-        FocusTab("잠금 중", icon = Icons.Default.Lock, container = Chrome.red, content = Chrome.white)
+        FocusTab(
+            if (nag) "억제 화면" else "잠금 중",
+            icon = lock.mode.icon,
+            container = Chrome.red,
+            content = Chrome.white,
+        )
         Column(
             Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -419,7 +434,8 @@ private fun LockHeroCard(
             Column {
                 Text(lock.taskTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
                 Text(
-                    "마감까지 인증하지 못해서 다른 앱이 잠겨 있어요",
+                    if (nag) "마감까지 인증하지 못해서 ${NagPolicy.INTERVAL_MS / 60_000}분마다 화면을 덮고 있어요"
+                    else "마감까지 인증하지 못해서 다른 앱이 잠겨 있어요",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Chrome.redInk,
                 )
@@ -437,14 +453,14 @@ private fun LockHeroCard(
                     label = "바로 푸는 법",
                     value = "인증하기",
                     caption = "늦어도 통과하면 해제",
-                    icon = PixelIcons.Camera,
+                    icon = method.icon,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
             }
-            // 앱 안에서는 잠금 화면을 거치지 않고 바로 촬영 화면으로 간다
+            // 앱 안에서는 잠금 화면을 거치지 않고 바로 인증한다
             FocusButton(
                 "지금 인증하고 해제", onClick = onVerifyNow,
-                modifier = Modifier.fillMaxWidth(), icon = PixelIcons.Camera, height = 56.dp,
+                modifier = Modifier.fillMaxWidth(), icon = method.actionIcon, height = 56.dp,
             )
             // 비상 해제와 긴급전화는 잠금 화면에만 있으므로 그리로 가는 길은 남겨 둔다
             FocusButton(
@@ -504,12 +520,12 @@ private fun TaskCard(
     now: ZonedDateTime,
     lockedByThis: Boolean,
     streak: Int,
-    onCapture: () -> Unit,
-    onCheckIn: () -> Unit,
+    onVerify: () -> Unit,
     onEdit: () -> Unit,
     onStartNow: () -> Unit,
 ) {
-    val tap = task.verifyMethod == VerifyMethod.TAP
+    // 카메라 없는 인증은 마감 뒤에도 늦은 체크로 기록할 수 있다 (사진은 잠겨 있을 때만 늦게 받는다)
+    val lateCheckable = task.verifyMethod != VerifyMethod.PHOTO
     FocusCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onEdit,
@@ -544,7 +560,7 @@ private fun TaskCard(
                 }
             }
             Spacer(Modifier.width(12.dp))
-            CardAction(task, status, tap, lockedByThis, onStartNow, onCapture, onCheckIn)
+            CardAction(task, status, lateCheckable, lockedByThis, onStartNow, onVerify)
         }
         ConditionPills(task)
         when (status) {
@@ -557,10 +573,14 @@ private fun TaskCard(
                 "오늘은 쉬는 날 · " + (status.nextStart?.let { formatStartsIn(now, it) } ?: "반복 요일이 없어요"),
                 Icons.Default.Home,
             )
-            // 탭 체크는 잠기지 않는 대신, 늦게라도 했으면 기록을 남길 수 있다 (기록 화면에는 "늦게 통과")
+            // 늦게라도 했으면 기록을 남길 수 있다 (기록 화면에는 "늦게 통과")
             TaskStatus.Missed -> when {
-                tap -> StatusLine("마감이 지났어요 · 했다면 늦게라도 체크해 두세요", Icons.Default.Warning)
-                lockedByThis -> StatusLine("지금 인증하면 잠금이 풀려요", Icons.Default.Lock, Chrome.redInk)
+                lockedByThis -> StatusLine(
+                    if (task.missAction == MissAction.NAG) "지금 인증하면 억제 화면이 멈춰요" else "지금 인증하면 잠금이 풀려요",
+                    task.missAction.icon,
+                    Chrome.redInk,
+                )
+                lateCheckable -> StatusLine("마감이 지났어요 · 했다면 늦게라도 체크해 두세요", Icons.Default.Warning)
                 else -> StatusLine("마감을 놓쳤어요", Icons.Default.Warning, Chrome.redInk)
             }
             TaskStatus.Done -> StatusLine("오늘 회차를 마쳤어요", Icons.Default.CheckCircle, Chrome.teal)
@@ -574,27 +594,30 @@ private fun TaskCard(
 private fun CardAction(
     task: TaskEntity,
     status: TaskStatus,
-    tap: Boolean,
+    lateCheckable: Boolean,
     lockedByThis: Boolean,
     onStartNow: () -> Unit,
-    onCapture: () -> Unit,
-    onCheckIn: () -> Unit,
+    onVerify: () -> Unit,
 ) {
     val title = task.title
+    val method = task.verifyMethod
+    // 픽셀 아이콘은 머티리얼 아이콘보다 꽉 차 보여서 조금 줄인다
+    val iconScale = if (method == VerifyMethod.PHOTO || method == VerifyMethod.NFC) 0.45f else null
     when {
         status is TaskStatus.Upcoming || status is TaskStatus.RestDay ->
             FocusPlayButton(onClick = onStartNow, contentDescription = "$title 바로 시작")
-        status is TaskStatus.InProgress && tap ->
-            FocusPlayButton(onClick = onCheckIn, contentDescription = "$title 완료 체크", icon = Icons.Default.Check)
-        status is TaskStatus.InProgress ->
-            FocusPlayButton(onClick = onCapture, contentDescription = "$title 촬영해서 인증", icon = PixelIcons.Camera, iconScale = 0.45f)
-        status == TaskStatus.Missed && tap ->
-            FocusPlayButton(
-                onClick = onCheckIn, contentDescription = "$title 늦게라도 체크",
-                icon = Icons.Default.Check, containerColor = Chrome.amber,
-            )
-        status == TaskStatus.Missed && lockedByThis ->
-            FocusPlayButton(onClick = onCapture, contentDescription = "$title 지금 인증하기", icon = PixelIcons.Camera, iconScale = 0.45f)
+        status is TaskStatus.InProgress -> VerifyPlayButton(
+            onClick = onVerify, contentDescription = "$title ${method.actionLabel}",
+            icon = method.actionIcon, iconScale = iconScale,
+        )
+        status == TaskStatus.Missed && lockedByThis -> VerifyPlayButton(
+            onClick = onVerify, contentDescription = "$title 지금 인증하기",
+            icon = method.actionIcon, iconScale = iconScale,
+        )
+        status == TaskStatus.Missed && lateCheckable -> VerifyPlayButton(
+            onClick = onVerify, contentDescription = "$title 늦게라도 체크",
+            icon = method.actionIcon, iconScale = iconScale, containerColor = Chrome.amber,
+        )
         status == TaskStatus.Done -> Box(
             Modifier.size(52.dp).clip(CircleShape).background(Chrome.ice),
             contentAlignment = Alignment.Center,
@@ -604,6 +627,21 @@ private fun CardAction(
         else -> Spacer(Modifier.size(52.dp))
     }
 }
+
+@Composable
+private fun VerifyPlayButton(
+    onClick: () -> Unit,
+    contentDescription: String,
+    icon: ImageVector,
+    iconScale: Float?,
+    containerColor: Color = Chrome.signal,
+) = FocusPlayButton(
+    onClick = onClick,
+    contentDescription = contentDescription,
+    icon = icon,
+    containerColor = containerColor,
+    iconScale = iconScale ?: 0.55f,
+)
 
 @Composable
 private fun StatusLine(text: String, icon: ImageVector, color: Color = Chrome.chromeIndigo) {
@@ -639,14 +677,10 @@ private fun ConditionPills(task: TaskEntity) {
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        when (task.verifyMethod) {
-            VerifyMethod.TAP -> Pill("탭 체크", Chrome.white, Chrome.carbon, icon = Icons.Default.CheckCircle)
-            VerifyMethod.PHOTO -> {
-                Pill("사진 인증", Chrome.white, Chrome.carbon, icon = PixelIcons.Camera)
-                if (task.locksOnMiss()) Pill("놓치면 잠금", Chrome.white, Chrome.redInk, icon = Icons.Default.Lock)
-            }
-        }
-        if (task.hasGeoFence()) {
+        Pill(task.verifyMethod.title, Chrome.white, Chrome.carbon, icon = task.verifyMethod.icon)
+        task.missAction.pillText?.let { Pill(it, Chrome.white, Chrome.redInk, icon = task.missAction.icon) }
+        // 탭 체크와 NFC는 장소를 보지 않는다
+        if (task.hasGeoFence() && (task.verifyMethod == VerifyMethod.PHOTO || task.verifyMethod == VerifyMethod.LOCATION)) {
             Pill("${task.geoRadiusMeters!!.toInt()}m 이내", Chrome.white, Chrome.carbon, icon = Icons.Default.LocationOn)
         }
         if (labels.isNotEmpty()) {

@@ -20,7 +20,7 @@ class LockActivity : ComponentActivity() {
             GetFocusTheme {
                 LockScreen(
                     onVerifyNow = { taskId ->
-                        startActivity(MainActivity.captureIntent(this, taskId))
+                        startActivity(MainActivity.verifyIntent(this, taskId))
                         finish()
                     },
                     onUnlocked = { finish() },

@@ -1,7 +1,17 @@
 package com.getfuckocus.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import com.getfuckocus.data.MissAction
+import com.getfuckocus.data.TaskEntity
+import com.getfuckocus.data.VerifyMethod
+import com.getfuckocus.lock.NagPolicy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,8 +69,14 @@ fun LockScreen(
     onUnlocked: () -> Unit,
     onEmergencyCall: (number: String) -> Unit,
 ) {
-    val lock = LocalContext.current.container.lockController
+    val container = LocalContext.current.container
+    val lock = container.lockController
     val state by lock.state.collectAsState()
+    // 억제 문구·이미지와 인증 방식은 과제에서 읽는다 (과제가 지워졌으면 기본 문구만 쓴다)
+    val task by produceState<TaskEntity?>(null, state?.taskId) {
+        value = state?.taskId?.let { container.taskDao.get(it) }
+    }
+    val nagImage = rememberNagImage(task?.nagImagePath)
     var autoRemaining by remember { mutableLongStateOf(SafetyPolicy.MAX_LOCK_DURATION_MS) }
     var emergencyRemaining by remember { mutableStateOf<Long?>(null) }
 
@@ -79,6 +95,8 @@ fun LockScreen(
         }
     }
     if (s == null) return
+    val nag = s.mode == MissAction.NAG
+    val method = task?.verifyMethod ?: VerifyMethod.PHOTO
 
     CompositionLocalProvider(LocalContentColor provides LockColors.content) {
         Column(
@@ -96,11 +114,37 @@ fun LockScreen(
                 modifier = Modifier.size(72.dp).clip(CircleShape).background(LockColors.badge).circleBevel(),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = LockColors.onBadge, modifier = Modifier.size(36.dp))
+                Icon(s.mode.icon, contentDescription = null, tint = LockColors.onBadge, modifier = Modifier.size(36.dp))
             }
-            Text("잠금 중", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+            Text(
+                if (nag) "아직 안 했어요" else "잠금 중",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+            )
 
-            // 잠금 사유: 어떤 과제 때문에 잠겼는지
+            // 억제 문구와 이미지: 화면에서 가장 크게 보여 지나치지 못하게 한다
+            nagImage?.let {
+                Image(
+                    it,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 260.dp)
+                        .aspectRatio(maxOf(it.width.toFloat() / it.height, 1f))
+                        .clip(ChromeShapes.panel),
+                )
+            }
+            Text(
+                task?.nagMessage?.takeIf { it.isNotBlank() } ?: DEFAULT_NAG_MESSAGE,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Black,
+                color = LockColors.content,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            // 사유: 어떤 과제 때문인지
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -108,22 +152,27 @@ fun LockScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text("잠금 사유", style = MaterialTheme.typography.labelMedium, color = LockColors.contentMuted)
+                Text(if (nag) "놓친 과제" else "잠금 사유", style = MaterialTheme.typography.labelMedium, color = LockColors.contentMuted)
                 Text("'${s.taskTitle}'", style = MaterialTheme.typography.titleMedium, color = LockColors.content)
-                Text("마감까지 인증하지 못했어요", style = MaterialTheme.typography.bodyMedium, color = LockColors.contentMuted)
+                Text(
+                    if (nag) "인증할 때까지 ${NagPolicy.INTERVAL_MS / 60_000}분마다 이 화면이 다시 떠요"
+                    else "마감까지 인증하지 못했어요",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = LockColors.contentMuted,
+                )
             }
 
-            AutoReleaseRing(autoRemaining)
-
             FocusButton(
-                "지금 인증하고 해제",
+                "지금 인증하고 끝내기",
                 onClick = { onVerifyNow(s.taskId) },
                 modifier = Modifier.fillMaxWidth(),
                 height = 60.dp,
-                icon = PixelIcons.Camera,
+                icon = method.actionIcon,
                 containerColor = LockColors.accent,
                 contentColor = LockColors.onAccent,
             )
+
+            AutoReleaseRing(autoRemaining)
 
             EmergencyUnlock(
                 remaining = emergencyRemaining,
@@ -160,7 +209,8 @@ fun LockScreen(
                     }
                 }
                 Text(
-                    "전화, 문자, 알람, 설정과 허용한 앱도 잠금 중에 쓸 수 있어요",
+                    if (nag) "뒤로 가기를 누르면 홈으로 나가요. 그사이 다른 앱을 쓸 수 있지만 몇 분 뒤 다시 덮어요"
+                    else "전화, 문자, 알람, 설정과 허용한 앱도 잠금 중에 쓸 수 있어요",
                     style = MaterialTheme.typography.bodySmall,
                     color = LockColors.contentMuted,
                 )

@@ -18,21 +18,21 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
-        val captureTaskId = intent.getLongExtra(EXTRA_CAPTURE_TASK_ID, 0L).takeIf { it > 0 }
+        val verifyTaskId = intent.getLongExtra(EXTRA_VERIFY_TASK_ID, 0L).takeIf { it > 0 }
         setContent {
             GetFocusTheme {
-                AppNavHost(startCaptureTaskId = captureTaskId)
+                AppNavHost(startVerifyTaskId = verifyTaskId)
             }
         }
     }
 
     companion object {
-        private const val EXTRA_CAPTURE_TASK_ID = "capture_task_id"
+        private const val EXTRA_VERIFY_TASK_ID = "capture_task_id"
 
-        /** 잠금 화면의 "지금 인증하기"에서 바로 촬영 화면을 연다. */
-        fun captureIntent(context: Context, taskId: Long): Intent =
+        /** 잠금·억제 화면의 "지금 인증하기"와 알림에서 그 과제의 인증 화면(촬영, 위치 체크, NFC)을 바로 연다. */
+        fun verifyIntent(context: Context, taskId: Long): Intent =
             Intent(context, MainActivity::class.java)
-                .putExtra(EXTRA_CAPTURE_TASK_ID, taskId)
+                .putExtra(EXTRA_VERIFY_TASK_ID, taskId)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
     }
 }

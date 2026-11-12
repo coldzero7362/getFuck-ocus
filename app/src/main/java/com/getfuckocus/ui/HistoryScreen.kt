@@ -395,14 +395,14 @@ private fun ResultPill(result: OccurrenceResult) {
 @Composable
 private fun AttemptRow(attempt: AttemptEntity) {
     val time = Instant.ofEpochMilli(attempt.capturedAt).atZone(ZoneId.systemDefault())
-    val tap = attempt.method == VerifyMethod.TAP
+    val photo = attempt.method == VerifyMethod.PHOTO
     Row(verticalAlignment = Alignment.CenterVertically) {
-        if (tap) TapMark(attempt.passed) else AttemptThumbnail(attempt.photoPath)
+        if (photo) AttemptThumbnail(attempt.photoPath) else MethodMark(attempt.method, attempt.passed)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 "${TaskSchedule.formatMinute(time.hour * 60 + time.minute)} · " +
-                    (if (tap) "탭 체크 " else "") + (if (attempt.passed) "통과" else "실패"),
+                    (if (photo) "" else "${attempt.method.title} ") + (if (attempt.passed) "통과" else "실패"),
                 style = MaterialTheme.typography.labelLarge,
                 color = if (attempt.passed) Chrome.teal else Chrome.redInk,
             )
@@ -414,9 +414,9 @@ private fun AttemptRow(attempt: AttemptEntity) {
     }
 }
 
-/** 탭 체크 기록: 사진 대신 같은 크기의 칸에 체크 표시 */
+/** 카메라 없는 인증 기록: 사진 대신 같은 크기의 칸에 방식 아이콘 (탭 체크는 체크 표시) */
 @Composable
-private fun TapMark(passed: Boolean) {
+private fun MethodMark(method: VerifyMethod, passed: Boolean) {
     Box(
         Modifier
             .size(52.dp)
@@ -425,8 +425,12 @@ private fun TapMark(passed: Boolean) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            if (passed) Icons.Default.CheckCircle else Icons.Default.Close,
-            contentDescription = if (passed) "탭 체크 통과" else "탭 체크 실패",
+            when {
+                !passed -> Icons.Default.Close
+                method == VerifyMethod.TAP -> Icons.Default.CheckCircle
+                else -> method.icon
+            },
+            contentDescription = "${method.title} ${if (passed) "통과" else "실패"}",
             tint = if (passed) Chrome.teal else Chrome.redInk,
             modifier = Modifier.size(28.dp),
         )

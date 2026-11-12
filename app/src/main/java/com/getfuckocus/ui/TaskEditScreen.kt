@@ -69,6 +69,15 @@ import com.getfuckocus.container
 import com.getfuckocus.data.RepeatDays
 import com.getfuckocus.data.TaskDao
 import com.getfuckocus.data.VerifyMethod
+import com.getfuckocus.data.MissAction
+import com.getfuckocus.data.allowedMissActions
+import com.getfuckocus.data.saveProblem
+import com.getfuckocus.lock.NagPolicy
+import com.getfuckocus.safety.SafetyPolicy
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.layout.ContentScale
 import java.time.DayOfWeek
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.requiredLabels
@@ -104,7 +113,7 @@ private const val DEFAULT_RADIUS_M = 150f
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
+fun TaskEditScreen(taskId: Long, onDone: () -> Unit, onAddTag: () -> Unit) {
     val context = LocalContext.current
     val container = context.container
     val scope = rememberCoroutineScope()
@@ -116,8 +125,14 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
     var startMinute by rememberSaveable { mutableIntStateOf(TaskSchedule.defaultStartMinute()) }
     var durationMinutes by rememberSaveable { mutableIntStateOf(TaskSchedule.DEFAULT_DURATION_MINUTES) }
     var repeatDays by rememberSaveable { mutableIntStateOf(RepeatDays.EVERY_DAY) }
-    // 새 과제는 가벼운 탭 체크로 시작한다. 잠금까지 걸고 싶은 일만 사진 인증으로 바꾼다
+    // 새 과제는 가벼운 탭 체크 + 알림만으로 시작한다. 꼭 지킬 일만 더 센 인증과 억제 화면·잠금으로 바꾼다
     var verifyMethod by rememberSaveable { mutableStateOf(VerifyMethod.TAP) }
+    var missAction by rememberSaveable { mutableStateOf(MissAction.NOTIFY) }
+    var nfcTagId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var nagMessage by rememberSaveable { mutableStateOf("") }
+    var nagImagePath by rememberSaveable { mutableStateOf<String?>(null) }
+    val nfcTags by remember { container.nfcTagDao.observeAll() }.collectAsState(initial = emptyList())
+    var importingImage by remember { mutableStateOf(false) }
     var remindAtStart by rememberSaveable { mutableStateOf(true) }
     var remindBeforeMinutes by rememberSaveable { mutableIntStateOf(15) }
     var notificationsGranted by remember {
@@ -157,6 +172,10 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
             remindAtStart = t.remindAtStart
             remindBeforeMinutes = t.remindBeforeMinutes
             verifyMethod = t.verifyMethod
+            missAction = t.missAction
+            nfcTagId = t.nfcTagId
+            nagMessage = t.nagMessage
+            nagImagePath = t.nagImagePath
             labels.clear()
             labels.addAll(t.requiredLabels())
             radiusMeters = t.geoRadiusMeters ?: DEFAULT_RADIUS_M
@@ -201,37 +220,74 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
         labelInput = ""
     }
 
+    // 장소는 사진·위치 인증에서만 본다 (탭 체크는 버튼 한 번, NFC는 태그가 놓인 자리가 곧 장소)
+    val usesPlace = verifyMethod == VerifyMethod.PHOTO || verifyMethod == VerifyMethod.LOCATION
+
+    fun selectMethod(method: VerifyMethod) {
+        verifyMethod = method
+        // 탭 체크는 잠글 수 없으므로 잠금이었으면 한 단계 낮춘다
+        if (missAction !in method.allowedMissActions()) missAction = MissAction.NAG
+        // NFC를 고르면 태그가 하나뿐일 때 바로 골라 둔다
+        if (method == VerifyMethod.NFC && nfcTagId == null) nfcTagId = nfcTags.singleOrNull()?.id
+    }
+
+    // 이번 편집에서 새로 넣은 이미지는 저장하지 않고 나가면 지운다
+    fun discardNewImage(path: String?) {
+        if (path != null && path != original?.nagImagePath) deleteNagImage(context, path)
+    }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        importingImage = true
+        scope.launch {
+            val imported = importNagImage(context, uri)
+            if (imported == null) {
+                message = "이미지를 불러오지 못했어요"
+            } else {
+                discardNewImage(nagImagePath)
+                nagImagePath = imported
+            }
+            importingImage = false
+        }
+    }
+
     fun save() {
         if (labelInput.isNotBlank() && !frozen) addLabel(labelInput)
         message = when {
             title.isBlank() -> "과제 이름을 입력하세요"
             durationMinutes !in 1..TaskSchedule.MAX_DURATION_MINUTES -> "소요 시간은 1분 이상이어야 해요"
             (repeatDays and RepeatDays.EVERY_DAY) == 0 -> "반복할 요일을 하나 이상 골라 주세요"
+            !frozen -> saveProblem(verifyMethod, hasGeoFence = geo != null, nfcTagId, missAction)
             else -> null
         }
         if (message != null) return
 
         val base = original ?: TaskEntity(title = "", windowStartMinute = 0, durationMinutes = 0)
         // 편집이 막힌 동안에는 이름만 바꾼다 (화면에서 막는 것과 별개로 저장 단계에서도 지킨다)
-        // 알림 설정은 잠금 조건이 아니므로 편집이 막힌 동안에도 바꿀 수 있다
-        val task = if (frozen) {
-            base.copy(title = title.trim(), remindAtStart = remindAtStart, remindBeforeMinutes = remindBeforeMinutes)
-        } else base.copy(
+        // 알림 설정과 억제 문구·이미지는 잠금 조건이 아니므로 편집이 막힌 동안에도 바꿀 수 있다
+        val shared = base.copy(
+            title = title.trim(),
             remindAtStart = remindAtStart,
             remindBeforeMinutes = remindBeforeMinutes,
+            nagMessage = nagMessage.trim(),
+            nagImagePath = nagImagePath,
+        )
+        val task = if (frozen) shared else shared.copy(
             verifyMethod = verifyMethod,
-            title = title.trim(),
+            missAction = missAction,
+            nfcTagId = if (verifyMethod == VerifyMethod.NFC) nfcTagId else null,
             windowStartMinute = startMinute,
             durationMinutes = durationMinutes,
             repeatDays = repeatDays,
-            geoLat = geo?.first,
-            geoLng = geo?.second,
-            geoRadiusMeters = if (geo != null) radiusMeters else null,
+            geoLat = geo?.first.takeIf { usesPlace },
+            geoLng = geo?.second.takeIf { usesPlace },
+            geoRadiusMeters = if (geo != null && usesPlace) radiusMeters else null,
             requiredLabel = labels.joinToString(", ").ifEmpty { null },
             enabled = enabled,
         )
         scope.launch {
             container.taskDao.upsert(task)
+            // 바꾼 이미지의 옛 파일은 저장한 뒤에 지운다
+            if (original?.nagImagePath != task.nagImagePath) deleteNagImage(context, original?.nagImagePath)
             onDone()
         }
     }
@@ -239,7 +295,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
     // 저장하지 않은 변경 감지: 불러온 직후(새 과제는 처음 값)를 기준으로 삼는다
     fun snapshot(): String = listOf(
         title, startMinute, durationMinutes, repeatDays, verifyMethod, remindAtStart, remindBeforeMinutes,
-        labels.toList(), labelInput, radiusMeters, geo, enabled,
+        labels.toList(), labelInput, radiusMeters, geo, enabled, missAction, nfcTagId, nagMessage, nagImagePath,
     ).toString()
     var baseline by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(loaded, taskId) {
@@ -317,44 +373,74 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                     placeholder = "예: 아침 운동",
                     modifier = Modifier.fillMaxWidth(),
                 )
-                SettingRow(title = "사용", description = "끄면 마감을 놓쳐도 잠기지 않아요") {
+                SettingRow(title = "사용", description = "끄면 알림도, 억제 화면도, 잠금도 멈춰요") {
                     FocusSwitch(checked = enabled, onCheckedChange = { enabled = it }, enabled = !frozen)
                 }
             }
 
             FocusPanel(title = "인증 방식", index = "02", modifier = Modifier.fillMaxWidth()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    MethodTile(
-                        title = "탭 체크",
-                        caption = "버튼 한 번",
-                        icon = Icons.Default.ThumbUp,
-                        selected = verifyMethod == VerifyMethod.TAP,
-                        enabled = !frozen,
-                        onClick = { verifyMethod = VerifyMethod.TAP },
-                        modifier = Modifier.weight(1f),
-                    )
-                    MethodTile(
-                        title = "사진 인증",
-                        caption = "놓치면 잠금",
-                        icon = PixelIcons.Camera,
-                        selected = verifyMethod == VerifyMethod.PHOTO,
-                        enabled = !frozen,
-                        onClick = { verifyMethod = VerifyMethod.PHOTO },
-                        modifier = Modifier.weight(1f),
-                    )
+                // 두 개씩 두 줄. 타일 이름 아래에 짧은 설명을 둔다
+                listOf(
+                    listOf(VerifyMethod.TAP to "버튼 한 번", VerifyMethod.PHOTO to "카메라로 찍기"),
+                    listOf(VerifyMethod.LOCATION to "정한 곳에서", VerifyMethod.NFC to "태그 찍기"),
+                ).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        row.forEach { (method, caption) ->
+                            MethodTile(
+                                title = method.title,
+                                caption = caption,
+                                icon = method.icon,
+                                selected = verifyMethod == method,
+                                enabled = !frozen,
+                                onClick = { selectMethod(method) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                 }
                 Text(
                     when (verifyMethod) {
                         VerifyMethod.TAP ->
-                            "버튼 한 번이나 알림의 \"완료\"로 체크해요. 놓쳐도 잠기지 않고 기록과 알림으로만 챙겨요. " +
-                                "약 먹기, 출퇴근 같은 일과에 맞아요."
+                            "버튼 한 번이나 알림의 \"완료\"로 체크해요. 약 먹기처럼 가벼운 일과에 맞아요."
                         VerifyMethod.PHOTO ->
-                            "앱 카메라로 찍어서 인증해요. 마감까지 인증하지 않으면 다른 앱이 잠겨요. " +
-                                "꼭 지키고 싶은 약속에 맞아요."
+                            "앱 카메라로 찍어서 인증해요. 장소와 사진에 보일 것도 정할 수 있어요."
+                        VerifyMethod.LOCATION ->
+                            "정해 둔 장소 근처에서 버튼을 눌러 체크해요. 출퇴근, 헬스장 가기에 맞아요. 아래에서 장소를 꼭 정해 주세요."
+                        VerifyMethod.NFC ->
+                            "등록한 NFC 태그를 폰에 대서 체크해요. 약통, 책상처럼 그 자리에 가야 하는 일에 맞아요."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = Chrome.chromeIndigo,
                 )
+
+                if (verifyMethod == VerifyMethod.NFC) {
+                    SubHeader("찍을 태그", "이 과제는 고른 태그로만 체크돼요")
+                    if (nfcTags.isEmpty()) {
+                        FocusNotice(
+                            "등록한 태그가 없어요. 먼저 태그를 등록해 주세요",
+                            tone = Tone.Warning,
+                            icon = PixelIcons.Nfc,
+                            actionLabel = "등록",
+                            onAction = onAddTag,
+                        )
+                    } else {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            nfcTags.forEach { tag ->
+                                FocusChip(
+                                    tag.name,
+                                    selected = nfcTagId == tag.id,
+                                    onClick = { nfcTagId = tag.id },
+                                    leadingIcon = if (nfcTagId == tag.id) Icons.Default.Check else null,
+                                    enabled = !frozen,
+                                )
+                            }
+                            FocusChip("새 태그", selected = false, onClick = onAddTag, leadingIcon = Icons.Default.Add, enabled = !frozen)
+                        }
+                    }
+                }
 
                 // 사진 조건은 사진 인증에만 쓴다. 탭 체크로 바꿔도 적어 둔 라벨은 지우지 않고 숨기기만 한다
                 if (verifyMethod == VerifyMethod.PHOTO) {
@@ -510,7 +596,11 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                 FocusNotice(
                     TaskSchedule.describeDays(repeatDays) + " · " +
                         TaskSchedule.describeWindow(startMinute, durationMinutes) +
-                        if (verifyMethod == VerifyMethod.PHOTO) " · 마감까지 인증하지 않으면 잠겨요" else "",
+                        when (missAction) {
+                            MissAction.LOCK -> " · 마감까지 인증하지 않으면 잠겨요"
+                            MissAction.NAG -> " · 마감까지 인증하지 않으면 억제 화면이 떠요"
+                            MissAction.NOTIFY -> ""
+                        },
                     tone = Tone.Info,
                     icon = PixelIcons.Clock,
                 )
@@ -543,11 +633,34 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                 }
             }
 
-            FocusPanel(
+            MissActionPanel(
+                method = verifyMethod,
+                missAction = missAction,
+                onMissAction = { missAction = it },
+                frozen = frozen,
+                nagMessage = nagMessage,
+                onNagMessage = { nagMessage = it.take(NAG_MESSAGE_MAX_LENGTH) },
+                nagImagePath = nagImagePath,
+                importingImage = importingImage,
+                onPickImage = {
+                    imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+                onRemoveImage = {
+                    discardNewImage(nagImagePath)
+                    nagImagePath = null
+                },
+            )
+
+            // 위치 인증은 장소가 꼭 있어야 하므로 늘 펼쳐 둔다
+            if (usesPlace) FocusPanel(
                 title = "장소 설정",
-                index = "04",
-                subtitle = if (geo != null) "지정됨 · 반경 ${radiusMeters.toInt()}m" else "선택 · 지정한 곳 근처에서만 통과해요",
-                expanded = placeOpen,
+                index = "05",
+                subtitle = when {
+                    geo != null -> "지정됨 · 반경 ${radiusMeters.toInt()}m"
+                    verifyMethod == VerifyMethod.LOCATION -> "필수 · 위치 인증은 여기서 체크해야 통과해요"
+                    else -> "선택 · 지정한 곳 근처에서만 통과해요"
+                },
+                expanded = placeOpen || verifyMethod == VerifyMethod.LOCATION,
                 onToggle = { placeExpanded = !placeOpen },
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -639,6 +752,8 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
                 confirmDelete = false
                 scope.launch {
                     container.taskDao.delete(toDelete)
+                    deleteNagImage(context, toDelete.nagImagePath)
+                    discardNewImage(nagImagePath)
                     onDone()
                 }
             },
@@ -659,6 +774,7 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit) {
             danger = true,
             onConfirm = {
                 confirmLeave = false
+                discardNewImage(nagImagePath)
                 onDone()
             },
         ) {
@@ -678,6 +794,99 @@ private fun SettingRow(title: String, description: String? = null, control: @Com
         }
         Spacer(Modifier.width(12.dp))
         control()
+    }
+}
+
+private const val NAG_MESSAGE_MAX_LENGTH = 60
+
+/** 놓쳤을 때 할 일과, 억제 화면·잠금 화면에 띄울 문구·이미지 */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MissActionPanel(
+    method: VerifyMethod,
+    missAction: MissAction,
+    onMissAction: (MissAction) -> Unit,
+    frozen: Boolean,
+    nagMessage: String,
+    onNagMessage: (String) -> Unit,
+    nagImagePath: String?,
+    importingImage: Boolean,
+    onPickImage: () -> Unit,
+    onRemoveImage: () -> Unit,
+) {
+    FocusPanel(title = "놓쳤을 때", index = "04", modifier = Modifier.fillMaxWidth()) {
+        val allowed = method.allowedMissActions()
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            MissAction.entries.forEach { action ->
+                FocusChip(
+                    action.title,
+                    selected = missAction == action,
+                    onClick = { onMissAction(action) },
+                    leadingIcon = action.icon,
+                    enabled = !frozen && action in allowed,
+                    modifier = Modifier.weight(1f),
+                    compact = true,
+                )
+            }
+        }
+        Text(
+            when (missAction) {
+                MissAction.NOTIFY -> "놓쳐도 막지 않아요. 알림과 기록으로만 챙겨요."
+                MissAction.NAG ->
+                    "놓치면 아래 문구와 이미지를 화면 가득 띄워요. 인증해야 멈추고, " +
+                        "그전까지는 다른 앱을 쓰다가도 ${NagPolicy.INTERVAL_MS / 60_000}분마다 다시 덮어요."
+                MissAction.LOCK ->
+                    "놓치면 인증할 때까지 허용한 앱 말고는 못 써요. 화면에는 아래 문구와 이미지가 떠요."
+            } + if (MissAction.LOCK !in allowed) " 탭 체크는 버튼 한 번으로 풀려서 앱 잠금은 고를 수 없어요." else "",
+            style = MaterialTheme.typography.bodySmall,
+            color = Chrome.chromeIndigo,
+        )
+        if (missAction != MissAction.NOTIFY) {
+            FocusNotice(
+                "긴급전화, ${SafetyPolicy.EMERGENCY_DELAY_MS / 60_000}분 비상 해제, " +
+                    "${SafetyPolicy.MAX_LOCK_DURATION_MS / 3_600_000}시간 자동 해제는 항상 쓸 수 있어요",
+                tone = Tone.Info,
+                icon = PixelIcons.Shield,
+            )
+            SubHeader("화면에 띄울 문구", "비워 두면 \"$DEFAULT_NAG_MESSAGE\"가 떠요")
+            FocusTextField(
+                nagMessage, onNagMessage,
+                label = "문구",
+                placeholder = DEFAULT_NAG_MESSAGE,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            SubHeader("화면에 띄울 이미지", "선택 · 동기부여 사진이나 목표 이미지를 골라 보세요")
+            val image = rememberNagImage(nagImagePath, maxSide = 480)
+            if (image != null) {
+                Image(
+                    image,
+                    contentDescription = "고른 이미지",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth().height(160.dp).clip(ChromeShapes.small),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                FocusButton(
+                    when {
+                        importingImage -> "불러오는 중…"
+                        nagImagePath == null -> "이미지 고르기"
+                        else -> "바꾸기"
+                    },
+                    onClick = onPickImage,
+                    modifier = Modifier.weight(1f),
+                    style = FocusButtonStyle.Outline,
+                    icon = Icons.Default.Add,
+                    height = 48.dp,
+                    enabled = !importingImage,
+                )
+                if (nagImagePath != null) {
+                    FocusButton(
+                        "없애기", onClick = onRemoveImage,
+                        style = FocusButtonStyle.Ghost, height = 48.dp,
+                    )
+                }
+            }
+        }
     }
 }
 

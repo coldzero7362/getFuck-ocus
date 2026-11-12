@@ -2,12 +2,13 @@ package com.getfuckocus.verify
 
 import android.location.Location
 import android.os.Build
+import com.getfuckocus.data.NfcTagEntity
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.task.TaskSchedule
 import kotlin.math.abs
 import kotlin.math.min
 
-/** 사진 인증과 탭 체크가 함께 쓰는 판정: 시간창과 장소. */
+/** 인증 방식들이 함께 쓰는 판정: 시간창, 장소, NFC 태그. */
 object ConditionChecks {
     private const val LOCATION_FRESHNESS_MS = 5 * 60 * 1000L
     private const val MAX_ACCURACY_SLACK_M = 50f
@@ -37,6 +38,16 @@ object ConditionChecks {
                 if (distance > allowed) listOf("지정한 장소에서 ${distance.toInt()}m 떨어져 있어요") else emptyList()
             }
         }
+    }
+
+    /**
+     * NFC 인증 판정. [expected]는 과제에 고른 태그 (지워졌으면 null), [scannedUid]는 방금 찍은 태그 ID.
+     */
+    fun tagReason(expected: NfcTagEntity?, scannedUid: String?): String? = when {
+        expected == null -> "이 과제에 고른 태그를 찾을 수 없어요. 과제 편집에서 태그를 다시 골라 주세요"
+        scannedUid == null -> "태그를 찍지 않았어요"
+        scannedUid != expected.uid -> "'${expected.name}' 태그가 아니에요. 이 과제에 고른 태그를 찍어 주세요"
+        else -> null
     }
 
     fun distanceMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Float {

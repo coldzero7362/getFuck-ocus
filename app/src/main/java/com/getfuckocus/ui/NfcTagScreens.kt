@@ -34,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -82,6 +83,7 @@ private val REGISTERED_FORMAT = DateTimeFormatter.ofPattern("yyyy.M.d 등록")
 @Composable
 fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
     val dao = LocalContext.current.container.nfcTagDao
+    val taskDao = LocalContext.current.container.taskDao
     val tags by remember { dao.observeAll() }.collectAsState(initial = null)
     val scope = rememberCoroutineScope()
     var confirmDelete by remember { mutableStateOf<NfcTagEntity?>(null) }
@@ -122,6 +124,25 @@ fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
     }
 
     confirmDelete?.let { tag ->
+        // 과제가 쓰는 태그를 지우면 그 과제를 인증할 방법이 사라지므로 먼저 과제에서 바꾸게 한다
+        val usedBy by produceState<List<String>?>(null, tag) { value = taskDao.titlesUsingTag(tag.id) }
+        val users = usedBy ?: return@let
+        if (users.isNotEmpty()) {
+            FocusDialog(
+                title = "'${tag.name}' 태그는 지울 수 없어요",
+                onDismiss = { confirmDelete = null },
+                confirmText = "확인",
+                dismissText = "닫기",
+                onConfirm = { confirmDelete = null },
+            ) {
+                Text(
+                    "${users.joinToString(", ") { "'$it'" }} 과제에서 쓰는 중이에요. " +
+                        "과제 편집에서 다른 태그나 인증 방식으로 바꾼 뒤 지워 주세요.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            return@let
+        }
         FocusDialog(
             title = "'${tag.name}' 태그를 지울까요?",
             onDismiss = { confirmDelete = null },

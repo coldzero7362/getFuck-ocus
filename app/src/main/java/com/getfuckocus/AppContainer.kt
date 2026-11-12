@@ -25,6 +25,6 @@ class AppContainer(context: Context) {
     val deadlineEvaluator = DeadlineEvaluator(taskDao, lockController, deviceClock)
     val deadlineScheduler = DeadlineScheduler(appContext)
     val evidenceCollector = EvidenceCollector(appContext, deviceClock)
-    val verificationFlow = VerificationFlow(taskDao, evidenceCollector, PhotoVerifier(), lockController, deviceClock)
+    val verificationFlow = VerificationFlow(taskDao, nfcTagDao, evidenceCollector, PhotoVerifier(), lockController, deviceClock)
     val photoRetention = PhotoRetention(taskDao)
 }
