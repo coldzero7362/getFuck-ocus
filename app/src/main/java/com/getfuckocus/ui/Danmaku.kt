@@ -1,9 +1,12 @@
 package com.getfuckocus.ui
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -39,52 +42,67 @@ sealed interface Flyer {
     /** 화면 높이 중 어디쯤 지나갈지 (0 위 ~ 1 아래) */
     val lane: Float
     val startDelayMs: Long
-    val durationMs: Long
+    /** 1초에 몇 dp씩 지나갈지. 크기와 상관없이 정해서 큰 글자도 빨리 지나갈 수 있다 */
+    val speedDpPerSec: Float
 
     data class Text(
         override val id: Long, val text: String, val sizeSp: Float,
-        override val lane: Float, override val startDelayMs: Long, override val durationMs: Long,
+        override val lane: Float, override val startDelayMs: Long, override val speedDpPerSec: Float,
     ) : Flyer
 
     data class Picture(
         override val id: Long, val path: String, val heightDp: Float,
-        override val lane: Float, override val startDelayMs: Long, override val durationMs: Long,
+        override val lane: Float, override val startDelayMs: Long, override val speedDpPerSec: Float,
     ) : Flyer
 }
 
-/** 한 번(1분마다 한 번)에 흘려보낼 것들을 정한다. 설정한 문구와 사진이 모두 한 번씩, 크기는 제각각으로. */
+/**
+ * 한 번(1분마다 한 번)에 흘려보낼 것들을 정한다.
+ * 설정한 문구·사진마다 1~[MAX_COPIES]개씩 복제해서, 같은 문구가 여러 개 동시에 지나갈 수 있다.
+ * 복제본도 저마다 크기·높이·출발 시각·속도가 다르다. 크기와 속도는 아래 상한을 넘지 않는다.
+ */
 object DanmakuPlan {
-    val TEXT_SIZE_SP = 18f..52f
-    val PICTURE_HEIGHT_DP = 80f..190f
-    val DURATION_MS = 6_000L..11_000L
-    const val MAX_START_DELAY_MS = 8_000L
+    const val MAX_COPIES = 5
+    const val MIN_TEXT_SIZE_SP = 16f
+    const val MAX_TEXT_SIZE_SP = 56f
+    const val MIN_PICTURE_HEIGHT_DP = 70f
+    const val MAX_PICTURE_HEIGHT_DP = 200f
+    const val MIN_SPEED_DP_PER_SEC = 70f
+    const val MAX_SPEED_DP_PER_SEC = 360f
+    const val MAX_START_DELAY_MS = 10_000L
     /** 화면 맨 위·맨 아래에 붙지 않게 */
     val LANE = 0.04f..0.92f
 
     fun wave(texts: List<String>, pictures: List<String>, random: Random, idStart: Long = 0): List<Flyer> {
         var id = idStart
-        val items = texts.ifEmpty { listOf(DEFAULT_NAG_MESSAGE) }.map { text ->
-            Flyer.Text(
-                id = id++, text = text,
-                sizeSp = random.nextFloat(TEXT_SIZE_SP),
-                lane = random.nextFloat(LANE),
-                startDelayMs = random.nextLong(0, MAX_START_DELAY_MS + 1),
-                durationMs = random.nextLong(DURATION_MS.first, DURATION_MS.last + 1),
-            )
-        } + pictures.map { path ->
-            Flyer.Picture(
-                id = id++, path = path,
-                heightDp = random.nextFloat(PICTURE_HEIGHT_DP),
-                lane = random.nextFloat(LANE),
-                startDelayMs = random.nextLong(0, MAX_START_DELAY_MS + 1),
-                durationMs = random.nextLong(DURATION_MS.first, DURATION_MS.last + 1),
-            )
+        fun copies() = random.nextInt(1, MAX_COPIES + 1)
+        fun delay() = random.nextLong(0, MAX_START_DELAY_MS + 1)
+        fun speed() = random.nextFloat(MIN_SPEED_DP_PER_SEC, MAX_SPEED_DP_PER_SEC)
+        val items = texts.ifEmpty { listOf(DEFAULT_NAG_MESSAGE) }.flatMap { text ->
+            List(copies()) {
+                Flyer.Text(
+                    id = id++, text = text,
+                    sizeSp = random.nextFloat(MIN_TEXT_SIZE_SP, MAX_TEXT_SIZE_SP),
+                    lane = random.nextFloat(LANE.start, LANE.endInclusive),
+                    startDelayMs = delay(),
+                    speedDpPerSec = speed(),
+                )
+            }
+        } + pictures.flatMap { path ->
+            List(copies()) {
+                Flyer.Picture(
+                    id = id++, path = path,
+                    heightDp = random.nextFloat(MIN_PICTURE_HEIGHT_DP, MAX_PICTURE_HEIGHT_DP),
+                    lane = random.nextFloat(LANE.start, LANE.endInclusive),
+                    startDelayMs = delay(),
+                    speedDpPerSec = speed(),
+                )
+            }
         }
         return items.shuffled(random)
     }
 
-    private fun Random.nextFloat(range: ClosedFloatingPointRange<Float>) =
-        range.start + nextFloat() * (range.endInclusive - range.start)
+    private fun Random.nextFloat(min: Float, max: Float) = min + nextFloat() * (max - min)
 }
 
 /**
@@ -108,30 +126,39 @@ fun DanmakuLayer(texts: List<String>, pictures: List<String>, modifier: Modifier
                     launch {
                         delay(flyer.startDelayMs)
                         active += flyer
-                        delay(flyer.durationMs + 200)
-                        active -= flyer
                     }
                 }
                 delay(DANMAKU_INTERVAL_MS)
             }
         }
         active.forEach { flyer ->
-            key(flyer.id) { FlyingItem(flyer, widthPx, heightPx) }
+            key(flyer.id) { FlyingItem(flyer, widthPx, heightPx, onGone = { active -= flyer }) }
         }
     }
 }
 
+/** 정해진 속도로 왼쪽 화면 밖에서 오른쪽 화면 밖까지 지나가고, 다 빠져나가면 [onGone]을 부른다 */
 @Composable
-private fun FlyingItem(flyer: Flyer, containerWidth: Int, containerHeight: Int) {
-    val progress = remember { Animatable(0f) }
+private fun FlyingItem(flyer: Flyer, containerWidth: Int, containerHeight: Int, onGone: () -> Unit) {
+    val speedPx = with(LocalDensity.current) { flyer.speedDpPerSec.dp.toPx() }
+    // 지나온 거리(px). 크기를 재기 전에도 계속 늘어나고, 화면 밖으로 다 나가면 멈춘다
+    var travelled by remember { mutableFloatStateOf(0f) }
+    var itemWidth by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
-        progress.animateTo(1f, tween(flyer.durationMs.toInt(), easing = LinearEasing))
+        val start = withFrameNanos { it }
+        while (true) {
+            val now = withFrameNanos { it }
+            travelled = (now - start) / 1_000_000_000f * speedPx
+            if (itemWidth > 0 && travelled > containerWidth + itemWidth) break
+        }
+        onGone()
     }
-    // 왼쪽 화면 밖에서 시작해 오른쪽 화면 밖으로 나간다. 위치는 그리기 직전(배치 단계)에만 읽어 다시 짜지 않는다
+    // 위치는 그리기 직전(배치 단계)에만 읽어 화면을 다시 짜지 않는다
     val flight = Modifier.layout { measurable, _ ->
         val placeable = measurable.measure(Constraints())
+        itemWidth = placeable.width
         layout(placeable.width, placeable.height) {
-            val x = -placeable.width + (containerWidth + placeable.width) * progress.value
+            val x = -placeable.width + travelled
             val y = (containerHeight - placeable.height).coerceAtLeast(0) * flyer.lane
             placeable.place(x.roundToInt(), y.roundToInt())
         }

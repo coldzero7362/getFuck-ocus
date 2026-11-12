@@ -48,8 +48,12 @@ class AppBlockerService : AccessibilityService() {
         val packageName = event.packageName?.toString() ?: return
         lastForeground = packageName
         enforce(packageName)
-        if (::overlay.isInitialized) overlay.setHidden(packageName in container.whitelist.safetyPackages())
+        if (::overlay.isInitialized) overlay.setHidden(hideOverlayOver(packageName))
     }
+
+    /** 전화·설정 화면, 그리고 이 앱 안(인증 화면에는 자기 흘러가는 층이 따로 있다)에서는 띄우지 않는다 */
+    private fun hideOverlayOver(packageName: String?): Boolean =
+        packageName == this.packageName || packageName in container.whitelist.safetyPackages()
 
     private fun enforce(packageName: String) {
         val lock = container.lockController.current() ?: return
@@ -72,7 +76,7 @@ class AppBlockerService : AccessibilityService() {
             // 그사이 풀렸으면 띄우지 않는다
             if (container.lockController.current()?.taskId != lock.taskId) return@launch
             overlay.show(task?.nagMessages().orEmpty(), task?.nagImagePaths().orEmpty())
-            overlay.setHidden(lastForeground in container.whitelist.safetyPackages())
+            overlay.setHidden(hideOverlayOver(lastForeground))
         }
     }
 
