@@ -10,6 +10,8 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.view.MotionEvent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -147,6 +149,16 @@ fun PlacePickerScreen(initial: PickedPlace?, onPicked: (PickedPlace) -> Unit, on
     var locating by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<LocationError?>(null) }
     var confirming by remember { mutableStateOf(false) }
+    var dragging by remember { mutableStateOf(false) }
+    // 손을 떼도 지도가 미끄러지는 동안은 숨겨 두었다가 잠깐 뒤에 다시 보인다
+    var guideHidden by remember { mutableStateOf(false) }
+    LaunchedEffect(dragging) {
+        if (dragging) guideHidden = true
+        else {
+            delay(GUIDE_RETURN_MS)
+            guideHidden = false
+        }
+    }
 
     val circle = remember { mutableStateOf<Polygon?>(null) }
     val mapView = remember { createMapView(context, center) }
@@ -178,8 +190,18 @@ fun PlacePickerScreen(initial: PickedPlace?, onPicked: (PickedPlace) -> Unit, on
             }
         }
         mapView.addMapListener(listener)
+        // 손가락이 지도에 닿아 있는 동안을 알아 둔다 (안내 문구를 잠깐 숨기려고). 터치는 그대로 지도에 넘긴다
+        @Suppress("ClickableViewAccessibility")
+        mapView.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> dragging = true
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dragging = false
+            }
+            false
+        }
         redrawCircle()
         onDispose {
+            mapView.setOnTouchListener(null)
             mapView.removeMapListener(listener)
             mapView.onDetach()
         }
@@ -271,7 +293,7 @@ fun PlacePickerScreen(initial: PickedPlace?, onPicked: (PickedPlace) -> Unit, on
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             ) {
                 AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
-                MapGuide(Modifier.align(Alignment.TopStart).padding(8.dp))
+                MapGuide(hidden = guideHidden, modifier = Modifier.align(Alignment.TopStart).padding(8.dp))
                 CenterPin(Modifier.align(Alignment.Center))
                 MyLocationButton(
                     loading = locating,
@@ -357,16 +379,30 @@ private fun PowerLed(busy: Boolean) {
     )
 }
 
-/** 지도 화면 위 안내: 각진 카본 꼬리표 (경고·행동색이 아니라 차가운 하늘색 글자) */
+/** 안내 문구 평소 불투명도. 뒤의 지도가 비쳐 보이게 반투명으로 둔다 */
+private const val GUIDE_ALPHA = 0.7f
+/** 손을 뗀 뒤 안내 문구가 다시 나타나기까지 */
+private const val GUIDE_RETURN_MS = 500L
+
+/**
+ * 지도 화면 위 안내: 각진 카본 꼬리표 (경고·행동색이 아니라 차가운 하늘색 글자).
+ * 평소에는 반투명하고, 지도를 끄는 동안에는 가리지 않게 사라진다.
+ */
 @Composable
-private fun MapGuide(modifier: Modifier = Modifier) {
+private fun MapGuide(hidden: Boolean, modifier: Modifier = Modifier) {
+    val alpha by animateFloatAsState(
+        if (hidden) 0f else GUIDE_ALPHA,
+        animationSpec = tween(if (hidden) 120 else 250),
+        label = "guideAlpha",
+    )
     Text(
         "지도를 움직여 원하는 위치를 선택하세요",
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
         color = Chrome.sky,
         modifier = modifier
-            .background(Chrome.carbon.copy(alpha = 0.85f), ChromeShapes.control)
+            .graphicsLayer { this.alpha = alpha }
+            .background(Chrome.carbon, ChromeShapes.control)
             .padding(horizontal = 8.dp, vertical = 5.dp),
     )
 }
