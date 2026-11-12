@@ -73,6 +73,7 @@ import com.getfuckocus.ui.components.FocusTopBar
 import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.ChromeShapes
 import com.getfuckocus.ui.theme.recessed
+import com.getfuckocus.ui.theme.DigitStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -129,22 +130,38 @@ private fun StreakPanel(tasks: List<TaskEntity>, now: ZonedDateTime, passes: Pas
         if (tasks.isEmpty()) {
             Text("아직 과제가 없어요", style = MaterialTheme.typography.bodyMedium)
         }
-        tasks.forEach { task ->
-            val streak = History.streak(task, now, passes)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    task.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Pill(
-                    "${streak}일 연속",
-                    if (streak > 0) Chrome.amber else Chrome.white,
-                    Chrome.carbon,
-                    icon = Icons.Default.Star,
-                )
+        // 과제마다 판에 파인 줄 하나씩. 앞에 순번을 달아 목록처럼 읽히게 한다
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            tasks.forEachIndexed { index, task ->
+                val streak = History.streak(task, now, passes)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .recessed(Chrome.platinum)
+                        .padding(start = 12.dp, top = 10.dp, end = 10.dp, bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "%02d".format(index + 1),
+                        style = DigitStyle.copy(fontSize = MaterialTheme.typography.labelLarge.fontSize),
+                        color = Chrome.chromeIndigo,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        task.title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Pill(
+                        "${streak}일 연속",
+                        if (streak > 0) Chrome.amber else Chrome.white,
+                        Chrome.carbon,
+                        icon = Icons.Default.Star,
+                    )
+                }
             }
         }
     }
