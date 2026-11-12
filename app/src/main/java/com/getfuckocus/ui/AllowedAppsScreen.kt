@@ -189,14 +189,14 @@ private fun AppRow(app: InstalledApp, checked: Boolean, onToggle: (Boolean) -> U
     ) {
         AppIcon(app.packageName)
         Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(app.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                if (checked) "잠금 중에도 열 수 있어요" else "잠금 중에는 막혀요",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (checked) Chrome.teal else Chrome.chromeIndigo,
-            )
-        }
+        // 켜고 끈 상태는 스위치로 충분히 보이므로 설명 줄은 두지 않는다
+        Text(
+            app.label,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
         Spacer(Modifier.width(12.dp))
         FocusSwitch(checked = checked, onCheckedChange = onToggle)
     }
