@@ -107,6 +107,9 @@ import com.getfuckocus.ui.components.Tone
 import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.ChromeShapes
 import com.getfuckocus.ui.theme.DigitStyle
+import com.getfuckocus.ui.theme.recessed
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.basicMarquee
 import com.getfuckocus.ui.theme.PixelIcons
 import com.getfuckocus.ui.theme.halftone
 import kotlinx.coroutines.launch
@@ -945,16 +948,7 @@ private fun MissActionPanel(
                 "첫 문구는 가운데 크게, 모두 ${DANMAKU_INTERVAL_MS / 60_000}분마다 화면을 가로질러 지나가요 · " +
                     "비워 두면 \"$DEFAULT_NAG_MESSAGE\"",
             )
-            if (nagMessages.isNotEmpty()) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    nagMessages.forEach { text ->
-                        FocusChip(text, selected = true, onClick = { onRemoveNagMessage(text) }, trailingIcon = Icons.Default.Close)
-                    }
-                }
-            }
+            // 입력칸을 위에 두고, 넣은 문구는 그 아래에 한 줄씩 쌓는다
             if (nagMessages.size < NagContent.MAX_MESSAGES) {
                 FocusTextField(
                     nagInput, onNagInput,
@@ -973,6 +967,13 @@ private fun MissActionPanel(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+            if (nagMessages.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    nagMessages.forEachIndexed { index, text ->
+                        NagMessageRow(index + 1, text, onRemove = { onRemoveNagMessage(text) })
+                    }
+                }
             }
 
             SubHeader("흘러갈 사진", "선택 · 최대 ${NagContent.MAX_IMAGES}장 · 문구와 함께 크기가 제각각으로 지나가요")
@@ -996,6 +997,40 @@ private fun MissActionPanel(
                 )
             }
         }
+    }
+}
+
+/**
+ * 넣은 문구 한 줄: 판에 파인 칸에 순번 + 문구 + 빼기 버튼.
+ * 칸보다 긴 문구는 글자가 천천히 옆으로 흘러가며 가려진 뒷부분까지 되풀이해 보여 준다.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun NagMessageRow(number: Int, text: String, onRemove: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .recessed(Chrome.platinum)
+            .padding(start = 12.dp, top = 4.dp, end = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "%02d".format(number),
+            style = DigitStyle.copy(fontSize = MaterialTheme.typography.labelLarge.fontSize),
+            color = Chrome.chromeIndigo,
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = Chrome.carbon,
+            maxLines = 1,
+            modifier = Modifier
+                .weight(1f)
+                .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = 1_200, initialDelayMillis = 1_000),
+        )
+        FocusIconButton(Icons.Default.Close, contentDescription = "'$text' 빼기", onClick = onRemove, tint = Chrome.chromeIndigo)
     }
 }
 
