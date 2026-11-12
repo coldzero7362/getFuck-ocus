@@ -509,7 +509,8 @@ private val PIN_PIXELS = listOf(
     ".....KOK.....",
     "......K......",
 )
-private val PIN_PIXEL = 3.5.dp
+/** 도트 한 칸 크기. 처음 3.5dp에서 0.75배로 줄였다 */
+private val PIN_PIXEL = 2.625.dp
 
 /**
  * 가운데 고정 핀. 옛 게임기 화면처럼 네모 픽셀로 찍는다.
