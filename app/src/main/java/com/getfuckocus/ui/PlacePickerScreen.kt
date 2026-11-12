@@ -458,7 +458,7 @@ private fun CommandBar(
     }
 }
 
-/** 반경 버튼. 넓은 화면은 한 줄, 좁은 화면(360dp 미만)은 3 + 2 두 줄. 선택된 것은 색과 체크 표시로 함께 구분한다 */
+/** 반경 버튼. 넓은 화면은 한 줄, 좁은 화면(330dp 미만)은 3 + 2 두 줄. 선택된 것은 앰버 판으로 튀어나와 구분된다 */
 @Composable
 private fun RadiusChips(radius: Float, onRadius: (Float) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -471,7 +471,6 @@ private fun RadiusChips(radius: Float, onRadius: (Float) -> Unit) {
                             "${preset.toInt()}m",
                             selected = radius == preset,
                             onClick = { onRadius(preset) },
-                            leadingIcon = if (radius == preset) Icons.Default.Check else null,
                             modifier = Modifier.weight(1f),
                             compact = true,
                         )
