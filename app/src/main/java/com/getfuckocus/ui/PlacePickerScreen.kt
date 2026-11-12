@@ -451,7 +451,6 @@ private fun CommandBar(
             "이 장소로 정하기",
             onClick = onConfirm,
             modifier = Modifier.fillMaxWidth(),
-            icon = Icons.Default.Check,
             height = 56.dp,
             enabled = validCenter && !confirming,
         )
