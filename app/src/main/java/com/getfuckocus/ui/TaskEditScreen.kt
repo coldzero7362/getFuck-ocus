@@ -113,7 +113,14 @@ private const val DEFAULT_RADIUS_M = 150f
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TaskEditScreen(taskId: Long, onDone: () -> Unit, onAddTag: () -> Unit) {
+fun TaskEditScreen(
+    taskId: Long,
+    onDone: () -> Unit,
+    onAddTag: () -> Unit,
+    pickedPlace: PickedPlace?,
+    onPickPlace: (current: PickedPlace?) -> Unit,
+    onPlaceConsumed: () -> Unit,
+) {
     val context = LocalContext.current
     val container = context.container
     val scope = rememberCoroutineScope()
@@ -213,6 +220,18 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit, onAddTag: () -> Unit) {
             message = "위치 권한이 없어 장소를 지정할 수 없어요"
         }
     }
+
+    // 지도에서 고른 장소를 받는다 (한 번 받으면 비워서 다시 들어오지 않게 한다)
+    LaunchedEffect(pickedPlace) {
+        val place = pickedPlace ?: return@LaunchedEffect
+        if (!frozen) {
+            geo = place.lat to place.lng
+            radiusMeters = place.radiusMeters
+            message = null
+        }
+        onPlaceConsumed()
+    }
+    fun openPlacePicker() = onPickPlace(geo?.let { PickedPlace(it.first, it.second, radiusMeters) })
 
     fun addLabel(text: String) {
         val value = text.trim().trimEnd(',')
@@ -667,19 +686,25 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit, onAddTag: () -> Unit) {
                 val currentGeo = geo
                 if (currentGeo == null) {
                     Text(
-                        "지금 있는 곳을 등록하면 그 근처에서 체크하거나 찍어야 통과해요.",
+                        "장소를 정하면 그 근처에서 체크하거나 찍어야 통과해요. 지금 있는 곳이 아니어도 지도에서 고를 수 있어요.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Chrome.chromeIndigo,
                     )
                     FocusButton(
-                        "지금 있는 곳을 장소로 지정",
+                        "지도에서 고르기",
+                        onClick = ::openPlacePicker,
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.Default.LocationOn,
+                        enabled = !frozen,
+                    )
+                    FocusButton(
+                        "지금 있는 곳으로 정하기",
                         onClick = {
                             if (context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) fetchLocation()
                             else locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         style = FocusButtonStyle.Outline,
-                        icon = Icons.Default.LocationOn,
                         enabled = !frozen,
                     )
                 } else {
@@ -695,13 +720,17 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit, onAddTag: () -> Unit) {
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             // 좌표를 장소 이름으로 바꾸려면 위치를 외부 서버로 보내야 해서, 기기 안에서 끝나도록 좌표는 보조로만 둔다
-                            Text("등록한 위치 (반경 ${radiusMeters.toInt()}m)", style = MaterialTheme.typography.titleSmall)
+                            Text("정한 장소 (반경 ${radiusMeters.toInt()}m)", style = MaterialTheme.typography.titleSmall)
                             Text(
                                 "%.5f, %.5f".format(currentGeo.first, currentGeo.second),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Chrome.chromeIndigo,
                             )
                         }
+                        FocusButton(
+                            "지도", onClick = ::openPlacePicker,
+                            style = FocusButtonStyle.Ghost, height = 48.dp, enabled = !frozen,
+                        )
                         FocusButton(
                             "없애기", onClick = { geo = null },
                             style = FocusButtonStyle.Ghost, height = 48.dp, enabled = !frozen,

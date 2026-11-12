@@ -68,6 +68,8 @@ dependencies {
     implementation(libs.androidx.exifinterface)
     implementation(libs.mlkit.image.labeling)
     implementation(libs.play.services.location)
+    // 장소 고르기 지도. API 키 없이 OpenStreetMap 지도 그림을 받는다
+    implementation(libs.osmdroid.android)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

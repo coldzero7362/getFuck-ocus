@@ -14,6 +14,12 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+        장소 고르기 화면에서 OpenStreetMap 지도 그림(타일)만 받는다.
+        과제·기록·사진·위치 같은 앱 데이터는 어디로도 보내지 않는다.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- 화면이 켜져 있을 때 태그 고유 ID만 읽는다. 태그에 쓰지 않는다 -->
     <uses-permission android:name="android.permission.NFC" />
     <!-- 재부팅 뒤에도 마감 알람을 다시 걸기 위해 -->
