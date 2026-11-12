@@ -6,7 +6,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import com.getfuckocus.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -101,23 +103,46 @@ private val ChromeColors = lightColorScheme(
 
 private val Sans = FontFamily.SansSerif
 
-/** 굵은 산세리프 + 라벨은 자간을 살짝 벌린다 (실크스크린으로 찍은 버튼 글씨 느낌). */
+/**
+ * 포인트 글꼴: 물마루 (Mushsooni, SIL OFL 1.1 — assets/licenses/Mulmaru-OFL.txt).
+ * 굵기가 하나뿐인 픽셀 글꼴이라 굵게 지정해도 억지로 두껍게 그리지 않도록 같은 파일을 모든 굵기에 둔다.
+ */
+private fun pixelFamily(resId: Int) = FontFamily(
+    Font(resId, FontWeight.Normal),
+    Font(resId, FontWeight.Medium),
+    Font(resId, FontWeight.SemiBold),
+    Font(resId, FontWeight.Bold),
+    Font(resId, FontWeight.ExtraBold),
+    Font(resId, FontWeight.Black),
+)
+
+/** 제목·큰 글자·흘러가는 문구에 쓰는 픽셀 글꼴 */
+val Mulmaru = pixelFamily(R.font.mulmaru)
+
+/** 숫자 점수판에 쓰는 고정폭 픽셀 글꼴 */
+val MulmaruMono = pixelFamily(R.font.mulmaru_mono)
+
+/**
+ * 제목·큰 글자는 픽셀 글꼴(물마루)로 포인트를 주고, 본문·설명·버튼은 읽기 쉬운 산세리프로 둔다.
+ * 라벨은 자간을 살짝 벌린다 (실크스크린으로 찍은 버튼 글씨 느낌).
+ */
 private val ChromeTypography = Typography().let { base ->
     fun TextStyle.sans(weight: FontWeight? = null, tracking: Float? = null) = copy(
         fontFamily = Sans,
         fontWeight = weight ?: fontWeight,
         letterSpacing = tracking?.sp ?: letterSpacing,
     )
+    fun TextStyle.pixel() = copy(fontFamily = Mulmaru, fontWeight = FontWeight.Normal, letterSpacing = 0.sp)
     // 가이드 크기: 화면 제목 22, 카드 제목 18, 본문 15, 보조 13, 버튼 15sp. 레트로라고 글자를 줄이지 않는다
     Typography(
-        displayLarge = base.displayLarge.sans(FontWeight.Black),
-        displayMedium = base.displayMedium.sans(FontWeight.Black),
-        displaySmall = base.displaySmall.sans(FontWeight.Black),
-        headlineLarge = base.headlineLarge.sans(FontWeight.Black),
-        headlineMedium = base.headlineMedium.sans(FontWeight.Black),
-        headlineSmall = base.headlineSmall.sans(FontWeight.Bold).copy(fontSize = 24.sp, lineHeight = 32.sp),
-        titleLarge = base.titleLarge.sans(FontWeight.Bold).copy(fontSize = 22.sp, lineHeight = 28.sp),
-        titleMedium = base.titleMedium.sans(FontWeight.Bold, 0.2f).copy(fontSize = 18.sp, lineHeight = 24.sp),
+        displayLarge = base.displayLarge.pixel(),
+        displayMedium = base.displayMedium.pixel(),
+        displaySmall = base.displaySmall.pixel(),
+        headlineLarge = base.headlineLarge.pixel(),
+        headlineMedium = base.headlineMedium.pixel(),
+        headlineSmall = base.headlineSmall.pixel().copy(fontSize = 24.sp, lineHeight = 32.sp),
+        titleLarge = base.titleLarge.pixel().copy(fontSize = 22.sp, lineHeight = 28.sp),
+        titleMedium = base.titleMedium.pixel().copy(fontSize = 18.sp, lineHeight = 24.sp),
         titleSmall = base.titleSmall.sans(FontWeight.Bold, 0.3f).copy(fontSize = 15.sp, lineHeight = 21.sp),
         bodyLarge = base.bodyLarge.sans().copy(fontSize = 16.sp, lineHeight = 23.sp),
         bodyMedium = base.bodyMedium.sans().copy(fontSize = 15.sp, lineHeight = 21.sp),
@@ -129,7 +154,7 @@ private val ChromeTypography = Typography().let { base ->
 }
 
 /** 숫자·시간·짧은 강조에만 쓰는 고정폭 글꼴. 게임 화면의 점수판 느낌을 낸다. */
-val DigitStyle = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp)
+val DigitStyle = TextStyle(fontFamily = MulmaruMono, fontWeight = FontWeight.Normal, letterSpacing = 0.sp)
 
 /** 잠금 화면: 짙은 카본 판에 앰버 강조. 앱의 "조작 계층"과 같은 색이다. */
 object LockColors {

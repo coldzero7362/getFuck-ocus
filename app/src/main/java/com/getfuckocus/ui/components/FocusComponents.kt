@@ -54,7 +54,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -66,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -341,6 +342,15 @@ fun FocusSwitch(
             .padding(2.dp)
             .clip(ChromeShapes.control)
             .background(track)
+            // 홈 안쪽 그늘: 위·왼쪽은 어둡게, 아래는 얇게 밝혀 판에 파인 홈처럼
+            .drawBehind {
+                val top = 3.dp.toPx()
+                val side = 1.5.dp.toPx()
+                drawRect(Color(0x59000000), size = size.copy(height = top))
+                drawRect(Color(0x26000000), topLeft = Offset(0f, top), size = size.copy(height = 1.5.dp.toPx()))
+                drawRect(Color(0x33000000), topLeft = Offset(0f, top), size = size.copy(width = side, height = size.height - top))
+                drawRect(Color(0x4DFFFFFF), topLeft = Offset(0f, size.height - 1.dp.toPx()), size = size.copy(height = 1.dp.toPx()))
+            }
             .toggleable(
                 value = checked,
                 interactionSource = remember { MutableInteractionSource() },
@@ -350,18 +360,36 @@ fun FocusSwitch(
                 onValueChange = onCheckedChange,
             ),
     ) {
-        // 아래쪽에만 그림자 선을 넣으면 손잡이가 위로 쏠려 보여서, 테두리를 사방 똑같이 둔다
+        // 손잡이: 붉은 기 도는 회색 플라스틱에, 옛 게임기 슬라이드 스위치처럼 미끄럼 방지 홈 세 줄
         Box(
             Modifier
                 .align(Alignment.CenterStart)
                 .offset(x = thumbOffset)
                 .size(22.dp)
                 .clip(ChromeShapes.control)
-                .background(Chrome.white)
+                .background(SWITCH_THUMB)
                 .border(1.dp, Chrome.hairline, ChromeShapes.control)
+                .drawBehind {
+                    // 튀어나온 손잡이: 위 밝은 선, 아래 그늘
+                    drawRect(Color(0x99FFFFFF), topLeft = Offset(1.dp.toPx(), 1.dp.toPx()), size = size.copy(width = size.width - 2.dp.toPx(), height = 1.5.dp.toPx()))
+                    drawRect(Color(0x33000000), topLeft = Offset(0f, size.height - 3.dp.toPx()), size = size.copy(height = 2.dp.toPx()))
+                    // 세로 홈 세 줄: 어두운 선 오른쪽에 밝은 선을 붙여 파인 것처럼
+                    val gap = 4.dp.toPx()
+                    val line = 1.dp.toPx()
+                    val top = 6.dp.toPx()
+                    val length = size.height - top * 2
+                    for (i in -1..1) {
+                        val x = size.width / 2 + i * gap - line / 2
+                        drawRect(Color(0x73302828), topLeft = Offset(x, top), size = Size(line, length))
+                        drawRect(Color(0x80FFFFFF), topLeft = Offset(x + line, top), size = Size(line, length))
+                    }
+                }
         )
     }
 }
+
+/** 스위치 손잡이 색: 붉은 기가 살짝 도는 회색 */
+private val SWITCH_THUMB = Color(0xFFC9BCBC)
 
 /**
  * 판에 파인 홈 같은 입력칸.

@@ -23,6 +23,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -60,7 +61,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -77,6 +78,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -130,7 +134,8 @@ const val DEFAULT_PLACE_RADIUS_M = 150f
 
 /** 처음 열 때 위치를 모르면 보여 줄 곳 (서울시청) */
 private val FALLBACK_CENTER = GeoPoint(37.5665, 126.9780)
-private const val PICK_ZOOM = 17.0
+/** 처음 열 때와 "지금 위치로"의 확대 수준. 17에서 1.5배 크게 보이도록 log2(1.5)≈0.585만큼 올렸다 */
+private const val PICK_ZOOM = 17.585
 /** 지도가 이만큼 멈춰 있으면 이동이 끝난 것으로 보고 주소를 찾는다 */
 private const val SETTLE_MS = 600L
 
@@ -299,6 +304,11 @@ fun PlacePickerScreen(initial: PickedPlace?, onPicked: (PickedPlace) -> Unit, on
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             ) {
                 AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+                // 반경 원 안을 레이더처럼 훑는다. 원 크기는 확대 수준에 따라 바뀌므로 그릴 때마다 지도에서 다시 잰다
+                RadarSweep(
+                    radiusPx = { mapView.projection.metersToPixels(radius) },
+                    modifier = Modifier.fillMaxSize(),
+                )
                 MapGuide(hidden = guideHidden, modifier = Modifier.align(Alignment.TopStart).padding(8.dp))
                 CenterPin(Modifier.align(Alignment.Center))
                 MyLocationButton(
@@ -402,7 +412,7 @@ private fun MapGuide(hidden: Boolean, modifier: Modifier = Modifier) {
         label = "guideAlpha",
     )
     Text(
-        "지도를 움직여 원하는 위치를 선택하세요",
+        "지도를 움직여 핀을 옮겨 주세요",
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
         color = Chrome.sky,
@@ -479,7 +489,7 @@ private fun CommandBar(
     ) {
         when (locationError) {
             LocationError.NoPermission -> FocusNotice(
-                "위치 권한이 필요해요. 기기 설정에서 위치 권한을 허용해 주세요",
+                "기기 설정에서 위치 권한을 허용해 주세요",
                 tone = Tone.Warning, actionLabel = "설정", onAction = onOpenAppSettings,
             )
             LocationError.ServiceOff -> FocusNotice(
@@ -536,6 +546,54 @@ private val PIN_PIXELS = listOf(
     ".....KOK.....",
     "......K......",
 )
+/** 레이더가 한 바퀴 도는 시간 */
+private const val RADAR_PERIOD_MS = 2_600
+
+/**
+ * 반경 원 안을 도는 레이더. 밝은 선이 시계 방향으로 돌고, 지나간 자리에 초록 잔상이 옅어지며 남는다.
+ * 안쪽 동심원 두 개와 십자선으로 옛 레이더 화면 느낌을 낸다. 터치는 받지 않아 지도 조작을 막지 않는다.
+ */
+@Composable
+private fun RadarSweep(radiusPx: () -> Float, modifier: Modifier = Modifier) {
+    val angle by rememberInfiniteTransition(label = "radar").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(RADAR_PERIOD_MS, easing = LinearEasing)),
+        label = "radarAngle",
+    )
+    Canvas(modifier) {
+        val r = radiusPx()
+        if (r < 8f) return@Canvas
+        val c = center
+        val grid = Chrome.teal.copy(alpha = 0.35f)
+        val thin = 1.dp.toPx()
+        drawCircle(grid, radius = r / 3f, center = c, style = Stroke(thin))
+        drawCircle(grid, radius = r * 2f / 3f, center = c, style = Stroke(thin))
+        drawLine(grid, Offset(c.x - r, c.y), Offset(c.x + r, c.y), thin)
+        drawLine(grid, Offset(c.x, c.y - r), Offset(c.x, c.y + r), thin)
+        rotate(angle, pivot = c) {
+            // 0도(3시 방향)가 선두. 그 뒤 90도에 걸쳐 잔상이 옅어진다
+            drawArc(
+                brush = Brush.sweepGradient(
+                    0f to Color.Transparent,
+                    0.75f to Color.Transparent,
+                    1f to Chrome.success.copy(alpha = 0.55f),
+                    center = c,
+                ),
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = true,
+                topLeft = Offset(c.x - r, c.y - r),
+                size = Size(r * 2, r * 2),
+            )
+            drawLine(RADAR_BEAM, c, Offset(c.x + r, c.y), 2.5.dp.toPx())
+        }
+    }
+}
+
+/** 레이더 선두 선: 지도 초록보다 밝은 형광 초록 */
+private val RADAR_BEAM = Color(0xFFB9FFD8)
+
 /** 도트 한 칸 크기. 처음 3.5dp에서 0.75배로 줄였다 */
 private val PIN_PIXEL = 2.625.dp
 

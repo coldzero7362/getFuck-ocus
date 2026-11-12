@@ -24,8 +24,8 @@ object NfcTags {
         registeredName != null -> ScanState.Waiting(notice = "이미 '$registeredName'(으)로 등록된 태그예요")
         state is ScanState.Confirming && state.uid == uid -> ScanState.Ready(uid)
         state is ScanState.Confirming -> ScanState.Waiting(
-            notice = "처음 찍은 태그와 ID가 달라요. 같은 태그를 처음부터 다시 대 주세요. " +
-                "계속 다르면 찍을 때마다 ID가 바뀌는 카드라 쓸 수 없어요",
+            notice = "처음 찍은 태그와 달라요. 같은 태그를 다시 대 주세요. " +
+                "계속 다르다면 등록할 수 없는 카드예요",
         )
         else -> ScanState.Confirming(uid)
     }

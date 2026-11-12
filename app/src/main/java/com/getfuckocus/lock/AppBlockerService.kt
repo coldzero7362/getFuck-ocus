@@ -46,6 +46,9 @@ class AppBlockerService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val packageName = event.packageName?.toString() ?: return
+        // 흘러가는 층(우리 오버레이 창)도 이 앱 이름으로 창 이벤트를 낸다. 그걸 "앱을 열었다"로 읽으면
+        // 스스로 숨어 버리므로, 이 앱에서 온 이벤트는 실제 화면(Activity)일 때만 받는다
+        if (packageName == this.packageName && event.className?.toString()?.endsWith("Activity") != true) return
         lastForeground = packageName
         enforce(packageName)
         if (::overlay.isInitialized) overlay.setHidden(hideOverlayOver(packageName))

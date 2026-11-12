@@ -23,7 +23,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -42,6 +42,7 @@ import com.getfuckocus.ui.theme.DigitStyle
 import com.getfuckocus.ui.theme.bevel
 import com.getfuckocus.ui.theme.insetBevel
 import com.getfuckocus.ui.theme.plate
+import com.getfuckocus.ui.theme.recessed
 
 /*
  * 상태를 알리는 부품. 상태는 색만으로 구분하지 않고 항상 아이콘과 글자를 함께 쓴다.
@@ -172,12 +173,12 @@ fun FocusStatBox(
     caption: String? = null,
     /** 가장 중요한 시간 하나에만 true: 32sp 큰 숫자 */
     large: Boolean = false,
+    /** 이 칸이 놓인 판의 색. 그 색 계열로 살짝 파여 들어간 칸이 된다 */
+    surface: Color = Chrome.platinum,
 ) {
     Column(
         modifier = modifier
-            .clip(ChromeShapes.small)
-            .background(Chrome.white)
-            .insetBevel()
+            .recessed(surface)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {

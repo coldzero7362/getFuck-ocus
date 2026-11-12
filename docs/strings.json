@@ -1,0 +1,1893 @@
+{
+  "summary": {
+    "resources": 8,
+    "kotlin_files": 23,
+    "kotlin_strings": 457
+  },
+  "resources": {
+    "app_name": "getFuck-ocus",
+    "accessibility_service_label": "getFuck-ocus 화면 잠금",
+    "accessibility_service_description": "과제 마감을 놓치면 허용하지 않은 앱을 열지 못하게 막아요. 지금 열린 앱 이름(패키지명)만 확인하고 화면 내용이나 입력한 글자는 읽지 않아요. 이 화면에서 언제든 끌 수 있어요.",
+    "channel_active": "잠금 서비스 상태",
+    "channel_alerts": "잠금 알림",
+    "channel_reminders": "과제 알림",
+    "notification_active_title": "getFuck-ocus 잠금 서비스 실행 중",
+    "notification_active_text": "마감을 놓치면 허용한 앱만 열 수 있어요."
+  },
+  "kotlin": {
+    "data/TaskEntity.kt": [
+      {
+        "line": 113,
+        "text": "위치 인증은 장소를 지정해야 해요"
+      },
+      {
+        "line": 114,
+        "text": "NFC 인증은 찍을 태그를 골라야 해요"
+      },
+      {
+        "line": 115,
+        "text": "탭 체크는 놓쳐도 앱을 잠글 수 없어요. 억제 화면을 써 보세요"
+      }
+    ],
+    "lock/NotificationHelper.kt": [
+      {
+        "line": 62,
+        "text": "완료를 눌러 체크하세요"
+      },
+      {
+        "line": 63,
+        "text": "사진으로 인증하세요"
+      },
+      {
+        "line": 64,
+        "text": "정한 장소에서 체크하세요"
+      },
+      {
+        "line": 65,
+        "text": "NFC 태그를 찍어 체크하세요"
+      },
+      {
+        "line": 68,
+        "text": "'${task.title}' 시작했어요"
+      },
+      {
+        "line": 68,
+        "text": "${deadlineText}까지 $how."
+      },
+      {
+        "line": 70,
+        "text": "'${task.title}' 마감 ${task.remindBeforeMinutes}분 전"
+      },
+      {
+        "line": 71,
+        "text": "${deadlineText}까지 체크해 주세요."
+      },
+      {
+        "line": 72,
+        "text": "${deadlineText}까지 인증하지 않으면 화면 위로 문구가 계속 지나가요."
+      },
+      {
+        "line": 73,
+        "text": "${deadlineText}까지 인증하지 않으면 잠겨요."
+      },
+      {
+        "line": 93,
+        "text": "완료"
+      },
+      {
+        "line": 104,
+        "text": "늦었지만 기록했어요."
+      },
+      {
+        "line": 104,
+        "text": "완료했어요. 잘했어요!"
+      },
+      {
+        "line": 146,
+        "text": "'$taskTitle' 마감을 놓쳤지만 잠금 서비스가 꺼져 있어 ${if (nag) \"문구를 띄우지\" else \"잠그지\"} 못했어요. 눌러서 켜 주세요."
+      },
+      {
+        "line": 149,
+        "text": "'$taskTitle' 마감을 놓쳤어요. 인증할 때까지 1분마다 화면 위로 문구가 지나가요. 눌러서 인증하세요."
+      },
+      {
+        "line": 151,
+        "text": "'$taskTitle' 마감을 놓쳐서 잠겼어요. 지금 인증하면 풀려요."
+      },
+      {
+        "line": 159,
+        "text": "잠금 서비스가 꺼져 있어요"
+      },
+      {
+        "line": 160,
+        "text": "아직 안 했어요"
+      },
+      {
+        "line": 161,
+        "text": "잠금 중"
+      }
+    ],
+    "nfc/NfcTags.kt": [
+      {
+        "line": 24,
+        "text": "이미 '$registeredName'(으)로 등록된 태그예요"
+      },
+      {
+        "line": 27,
+        "text": "처음 찍은 태그와 달라요. 같은 태그를 다시 대 주세요. 계속 다르다면 등록할 수 없는 카드예요"
+      }
+    ],
+    "place/ReverseGeocoder.kt": [
+      {
+        "line": 94,
+        "text": "대한민국"
+      }
+    ],
+    "task/OccurrenceGuard.kt": [
+      {
+        "line": 22,
+        "text": "이 과제 때문에 잠겨 있는 동안에는 조건을 바꿀 수 없어요"
+      },
+      {
+        "line": 28,
+        "text": "진행 중인 회차가 ${TaskSchedule.formatMinute(deadline.hour * 60 + deadline.minute)}에 끝나면 시간과 조건을 바꿀 수 있어요. 지금은 이름만 바꿀 수 있어요"
+      }
+    ],
+    "task/TaskSchedule.kt": [
+      {
+        "line": 106,
+        "text": "${rest}분"
+      },
+      {
+        "line": 107,
+        "text": "${hours}시간"
+      },
+      {
+        "line": 108,
+        "text": "${hours}시간 ${rest}분"
+      },
+      {
+        "line": 118,
+        "text": "다음 날 "
+      },
+      {
+        "line": 119,
+        "text": "${formatMinute(startMinute)}부터 ${formatDuration(durationMinutes)} ($nextDay${formatMinute(end)} 마감)"
+      },
+      {
+        "line": 125,
+        "text": "매일"
+      },
+      {
+        "line": 126,
+        "text": "평일"
+      },
+      {
+        "line": 127,
+        "text": "주말"
+      },
+      {
+        "line": 128,
+        "text": "반복 없음"
+      },
+      {
+        "line": 133,
+        "text": "월"
+      },
+      {
+        "line": 134,
+        "text": "화"
+      },
+      {
+        "line": 135,
+        "text": "수"
+      },
+      {
+        "line": 136,
+        "text": "목"
+      },
+      {
+        "line": 137,
+        "text": "금"
+      },
+      {
+        "line": 138,
+        "text": "토"
+      },
+      {
+        "line": 139,
+        "text": "일"
+      }
+    ],
+    "ui/AllowedAppsScreen.kt": [
+      {
+        "line": 86,
+        "text": "잠금 예외 앱"
+      },
+      {
+        "line": 88,
+        "text": "${allowedCount}개 허용 · 전화, 문자, 알람, 설정, 홈 화면은 항상 허용"
+      },
+      {
+        "line": 103,
+        "text": "앱 검색"
+      },
+      {
+        "line": 104,
+        "text": "앱 이름"
+      },
+      {
+        "line": 107,
+        "text": "검색어 지우기"
+      },
+      {
+        "line": 126,
+        "text": "설치된 앱을 불러오는 중…"
+      },
+      {
+        "line": 131,
+        "text": "앱 목록을 불러오지 못했어요"
+      },
+      {
+        "line": 132,
+        "text": "화면을 다시 열거나 앱 목록 권한을 확인해 주세요"
+      },
+      {
+        "line": 139,
+        "text": "\\u201C$query\\u201D와 맞는 앱이 없어요"
+      },
+      {
+        "line": 140,
+        "text": "앱 이름 일부만 입력해도 찾을 수 있어요"
+      },
+      {
+        "line": 142,
+        "text": "검색어 지우기"
+      },
+      {
+        "line": 148,
+        "text": "검색 결과"
+      },
+      {
+        "line": 152,
+        "text": "허용한 앱"
+      },
+      {
+        "line": 158,
+        "text": "다른 앱"
+      }
+    ],
+    "ui/CaptureScreen.kt": [
+      {
+        "line": 140,
+        "text": "인증"
+      },
+      {
+        "line": 183,
+        "text": "사진을 확인하는 중…"
+      },
+      {
+        "line": 188,
+        "text": "카메라 권한이 필요해요"
+      },
+      {
+        "line": 190,
+        "text": "권한 허용"
+      },
+      {
+        "line": 213,
+        "text": "촬영에 실패했어요: ${e.message}"
+      },
+      {
+        "line": 224,
+        "text": "확인 중…"
+      },
+      {
+        "line": 224,
+        "text": "눌러서 찍기"
+      },
+      {
+        "line": 271,
+        "text": "통과 조건"
+      },
+      {
+        "line": 276,
+        "text": "마감 전 촬영"
+      },
+      {
+        "line": 278,
+        "text": "지정 장소 ${task.geoRadiusMeters!!.toInt()}m 이내"
+      },
+      {
+        "line": 281,
+        "text": "${labels.joinToString(\" · \")} 중 하나"
+      },
+      {
+        "line": 327,
+        "text": "촬영해서 인증"
+      },
+      {
+        "line": 379,
+        "text": "인증 성공"
+      },
+      {
+        "line": 379,
+        "text": "인증 실패"
+      },
+      {
+        "line": 386,
+        "text": "잠금이 해제됐어요"
+      },
+      {
+        "line": 387,
+        "text": "이번 회차를 완료했어요"
+      },
+      {
+        "line": 388,
+        "text": "맞지 않은 조건 ${reasons.size}개"
+      },
+      {
+        "line": 425,
+        "text": "통과한 라벨"
+      },
+      {
+        "line": 443,
+        "text": "확인"
+      },
+      {
+        "line": 445,
+        "text": "다시 찍기"
+      },
+      {
+        "line": 447,
+        "text": "나가기"
+      }
+    ],
+    "ui/CheckInScreen.kt": [
+      {
+        "line": 108,
+        "text": "체크"
+      },
+      {
+        "line": 130,
+        "text": "정한 장소에서 체크해요"
+      },
+      {
+        "line": 131,
+        "text": "누르면 지금 위치가 정한 장소 ${t.geoRadiusMeters?.toInt() ?: 0}m 안인지 한 번 확인해요"
+      },
+      {
+        "line": 139,
+        "text": "했으면 눌러 주세요"
+      },
+      {
+        "line": 140,
+        "text": "버튼 한 번으로 이번 회차를 기록해요"
+      },
+      {
+        "line": 148,
+        "text": "위치 권한이 없어 장소를 확인할 수 없어요"
+      },
+      {
+        "line": 153,
+        "text": "체크하지 못했어요"
+      },
+      {
+        "line": 162,
+        "text": "고른 태그 찍기"
+      },
+      {
+        "line": 166,
+        "text": "다른 태그 찍기"
+      },
+      {
+        "line": 171,
+        "text": "디버그 빌드에서만 보이는 시험용 버튼이에요"
+      },
+      {
+        "line": 194,
+        "text": "확인하는 중…"
+      },
+      {
+        "line": 207,
+        "text": "이 기기에는 NFC가 없어 태그를 읽을 수 없어요"
+      },
+      {
+        "line": 208,
+        "text": "NFC가 꺼져 있어요. 설정에서 켜고 돌아오면 바로 읽어요"
+      },
+      {
+        "line": 211,
+        "text": "태그를 폰 뒷면에 대 주세요"
+      },
+      {
+        "line": 211,
+        "text": "'${it.name}' 태그"
+      },
+      {
+        "line": 219,
+        "text": "확인하는 중…"
+      },
+      {
+        "line": 219,
+        "text": "이 과제에 고른 태그를 찍으면 바로 체크돼요"
+      },
+      {
+        "line": 229,
+        "text": "늦었지만 기록했어요"
+      },
+      {
+        "line": 229,
+        "text": "완료했어요"
+      },
+      {
+        "line": 234,
+        "text": "잠금이 풀렸어요. 다음엔 제때 해 봐요"
+      },
+      {
+        "line": 234,
+        "text": "잘했어요! 오늘 회차를 마쳤어요"
+      },
+      {
+        "line": 238,
+        "text": "닫기"
+      }
+    ],
+    "ui/components/FocusComponents.kt": [
+      {
+        "line": 535,
+        "text": "$title 접기"
+      },
+      {
+        "line": 535,
+        "text": "$title 펼치기"
+      },
+      {
+        "line": 612,
+        "text": "뒤로"
+      },
+      {
+        "line": 664,
+        "text": "취소"
+      },
+      {
+        "line": 713,
+        "text": "확인"
+      }
+    ],
+    "ui/Format.kt": [
+      {
+        "line": 12,
+        "text": "${formatMinutesLeft(Duration.between(now, startsAt).toMillis())} 뒤 시작"
+      },
+      {
+        "line": 13,
+        "text": "내일 $time 시작"
+      },
+      {
+        "line": 14,
+        "text": "${TaskSchedule.dayName(startsAt.dayOfWeek)}요일 $time 시작"
+      },
+      {
+        "line": 23,
+        "text": "%d시간 %02d분"
+      },
+      {
+        "line": 23,
+        "text": "%d분 %02d초"
+      },
+      {
+        "line": 30,
+        "text": "1분 미만"
+      },
+      {
+        "line": 31,
+        "text": "${minutes}분"
+      },
+      {
+        "line": 32,
+        "text": "${minutes / 60}시간"
+      },
+      {
+        "line": 33,
+        "text": "${minutes / 60}시간 ${minutes % 60}분"
+      }
+    ],
+    "ui/HistoryScreen.kt": [
+      {
+        "line": 102,
+        "text": "기록"
+      },
+      {
+        "line": 102,
+        "text": "날짜를 누르면 아래에 그날 기록이 나와요"
+      },
+      {
+        "line": 129,
+        "text": "연속 달성"
+      },
+      {
+        "line": 129,
+        "text": "마감 전에 연달아 통과한 횟수예요"
+      },
+      {
+        "line": 131,
+        "text": "아직 과제가 없어요"
+      },
+      {
+        "line": 159,
+        "text": "${streak}일 연속"
+      },
+      {
+        "line": 193,
+        "text": "${month.year}년 ${month.monthValue}월"
+      },
+      {
+        "line": 197,
+        "text": "이전 달"
+      },
+      {
+        "line": 200,
+        "text": "다음 달"
+      },
+      {
+        "line": 211,
+        "text": "완료율"
+      },
+      {
+        "line": 217,
+        "text": "통과"
+      },
+      {
+        "line": 218,
+        "text": "${passedCount + lateCount}회"
+      },
+      {
+        "line": 219,
+        "text": "늦게 $lateCount"
+      },
+      {
+        "line": 225,
+        "text": "놓침"
+      },
+      {
+        "line": 226,
+        "text": "${missedCount}회"
+      },
+      {
+        "line": 271,
+        "text": "오늘"
+      },
+      {
+        "line": 272,
+        "text": "선택한 날"
+      },
+      {
+        "line": 281,
+        "text": "통과"
+      },
+      {
+        "line": 282,
+        "text": "일부"
+      },
+      {
+        "line": 283,
+        "text": "놓침"
+      },
+      {
+        "line": 284,
+        "text": "마감 전"
+      },
+      {
+        "line": 285,
+        "text": "없음"
+      },
+      {
+        "line": 305,
+        "text": "${date.monthValue}월 ${date.dayOfMonth}일 기록 보기"
+      },
+      {
+        "line": 365,
+        "text": "${date.monthValue}월 ${date.dayOfMonth}일 ${TaskSchedule.dayName(date.dayOfWeek)}요일"
+      },
+      {
+        "line": 366,
+        "text": "과제 ${occurrences.size}개 · 통과 $passedN · 놓침 $missedN"
+      },
+      {
+        "line": 370,
+        "text": "이날은 과제가 없었어요"
+      },
+      {
+        "line": 394,
+        "text": "인증 시도가 없어요"
+      },
+      {
+        "line": 405,
+        "text": "통과"
+      },
+      {
+        "line": 406,
+        "text": "늦게 통과"
+      },
+      {
+        "line": 407,
+        "text": "놓침"
+      },
+      {
+        "line": 408,
+        "text": "마감 전"
+      },
+      {
+        "line": 423,
+        "text": "통과"
+      },
+      {
+        "line": 423,
+        "text": "실패"
+      },
+      {
+        "line": 451,
+        "text": "${method.title} ${if (passed) \"통과\" else \"실패\"}"
+      },
+      {
+        "line": 479,
+        "text": "인증 사진"
+      },
+      {
+        "line": 481,
+        "text": "사진\n없음"
+      }
+    ],
+    "ui/HomePager.kt": [
+      {
+        "line": 50,
+        "text": "과제"
+      },
+      {
+        "line": 50,
+        "text": "기록"
+      },
+      {
+        "line": 50,
+        "text": "태그"
+      }
+    ],
+    "ui/LockScreen.kt": [
+      {
+        "line": 128,
+        "text": "아직 안 했어요"
+      },
+      {
+        "line": 128,
+        "text": "잠금 중"
+      },
+      {
+        "line": 148,
+        "text": "'${s.taskTitle}' 마감을 놓쳤어요"
+      },
+      {
+        "line": 164,
+        "text": "지금 인증하기"
+      },
+      {
+        "line": 173,
+        "text": "TIP. 인증하면 문구가 바로 멈춰요"
+      },
+      {
+        "line": 173,
+        "text": "TIP. 늦게라도 인증을 통과하면 바로 풀려요"
+      },
+      {
+        "line": 199,
+        "text": "긴급전화"
+      },
+      {
+        "line": 201,
+        "text": "잠금 중에도 항상 걸 수 있어요"
+      },
+      {
+        "line": 217,
+        "text": "억제 중에도 폰은 그대로 쓸 수 있어요. 전화·설정 위에는 문구가 뜨지 않아요"
+      },
+      {
+        "line": 218,
+        "text": "전화·문자·알람·설정과 허용한 앱은 잠금 중에도 열려요"
+      },
+      {
+        "line": 241,
+        "text": "자동 해제까지"
+      },
+      {
+        "line": 253,
+        "text": "비상 해제 요청"
+      },
+      {
+        "line": 264,
+        "text": "요청하면 ${SafetyPolicy.EMERGENCY_DELAY_MS / 60_000}분 기다린 뒤 풀 수 있어요"
+      },
+      {
+        "line": 281,
+        "text": "비상 해제 대기 중"
+      },
+      {
+        "line": 290,
+        "text": "다 차면 \"비상 해제\" 버튼이 나와요. 그동안 인증하면 바로 풀려요"
+      },
+      {
+        "line": 297,
+        "text": "비상 해제"
+      }
+    ],
+    "ui/NfcTagScreens.kt": [
+      {
+        "line": 80,
+        "text": "yyyy.M.d 등록"
+      },
+      {
+        "line": 94,
+        "text": "NFC 태그"
+      },
+      {
+        "line": 95,
+        "text": "${it.size}개 등록 · 체크할 때 찍을 태그예요"
+      },
+      {
+        "line": 100,
+        "text": "NFC 태그 추가"
+      },
+      {
+        "line": 111,
+        "text": "아직 등록한 태그가 없어요"
+      },
+      {
+        "line": 112,
+        "text": "약통, 책상, 현관처럼 과제하는 곳에 NFC 스티커를 붙여 두세요. 교통카드나 출입카드도 돼요"
+      },
+      {
+        "line": 115,
+        "text": "첫 태그 등록하기"
+      },
+      {
+        "line": 132,
+        "text": "'${tag.name}' 태그는 지울 수 없어요"
+      },
+      {
+        "line": 134,
+        "text": "확인"
+      },
+      {
+        "line": 135,
+        "text": "닫기"
+      },
+      {
+        "line": 139,
+        "text": "${users.joinToString(\", \") { \"'$it'\" }} 과제에서 쓰는 중이에요. 과제 편집에서 다른 태그나 인증 방식으로 바꾼 뒤 지워 주세요."
+      },
+      {
+        "line": 147,
+        "text": "'${tag.name}' 태그를 지울까요?"
+      },
+      {
+        "line": 149,
+        "text": "지우기"
+      },
+      {
+        "line": 156,
+        "text": "다시 쓰려면 태그를 새로 등록해야 해요."
+      },
+      {
+        "line": 196,
+        "text": "삭제"
+      },
+      {
+        "line": 230,
+        "text": "태그 ${dao.count() + 1}"
+      },
+      {
+        "line": 240,
+        "text": "이미 '${registered.name}'(으)로 등록된 태그예요"
+      },
+      {
+        "line": 249,
+        "text": "NFC 태그 추가"
+      },
+      {
+        "line": 264,
+        "text": "이 기기에서는 NFC를 쓸 수 없어요"
+      },
+      {
+        "line": 265,
+        "text": "NFC가 없는 기기예요. NFC가 있는 폰에서 등록해 주세요"
+      },
+      {
+        "line": 270,
+        "text": "켜고 돌아오면 바로 읽을 수 있어요"
+      },
+      {
+        "line": 271,
+        "text": "NFC가 꺼져 있어요"
+      },
+      {
+        "line": 274,
+        "text": "NFC 설정"
+      },
+      {
+        "line": 282,
+        "text": "폰 뒷면에 태그를 대 주세요"
+      },
+      {
+        "line": 283,
+        "text": "보통 카메라 아래쪽에 NFC 안테나가 있어요. 태그를 대고 1초쯤 기다려 주세요"
+      },
+      {
+        "line": 288,
+        "text": "한 번 더 대 주세요"
+      },
+      {
+        "line": 289,
+        "text": "태그를 폰에서 뗐다가 다시 대 주세요. 같은 태그인지 확인해요"
+      },
+      {
+        "line": 293,
+        "text": "인식 완료"
+      },
+      {
+        "line": 293,
+        "text": "이름을 붙여 주세요"
+      },
+      {
+        "line": 294,
+        "text": "같은 태그인지 확인했어요"
+      },
+      {
+        "line": 298,
+        "text": "태그 이름"
+      },
+      {
+        "line": 299,
+        "text": "예: 책상, 약통, 현관"
+      },
+      {
+        "line": 304,
+        "text": "저장"
+      },
+      {
+        "line": 311,
+        "text": "다시 찍기"
+      },
+      {
+        "line": 325,
+        "text": "가짜 태그 찍기 (디버그 빌드 전용)"
+      },
+      {
+        "line": 348,
+        "text": "인식 대기 중"
+      },
+      {
+        "line": 348,
+        "text": "NFC를 켜면 인식을 시작해요"
+      },
+      {
+        "line": 379,
+        "text": "1 태그 대기"
+      },
+      {
+        "line": 379,
+        "text": "2 한 번 더"
+      },
+      {
+        "line": 379,
+        "text": "완료"
+      }
+    ],
+    "ui/PlacePickerScreen.kt": [
+      {
+        "line": 276,
+        "text": "장소 선택"
+      },
+      {
+        "line": 406,
+        "text": "지도를 움직여 핀을 옮겨 주세요"
+      },
+      {
+        "line": 423,
+        "text": "선택한 위치"
+      },
+      {
+        "line": 425,
+        "text": "주소 확인 중…"
+      },
+      {
+        "line": 426,
+        "text": "주소를 확인할 수 없어요"
+      },
+      {
+        "line": 443,
+        "text": "적용 반경"
+      },
+      {
+        "line": 483,
+        "text": "기기 설정에서 위치 권한을 허용해 주세요"
+      },
+      {
+        "line": 484,
+        "text": "설정"
+      },
+      {
+        "line": 487,
+        "text": "기기의 위치 서비스가 꺼져 있어요"
+      },
+      {
+        "line": 488,
+        "text": "켜기"
+      },
+      {
+        "line": 490,
+        "text": "현재 위치를 확인하지 못했어요. 다시 시도해 주세요"
+      },
+      {
+        "line": 493,
+        "text": "좌표가 올바르지 않아요. 지도를 다시 움직여 주세요"
+      },
+      {
+        "line": 495,
+        "text": "이 장소로 정하기"
+      },
+      {
+        "line": 556,
+        "text": "고를 장소"
+      },
+      {
+        "line": 590,
+        "text": "현재 위치 찾는 중"
+      },
+      {
+        "line": 590,
+        "text": "현재 위치로 이동"
+      }
+    ],
+    "ui/SettingsScreen.kt": [
+      {
+        "line": 113,
+        "text": "설정"
+      },
+      {
+        "line": 119,
+        "text": "잠금 관리"
+      },
+      {
+        "line": 124,
+        "text": "잠금 서비스"
+      },
+      {
+        "line": 125,
+        "text": "마감을 놓쳤을 때 앱을 잠그거나 억제 화면을 띄워요"
+      },
+      {
+        "line": 134,
+        "text": "꺼져 있으면 마감을 놓쳐도 잠금이나 억제 화면 없이 알림만 와요"
+      },
+      {
+        "line": 139,
+        "text": "TIP. 지금 열린 앱 이름만 확인해요. 화면 내용과 입력한 글자는 읽지 않고 기기 밖으로도 보내지 않아요"
+      },
+      {
+        "line": 146,
+        "text": "앱 관리"
+      },
+      {
+        "line": 150,
+        "text": "잠금 예외 앱"
+      },
+      {
+        "line": 151,
+        "text": "잠금 중에도 열 수 있는 앱을 골라요"
+      },
+      {
+        "line": 152,
+        "text": "${it}개 허용"
+      },
+      {
+        "line": 158,
+        "text": "권한"
+      },
+      {
+        "line": 161,
+        "text": "TIP. 허용한 권한은 누르면 시스템 설정에서 끌 수 있어요"
+      },
+      {
+        "line": 169,
+        "text": "알림"
+      },
+      {
+        "line": 170,
+        "text": "시작·마감 알림과 잠금 상태를 알려 줘요"
+      },
+      {
+        "line": 172,
+        "text": "알림이 꺼져 있으면 마감이 다가와도 알 수 없어요"
+      },
+      {
+        "line": 182,
+        "text": "카메라"
+      },
+      {
+        "line": 183,
+        "text": "사진 인증 과제를 찍을 때만 써요"
+      },
+      {
+        "line": 185,
+        "text": "카메라가 없으면 사진 인증을 할 수 없어요"
+      },
+      {
+        "line": 195,
+        "text": "위치"
+      },
+      {
+        "line": 196,
+        "text": "장소를 확인하는 인증 때만 한 번 재요. 백그라운드 위치는 쓰지 않아요"
+      },
+      {
+        "line": 198,
+        "text": "위치가 없으면 장소를 확인하는 인증을 할 수 없어요"
+      },
+      {
+        "line": 206,
+        "text": "기타"
+      },
+      {
+        "line": 210,
+        "text": "앱 정보 · 삭제"
+      },
+      {
+        "line": 211,
+        "text": "시스템 앱 정보 화면을 열어요. 언제든 지울 수 있어요"
+      },
+      {
+        "line": 237,
+        "text": "허용됨"
+      },
+      {
+        "line": 237,
+        "text": "허용 안 함"
+      },
+      {
+        "line": 247,
+        "text": "허용"
+      },
+      {
+        "line": 358,
+        "text": "켜짐"
+      },
+      {
+        "line": 358,
+        "text": "꺼짐"
+      }
+    ],
+    "ui/TaskEditScreen.kt": [
+      {
+        "line": 222,
+        "text": "현재 위치 확인 중…"
+      },
+      {
+        "line": 225,
+        "text": "위치를 가져오지 못했어요"
+      },
+      {
+        "line": 238,
+        "text": "위치 권한이 없어 장소를 지정할 수 없어요"
+      },
+      {
+        "line": 296,
+        "text": "이미지 ${failed}장을 불러오지 못했어요"
+      },
+      {
+        "line": 305,
+        "text": "과제 이름을 입력하세요"
+      },
+      {
+        "line": 306,
+        "text": "소요 시간은 1분 이상이어야 해요"
+      },
+      {
+        "line": 307,
+        "text": "반복할 요일을 하나 이상 골라 주세요"
+      },
+      {
+        "line": 367,
+        "text": "새 과제"
+      },
+      {
+        "line": 367,
+        "text": "과제 편집"
+      },
+      {
+        "line": 368,
+        "text": "이름과 시간만 정하면 바로 만들 수 있어요"
+      },
+      {
+        "line": 368,
+        "text": "'$it' 설정"
+      },
+      {
+        "line": 374,
+        "text": "삭제"
+      },
+      {
+        "line": 396,
+        "text": "과제 만들기"
+      },
+      {
+        "line": 396,
+        "text": "저장"
+      },
+      {
+        "line": 414,
+        "text": "지금은 이름과 알림만 바꿀 수 있어요"
+      },
+      {
+        "line": 417,
+        "text": "기본 정보"
+      },
+      {
+        "line": 419,
+        "text": "어떤 일을 할까요?"
+      },
+      {
+        "line": 423,
+        "text": "과제 이름"
+      },
+      {
+        "line": 424,
+        "text": "예: 아침 운동"
+      },
+      {
+        "line": 427,
+        "text": "사용"
+      },
+      {
+        "line": 427,
+        "text": "끄면 알림·억제 화면·잠금이 모두 멈춰요"
+      },
+      {
+        "line": 432,
+        "text": "인증 방식"
+      },
+      {
+        "line": 435,
+        "text": "버튼 한 번"
+      },
+      {
+        "line": 435,
+        "text": "카메라로 찍기"
+      },
+      {
+        "line": 436,
+        "text": "정한 곳에서"
+      },
+      {
+        "line": 436,
+        "text": "태그 찍기"
+      },
+      {
+        "line": 455,
+        "text": "버튼 한 번이나 알림의 \"완료\"로 체크해요. 약 먹기처럼 가벼운 일과에 맞아요."
+      },
+      {
+        "line": 457,
+        "text": "앱 카메라로 찍어서 인증해요. 장소와 사진에 보일 것도 정할 수 있어요."
+      },
+      {
+        "line": 459,
+        "text": "정해 둔 장소 근처에서 버튼을 눌러 체크해요. 출퇴근, 헬스장 가기에 맞아요. 아래에서 장소를 꼭 정해 주세요."
+      },
+      {
+        "line": 461,
+        "text": "등록한 NFC 태그를 폰에 대서 체크해요. 약통, 책상처럼 그 자리에 가야 하는 일에 맞아요."
+      },
+      {
+        "line": 468,
+        "text": "찍을 태그"
+      },
+      {
+        "line": 468,
+        "text": "이 과제는 고른 태그로만 체크돼요"
+      },
+      {
+        "line": 471,
+        "text": "등록한 태그가 없어요. 먼저 태그를 등록해 주세요"
+      },
+      {
+        "line": 474,
+        "text": "등록"
+      },
+      {
+        "line": 491,
+        "text": "새 태그"
+      },
+      {
+        "line": 498,
+        "text": "사진 조건"
+      },
+      {
+        "line": 498,
+        "text": "선택 · 아래 라벨 중 하나가 사진에 보이면 통과해요"
+      },
+      {
+        "line": 500,
+        "text": "추가한 조건이 없어요 · 무엇이 찍혀도 통과해요"
+      },
+      {
+        "line": 500,
+        "text": "추가한 조건 ${labels.size}개 · 누르면 빠져요"
+      },
+      {
+        "line": 526,
+        "text": "라벨 추가"
+      },
+      {
+        "line": 527,
+        "text": "영문, 예: Dog"
+      },
+      {
+        "line": 534,
+        "text": "라벨 추가"
+      },
+      {
+        "line": 545,
+        "text": "최근 사진에서 인식된 라벨 · 눌러서 추가"
+      },
+      {
+        "line": 566,
+        "text": "일정 설정"
+      },
+      {
+        "line": 575,
+        "text": "시작 시각"
+      },
+      {
+        "line": 582,
+        "text": " 마감"
+      },
+      {
+        "line": 588,
+        "text": "바꾸기"
+      },
+      {
+        "line": 590,
+        "text": "시작 시각 바꾸기"
+      },
+      {
+        "line": 595,
+        "text": "소요 시간"
+      },
+      {
+        "line": 605,
+        "text": "직접"
+      },
+      {
+        "line": 615,
+        "text": "반복 요일"
+      },
+      {
+        "line": 615,
+        "text": "요일을 눌러 켜고 꺼요"
+      },
+      {
+        "line": 618,
+        "text": "매일"
+      },
+      {
+        "line": 619,
+        "text": "평일"
+      },
+      {
+        "line": 620,
+        "text": "주말"
+      },
+      {
+        "line": 640,
+        "text": " · 마감까지 인증하지 않으면 잠겨요"
+      },
+      {
+        "line": 641,
+        "text": " · 마감까지 인증하지 않으면 억제 화면이 떠요"
+      },
+      {
+        "line": 648,
+        "text": "알림"
+      },
+      {
+        "line": 648,
+        "text": "잠금과 상관없이 언제든 바꿀 수 있어요"
+      },
+      {
+        "line": 649,
+        "text": "시작할 때 알림"
+      },
+      {
+        "line": 652,
+        "text": "마감 전 알림"
+      },
+      {
+        "line": 656,
+        "text": "끄기"
+      },
+      {
+        "line": 656,
+        "text": "${minutes}분 전"
+      },
+      {
+        "line": 664,
+        "text": "알림 권한이 없어서 알림이 오지 않아요"
+      },
+      {
+        "line": 667,
+        "text": "허용"
+      },
+      {
+        "line": 696,
+        "text": "장소 설정"
+      },
+      {
+        "line": 699,
+        "text": "지정됨 · 반경 ${radiusMeters.toInt()}m"
+      },
+      {
+        "line": 700,
+        "text": "필수 · 위치 인증은 여기서 체크해야 통과해요"
+      },
+      {
+        "line": 701,
+        "text": "선택 · 지정한 곳 근처에서만 통과해요"
+      },
+      {
+        "line": 710,
+        "text": "TIP. 지금 있는 곳이 아니어도 지도에서 고를 수 있어요"
+      },
+      {
+        "line": 715,
+        "text": "지도에서 고르기"
+      },
+      {
+        "line": 722,
+        "text": "지금 있는 곳으로 정하기"
+      },
+      {
+        "line": 740,
+        "text": "반경"
+      },
+      {
+        "line": 758,
+        "text": "시작 시각"
+      },
+      {
+        "line": 758,
+        "text": "소요 시간"
+      },
+      {
+        "line": 760,
+        "text": "시간"
+      },
+      {
+        "line": 761,
+        "text": "분"
+      },
+      {
+        "line": 774,
+        "text": "과제를 삭제할까요?"
+      },
+      {
+        "line": 776,
+        "text": "삭제"
+      },
+      {
+        "line": 788,
+        "text": "'${toDelete.title}' 과제가 삭제돼요. 인증 기록은 보존 기간이 지나면 함께 지워져요."
+      },
+      {
+        "line": 796,
+        "text": "저장하지 않고 나갈까요?"
+      },
+      {
+        "line": 798,
+        "text": "나가기"
+      },
+      {
+        "line": 799,
+        "text": "계속 편집"
+      },
+      {
+        "line": 807,
+        "text": "바꾼 내용이 저장되지 않아요."
+      },
+      {
+        "line": 849,
+        "text": "정한 장소"
+      },
+      {
+        "line": 851,
+        "text": "반경 ${radiusMeters.toInt()}m"
+      },
+      {
+        "line": 861,
+        "text": "위도 · 경도"
+      },
+      {
+        "line": 875,
+        "text": "지도에서 바꾸기"
+      },
+      {
+        "line": 884,
+        "text": "초기화"
+      },
+      {
+        "line": 914,
+        "text": "놓쳤을 때"
+      },
+      {
+        "line": 929,
+        "text": "놓쳐도 막지 않고 알림과 기록으로만 챙겨요."
+      },
+      {
+        "line": 931,
+        "text": "폰은 그대로 쓸 수 있어요. 대신 인증할 때까지 ${DANMAKU_INTERVAL_MS / 60_000}분마다 아래 문구와 사진이 화면을 지나가요."
+      },
+      {
+        "line": 934,
+        "text": "인증할 때까지 허용한 앱만 쓸 수 있어요. 잠금 화면에 아래 문구가 떠요."
+      },
+      {
+        "line": 935,
+        "text": " 탭 체크는 버튼 한 번이면 풀려서 앱 잠금은 고를 수 없어요."
+      },
+      {
+        "line": 941,
+        "text": "TIP. 긴급전화, ${SafetyPolicy.EMERGENCY_DELAY_MS / 60_000}분 비상 해제, ${SafetyPolicy.MAX_LOCK_DURATION_MS / 3_600_000}시간 자동 해제는 언제든 쓸 수 있어요"
+      },
+      {
+        "line": 947,
+        "text": "흘러갈 문구"
+      },
+      {
+        "line": 948,
+        "text": "첫 문구가 가장 크게 지나가요 · 비워 두면 \"$DEFAULT_NAG_MESSAGE\""
+      },
+      {
+        "line": 954,
+        "text": "문구 추가 (${nagMessages.size}/${NagContent.MAX_MESSAGES})"
+      },
+      {
+        "line": 961,
+        "text": "문구 추가"
+      },
+      {
+        "line": 978,
+        "text": "흘러갈 사진"
+      },
+      {
+        "line": 978,
+        "text": "선택 · 최대 ${NagContent.MAX_IMAGES}장"
+      },
+      {
+        "line": 989,
+        "text": "불러오는 중…"
+      },
+      {
+        "line": 989,
+        "text": "사진 고르기 (${nagImages.size}/${NagContent.MAX_IMAGES})"
+      },
+      {
+        "line": 1032,
+        "text": "'$text' 빼기"
+      },
+      {
+        "line": 1048,
+        "text": "고른 사진"
+      },
+      {
+        "line": 1058,
+        "text": "사진 빼기"
+      },
+      {
+        "line": 1098,
+        "text": "선택됨"
+      },
+      {
+        "line": 1111,
+        "text": "현재 ${TaskSchedule.formatMinute(now.hour * 60 + now.minute)}"
+      }
+    ],
+    "ui/TaskListScreen.kt": [
+      {
+        "line": 102,
+        "text": "M월 d일 EEEE"
+      },
+      {
+        "line": 147,
+        "text": "위치 권한이 없어 장소를 확인할 수 없어요"
+      },
+      {
+        "line": 180,
+        "text": "오늘의 과제"
+      },
+      {
+        "line": 184,
+        "text": "기록"
+      },
+      {
+        "line": 185,
+        "text": "설정"
+      },
+      {
+        "line": 190,
+        "text": "과제 추가"
+      },
+      {
+        "line": 207,
+        "text": "잠금 서비스 꺼짐"
+      },
+      {
+        "line": 208,
+        "text": "마감을 놓쳐도 앱이 잠기지 않아요"
+      },
+      {
+        "line": 211,
+        "text": "켜기"
+      },
+      {
+        "line": 244,
+        "text": "아직 과제가 없어요"
+      },
+      {
+        "line": 245,
+        "text": "시작 시각과 인증 방법을 정해 첫 과제를 만들어 보세요"
+      },
+      {
+        "line": 247,
+        "text": "첫 과제 만들기"
+      },
+      {
+        "line": 255,
+        "text": "다른 과제"
+      },
+      {
+        "line": 255,
+        "text": "오늘의 과제"
+      },
+      {
+        "line": 278,
+        "text": "지금 바로 시작할까요?"
+      },
+      {
+        "line": 280,
+        "text": "시작"
+      },
+      {
+        "line": 287,
+        "text": "'${task.title}'을(를) 지금 시작하면 ${TaskSchedule.formatMinute(deadline.hour * 60 + deadline.minute)}까지 "
+      },
+      {
+        "line": 289,
+        "text": "인증해야 해요. 못 하면 잠겨요. "
+      },
+      {
+        "line": 290,
+        "text": "인증해야 해요. 못 하면 억제 화면이 떠요. "
+      },
+      {
+        "line": 291,
+        "text": "체크하면 돼요. "
+      },
+      {
+        "line": 293,
+        "text": "오늘 정해진 시작 시각은 이번 한 번만 바뀌어요."
+      },
+      {
+        "line": 301,
+        "text": "'$title' 체크하지 못했어요"
+      },
+      {
+        "line": 303,
+        "text": "확인"
+      },
+      {
+        "line": 339,
+        "text": "진행 중"
+      },
+      {
+        "line": 339,
+        "text": "다음 과제"
+      },
+      {
+        "line": 344,
+        "text": "${streak}일 연속"
+      },
+      {
+        "line": 369,
+        "text": "마감까지"
+      },
+      {
+        "line": 371,
+        "text": "시작까지"
+      },
+      {
+        "line": 373,
+        "text": "다음 시작"
+      },
+      {
+        "line": 373,
+        "text": " 시작"
+      },
+      {
+        "line": 374,
+        "text": "상태"
+      },
+      {
+        "line": 386,
+        "text": "실행 가능"
+      },
+      {
+        "line": 388,
+        "text": "~ $end 마감"
+      },
+      {
+        "line": 402,
+        "text": "지금 바로 시작"
+      },
+      {
+        "line": 428,
+        "text": "억제 중"
+      },
+      {
+        "line": 428,
+        "text": "잠금 중"
+      },
+      {
+        "line": 440,
+        "text": "인증할 때까지 ${DANMAKU_INTERVAL_MS / 60_000}분마다 문구가 지나가요"
+      },
+      {
+        "line": 441,
+        "text": "인증할 때까지 다른 앱이 잠겨 있어요"
+      },
+      {
+        "line": 448,
+        "text": "자동 해제까지"
+      },
+      {
+        "line": 453,
+        "text": "늦게라도 인증하면 바로 풀려요"
+      },
+      {
+        "line": 459,
+        "text": "지금 인증하기"
+      },
+      {
+        "line": 464,
+        "text": "비상 해제 · 긴급전화"
+      },
+      {
+        "line": 477,
+        "text": "오늘은 쉬는 날이에요"
+      },
+      {
+        "line": 479,
+        "text": "오늘 과제를 모두 끝냈어요"
+      },
+      {
+        "line": 480,
+        "text": "오늘 남은 과제가 없어요"
+      },
+      {
+        "line": 490,
+        "text": "오늘"
+      },
+      {
+        "line": 538,
+        "text": "${streak}일 연속"
+      },
+      {
+        "line": 566,
+        "text": "마감까지 ${formatMinutesLeft(Duration.between(now, status.deadline).toMillis())}"
+      },
+      {
+        "line": 570,
+        "text": "오늘은 쉬는 날 · "
+      },
+      {
+        "line": 570,
+        "text": "반복 요일이 없어요"
+      },
+      {
+        "line": 576,
+        "text": "지금 인증하면 억제 화면이 멈춰요"
+      },
+      {
+        "line": 576,
+        "text": "지금 인증하면 잠금이 풀려요"
+      },
+      {
+        "line": 580,
+        "text": "마감이 지났어요 · 했다면 늦게라도 체크해 두세요"
+      },
+      {
+        "line": 581,
+        "text": "마감을 놓쳤어요"
+      },
+      {
+        "line": 585,
+        "text": "꺼 둔 과제예요 · 눌러서 켤 수 있어요"
+      },
+      {
+        "line": 606,
+        "text": "$title 바로 시작"
+      },
+      {
+        "line": 612,
+        "text": "$title 지금 인증하기"
+      },
+      {
+        "line": 616,
+        "text": "$title 늦게라도 체크"
+      },
+      {
+        "line": 628,
+        "text": "완료"
+      },
+      {
+        "line": 663,
+        "text": "시작 전"
+      },
+      {
+        "line": 664,
+        "text": "쉬는 날"
+      },
+      {
+        "line": 665,
+        "text": "진행 중"
+      },
+      {
+        "line": 666,
+        "text": "완료"
+      },
+      {
+        "line": 667,
+        "text": "놓침"
+      },
+      {
+        "line": 668,
+        "text": "꺼짐"
+      },
+      {
+        "line": 691,
+        "text": "${task.geoRadiusMeters!!.toInt()}m 이내"
+      },
+      {
+        "line": 694,
+        "text": "${labels.first()} 외 ${labels.size - 1}개"
+      }
+    ],
+    "ui/VerifyUi.kt": [
+      {
+        "line": 33,
+        "text": "탭 체크"
+      },
+      {
+        "line": 34,
+        "text": "사진 인증"
+      },
+      {
+        "line": 35,
+        "text": "위치 인증"
+      },
+      {
+        "line": 36,
+        "text": "NFC 인증"
+      },
+      {
+        "line": 50,
+        "text": "완료 체크"
+      },
+      {
+        "line": 51,
+        "text": "촬영해서 인증"
+      },
+      {
+        "line": 52,
+        "text": "여기서 체크"
+      },
+      {
+        "line": 53,
+        "text": "태그 찍어 체크"
+      },
+      {
+        "line": 62,
+        "text": "알림만"
+      },
+      {
+        "line": 63,
+        "text": "억제 화면"
+      },
+      {
+        "line": 64,
+        "text": "앱 잠금"
+      },
+      {
+        "line": 78,
+        "text": "놓치면 억제 화면"
+      },
+      {
+        "line": 79,
+        "text": "놓치면 잠금"
+      },
+      {
+        "line": 83,
+        "text": "지금 안 하면 내일도 안 한다"
+      }
+    ],
+    "verify/ConditionChecks.kt": [
+      {
+        "line": 17,
+        "text": "지금은 인증 가능 시간이 아니에요 · ${TaskSchedule.describeWindow(task)}"
+      },
+      {
+        "line": 32,
+        "text": "위치를 확인할 수 없어요"
+      },
+      {
+        "line": 33,
+        "text": "모의 위치는 인정되지 않아요"
+      },
+      {
+        "line": 34,
+        "text": "위치 정보 시각이 인증 시각과 맞지 않아요"
+      },
+      {
+        "line": 38,
+        "text": "지정한 장소에서 ${distance.toInt()}m 떨어져 있어요"
+      },
+      {
+        "line": 47,
+        "text": "이 과제에 고른 태그를 찾을 수 없어요. 과제 편집에서 태그를 다시 골라 주세요"
+      },
+      {
+        "line": 48,
+        "text": "태그를 찍지 않았어요"
+      },
+      {
+        "line": 49,
+        "text": "'${expected.name}' 태그가 아니에요. 이 과제에 고른 태그를 찍어 주세요"
+      }
+    ],
+    "verify/PhotoVerifier.kt": [
+      {
+        "line": 28,
+        "text": "사진의 촬영 시각이 맞지 않아요"
+      },
+      {
+        "line": 43,
+        "text": "사진의 촬영 위치가 맞지 않아요"
+      },
+      {
+        "line": 61,
+        "text": "로 인식됐지만 기준(${threshold}%)보다 낮아요. 대상을 더 크게, 밝게 찍어 보세요"
+      },
+      {
+        "line": 64,
+        "text": "사진에서 ${requiredLabels.joinToString(\", \") { \"'$it'\" }} 중 어느 것도 찾지 못했어요"
+      },
+      {
+        "line": 65,
+        "text": "사진에서 인식된 라벨이 없어요"
+      }
+    ],
+    "verify/VerificationFlow.kt": [
+      {
+        "line": 83,
+        "text": "장소가 지정되지 않았어요. 과제 편집에서 장소를 정해 주세요"
+      }
+    ]
+  }
+}

@@ -40,7 +40,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -90,6 +90,8 @@ import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.DigitStyle
 import com.getfuckocus.ui.theme.Dimens
 import com.getfuckocus.ui.theme.PixelIcons
+import com.getfuckocus.ui.theme.bevel
+import com.getfuckocus.ui.theme.circleBevel
 import com.getfuckocus.verify.Verdict
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -378,6 +380,7 @@ private fun HeroCard(
                     large = true,
                     valueColor = if (inProgress != null) Chrome.redInk else Chrome.carbon,
                     modifier = Modifier.weight(1.15f).fillMaxHeight(),
+                    surface = Chrome.lavender,
                 )
                 FocusStatBox(
                     label = "실행 가능",
@@ -385,6 +388,7 @@ private fun HeroCard(
                     caption = "~ $end 마감",
                     icon = PixelIcons.Clock,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
+                    surface = Chrome.lavender,
                 )
             }
             inProgress?.let { FocusProgressBar(it.progress) }
@@ -421,7 +425,7 @@ private fun LockHeroCard(
     ) {
         Box(Modifier.fillMaxWidth().height(4.dp).background(Chrome.red))
         FocusTab(
-            if (nag) "억제 화면" else "잠금 중",
+            if (nag) "억제 중" else "잠금 중",
             icon = lock.mode.icon,
             container = Chrome.red,
             content = Chrome.white,
@@ -433,8 +437,8 @@ private fun LockHeroCard(
             Column {
                 Text(lock.taskTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
                 Text(
-                    if (nag) "마감까지 인증하지 못해서 ${DANMAKU_INTERVAL_MS / 60_000}분마다 화면 위로 문구가 지나가고 있어요"
-                    else "마감까지 인증하지 못해서 다른 앱이 잠겨 있어요",
+                    if (nag) "인증할 때까지 ${DANMAKU_INTERVAL_MS / 60_000}분마다 문구가 지나가요"
+                    else "인증할 때까지 다른 앱이 잠겨 있어요",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Chrome.redInk,
                 )
@@ -446,19 +450,13 @@ private fun LockHeroCard(
                     icon = PixelIcons.Hourglass,
                     large = true,
                     valueColor = Chrome.redInk,
-                    modifier = Modifier.weight(1.15f).fillMaxHeight(),
-                )
-                FocusStatBox(
-                    label = "바로 푸는 법",
-                    value = "인증하기",
-                    caption = "늦어도 통과하면 해제",
-                    icon = method.icon,
+                    caption = "늦게라도 인증하면 바로 풀려요",
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
             }
             // 앱 안에서는 잠금 화면을 거치지 않고 바로 인증한다
             FocusButton(
-                "지금 인증하고 해제", onClick = onVerifyNow,
+                "지금 인증하기", onClick = onVerifyNow,
                 modifier = Modifier.fillMaxWidth(), icon = method.actionIcon, height = 56.dp,
             )
             // 비상 해제와 긴급전화는 잠금 화면에만 있으므로 그리로 가는 길은 남겨 둔다
@@ -479,7 +477,7 @@ private fun DaySummaryCard(entries: List<Pair<TaskEntity, TaskStatus>>) {
             "오늘은 쉬는 날이에요" to Icons.Default.Home
         entries.all { it.second == TaskStatus.Done || it.second == TaskStatus.Disabled || it.second is TaskStatus.RestDay } ->
             "오늘 과제를 모두 끝냈어요" to PixelIcons.Sparkle
-        else -> "오늘 남은 과제가 없어요" to Icons.Default.CheckCircle
+        else -> "오늘 남은 과제가 없어요" to PixelIcons.CheckCircle
     }
     val done = entries.count { it.second == TaskStatus.Done }
     val total = entries.count { it.second != TaskStatus.Disabled && it.second !is TaskStatus.RestDay }
@@ -582,7 +580,8 @@ private fun TaskCard(
                 lateCheckable -> StatusLine("마감이 지났어요 · 했다면 늦게라도 체크해 두세요", Icons.Default.Warning)
                 else -> StatusLine("마감을 놓쳤어요", Icons.Default.Warning, Chrome.redInk)
             }
-            TaskStatus.Done -> StatusLine("오늘 회차를 마쳤어요", Icons.Default.CheckCircle, Chrome.teal)
+            // 완료는 배지와 오른쪽 체크 원으로 충분해서 상태 줄을 따로 두지 않는다
+            TaskStatus.Done -> Unit
             TaskStatus.Disabled -> StatusLine("꺼 둔 과제예요 · 눌러서 켤 수 있어요", Icons.Default.Close)
         }
     }
@@ -617,11 +616,16 @@ private fun CardAction(
             onClick = onVerify, contentDescription = "$title 늦게라도 체크",
             icon = method.actionIcon, iconScale = iconScale, containerColor = Chrome.amber,
         )
+        // 완료 원: 위는 밝게, 아래는 그늘지게 둘러 살짝 튀어나온 단추처럼
         status == TaskStatus.Done -> Box(
-            Modifier.size(52.dp).clip(CircleShape).background(Chrome.ice),
+            Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(Chrome.ice)
+                .circleBevel(highlight = Color(0xCCFFFFFF), shadow = Color(0x591F7A58), width = 3.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Default.Check, contentDescription = "완료", tint = Chrome.teal, modifier = Modifier.size(28.dp))
+            Icon(PixelIcons.Check, contentDescription = "완료", tint = Chrome.teal, modifier = Modifier.size(28.dp))
         }
         else -> Spacer(Modifier.size(52.dp))
     }
@@ -659,11 +663,15 @@ private fun StatusBadge(status: TaskStatus) {
         is TaskStatus.Upcoming -> BadgeStyle("시작 전", PixelIcons.Hourglass, Chrome.sky, Chrome.carbon)
         is TaskStatus.RestDay -> BadgeStyle("쉬는 날", Icons.Default.Home, Chrome.sky, Chrome.carbon)
         is TaskStatus.InProgress -> BadgeStyle("진행 중", Icons.Default.PlayArrow, Chrome.amber, Chrome.carbon)
-        TaskStatus.Done -> BadgeStyle("완료", Icons.Default.CheckCircle, Chrome.ice, Chrome.teal)
+        TaskStatus.Done -> BadgeStyle("완료", PixelIcons.CheckCircle, Chrome.ice, Chrome.teal)
         TaskStatus.Missed -> BadgeStyle("놓침", Icons.Default.Warning, Chrome.redSoft, Chrome.redInk)
         TaskStatus.Disabled -> BadgeStyle("꺼짐", Icons.Default.Close, Chrome.white, Chrome.hairline)
     }
-    Pill(style.text, style.container, style.content, icon = style.icon)
+    // 상태 배지도 위 밝은 선 + 아래 그늘로 살짝 튀어나온 명찰처럼
+    Pill(
+        style.text, style.container, style.content, icon = style.icon,
+        modifier = Modifier.bevel(highlight = Color(0xB3FFFFFF), shadow = Color(0x40000000), highlightWidth = 1.dp, shadowWidth = 2.dp),
+    )
 }
 
 /** 인증 방식·장소·사진 조건을 아이콘과 짧은 라벨로. 좁은 화면에서는 다음 줄로 넘긴다. */

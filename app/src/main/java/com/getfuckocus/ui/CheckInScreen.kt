@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -128,8 +128,8 @@ fun CheckInScreen(taskId: Long, onBack: () -> Unit) {
                         VerifyMethod.NFC -> NfcWaitPanel(tag, nfcAvailability, checking)
                         VerifyMethod.LOCATION -> ActionPanel(
                             title = "정한 장소에서 체크해요",
-                            body = "버튼을 누르면 지금 위치를 한 번 재서 정한 장소 " +
-                                "${t.geoRadiusMeters?.toInt() ?: 0}m 안인지 확인해요",
+                            body = "누르면 지금 위치가 정한 장소 " +
+                                "${t.geoRadiusMeters?.toInt() ?: 0}m 안인지 한 번 확인해요",
                             label = t.verifyMethod.actionLabel,
                             icon = t.verifyMethod.actionIcon,
                             busy = checking,

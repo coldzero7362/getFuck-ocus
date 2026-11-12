@@ -10,6 +10,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -63,6 +64,25 @@ fun Modifier.insetBevel(shadow: Color = Color(0x663D4F97), width: Dp = 2.dp): Mo
     drawRect(shadow, topLeft = Offset.Zero, size = size.copy(height = w))
     drawRect(shadow, topLeft = Offset.Zero, size = size.copy(width = w / 2))
 }
+
+/**
+ * 둘레 판([surface])에 살짝 파여 들어간 칸. 흰 칸을 따로 얹는 대신 판과 같은 계열 색을 한 단 어둡게 칠하고,
+ * 안쪽 위·왼쪽에 그늘, 아래·오른쪽에 밝은 선을 그어 눌러 판 홈처럼 보이게 한다.
+ * 누를 수 없는 정보 칸(점수판, 기록)에 쓴다. 누를 수 있는 것은 튀어나온 판([bevel])으로 둔다.
+ */
+fun Modifier.recessed(surface: Color = Chrome.platinum, shape: Shape = ChromeShapes.small): Modifier =
+    clip(shape)
+        .background(lerp(surface, Chrome.chromeIndigo, 0.07f))
+        .drawWithContent {
+            drawContent()
+            val top = 2.5.dp.toPx()
+            val side = 1.5.dp.toPx()
+            val glint = 1.5.dp.toPx()
+            drawRect(Color(0x573D4F97), topLeft = Offset.Zero, size = size.copy(height = top))
+            drawRect(Color(0x383D4F97), topLeft = Offset(0f, top), size = size.copy(width = side, height = size.height - top))
+            drawRect(Color(0x99FFFFFF), topLeft = Offset(0f, size.height - glint), size = size.copy(height = glint))
+            drawRect(Color(0x66FFFFFF), topLeft = Offset(size.width - side, top), size = size.copy(width = side, height = size.height - top - glint))
+        }
 
 /** 모양대로 자르고, 색을 칠하고, 테두리를 단 판 하나. */
 fun Modifier.plate(color: Color, shape: Shape = ChromeShapes.panel, bevel: Boolean = true): Modifier =
