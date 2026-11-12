@@ -2,6 +2,8 @@ package com.getfuckocus.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import com.getfuckocus.container
 import com.getfuckocus.data.VerifyMethod
@@ -19,11 +21,15 @@ private object Routes {
     const val EDIT = "edit/{taskId}"
     const val CAPTURE = "capture/{taskId}"
     const val CHECK_IN = "check/{taskId}"
+    const val PLACE = "place?init={init}"
 
     fun edit(taskId: Long) = "edit/$taskId"
     fun capture(taskId: Long) = "capture/$taskId"
     fun checkIn(taskId: Long) = "check/$taskId"
+    fun place(current: PickedPlace?) = if (current == null) "place" else "place?init=${current.encode()}"
 }
+
+private const val KEY_PICKED_PLACE = "picked_place"
 
 private val taskIdArgument = listOf(navArgument("taskId") { type = NavType.LongType })
 
@@ -59,10 +65,28 @@ fun AppNavHost(startVerifyTaskId: Long?) {
             NfcTagAddScreen(onDone = { nav.popBackStack() })
         }
         composable(Routes.EDIT, arguments = taskIdArgument) { entry ->
+            // 장소 고르기 화면이 돌려준 결과
+            val picked by entry.savedStateHandle.getStateFlow<String?>(KEY_PICKED_PLACE, null).collectAsState()
             TaskEditScreen(
                 taskId = entry.arguments?.getLong("taskId") ?: 0L,
                 onDone = { nav.popBackStack() },
                 onAddTag = { nav.navigate(Routes.ADD_TAG) },
+                pickedPlace = PickedPlace.decode(picked),
+                onPickPlace = { current -> nav.navigate(Routes.place(current)) },
+                onPlaceConsumed = { entry.savedStateHandle[KEY_PICKED_PLACE] = null },
+            )
+        }
+        composable(
+            Routes.PLACE,
+            arguments = listOf(navArgument("init") { type = NavType.StringType; nullable = true; defaultValue = null }),
+        ) { entry ->
+            PlacePickerScreen(
+                initial = PickedPlace.decode(entry.arguments?.getString("init")),
+                onPicked = { place ->
+                    nav.previousBackStackEntry?.savedStateHandle?.set(KEY_PICKED_PLACE, place.encode())
+                    nav.popBackStack()
+                },
+                onBack = { nav.popBackStack() },
             )
         }
         composable(Routes.CAPTURE, arguments = taskIdArgument) { entry ->

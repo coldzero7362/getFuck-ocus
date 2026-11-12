@@ -88,6 +88,10 @@ import com.getfuckocus.ui.components.FocusButton
 import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusCard
 import com.getfuckocus.ui.components.FocusChip
+import com.getfuckocus.ui.components.FocusSegmented
+import com.getfuckocus.ui.components.FocusTab
+import androidx.compose.foundation.border
+import com.getfuckocus.ui.components.SegmentItem
 import com.getfuckocus.ui.components.FocusDialog
 import com.getfuckocus.ui.components.FocusIconButton
 import com.getfuckocus.ui.components.FocusPanel
@@ -113,7 +117,14 @@ private const val DEFAULT_RADIUS_M = 150f
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TaskEditScreen(taskId: Long, onDone: () -> Unit, onAddTag: () -> Unit) {
+fun TaskEditScreen(
+    taskId: Long,
+    onDone: () -> Unit,
+    onAddTag: () -> Unit,
+    pickedPlace: PickedPlace?,
+    onPickPlace: (current: PickedPlace?) -> Unit,
+    onPlaceConsumed: () -> Unit,
+) {
     val context = LocalContext.current
     val container = context.container
     val scope = rememberCoroutineScope()
@@ -213,6 +224,18 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit, onAddTag: () -> Unit) {
             message = "위치 권한이 없어 장소를 지정할 수 없어요"
         }
     }
+
+    // 지도에서 고른 장소를 받는다 (한 번 받으면 비워서 다시 들어오지 않게 한다)
+    LaunchedEffect(pickedPlace) {
+        val place = pickedPlace ?: return@LaunchedEffect
+        if (!frozen) {
+            geo = place.lat to place.lng
+            radiusMeters = place.radiusMeters
+            message = null
+        }
+        onPlaceConsumed()
+    }
+    fun openPlacePicker() = onPickPlace(geo?.let { PickedPlace(it.first, it.second, radiusMeters) })
 
     fun addLabel(text: String) {
         val value = text.trim().trimEnd(',')
@@ -542,57 +565,46 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit, onAddTag: () -> Unit) {
                 }
 
                 SubHeader("소요 시간")
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    DURATION_PRESETS.forEach { preset ->
-                        FocusChip(
-                            TaskSchedule.formatDuration(preset),
-                            selected = durationMinutes == preset,
-                            onClick = { durationMinutes = preset },
-                            enabled = !frozen,
-                        )
-                    }
-                    FocusChip(
-                        if (durationMinutes in DURATION_PRESETS) "직접 설정" else TaskSchedule.formatDuration(durationMinutes),
-                        selected = durationMinutes !in DURATION_PRESETS,
-                        onClick = { picking = TimeField.DURATION },
-                        leadingIcon = Icons.Default.Edit,
+                // 일곱 칸은 한 줄에 다 들어가지 않아 4 + 3 두 블록으로 나눈다
+                val durationKeys = DURATION_PRESETS.map { preset ->
+                    SegmentItem(
+                        TaskSchedule.formatDuration(preset),
+                        selected = durationMinutes == preset,
+                        onClick = { durationMinutes = preset },
                         enabled = !frozen,
                     )
+                } + SegmentItem(
+                    if (durationMinutes in DURATION_PRESETS) "직접" else TaskSchedule.formatDuration(durationMinutes),
+                    selected = durationMinutes !in DURATION_PRESETS,
+                    onClick = { picking = TimeField.DURATION },
+                    enabled = !frozen,
+                    icon = Icons.Default.Edit,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    durationKeys.chunked(4).forEach { FocusSegmented(it) }
                 }
 
                 SubHeader("반복 요일", "빠른 선택을 누르거나 요일을 하나씩 켜고 꺼요")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                FocusSegmented(
                     listOf(
                         "매일" to RepeatDays.EVERY_DAY,
                         "평일" to RepeatDays.WEEKDAYS,
                         "주말" to RepeatDays.WEEKEND,
-                    ).forEach { (name, mask) ->
-                        FocusChip(
-                            name,
-                            selected = repeatDays == mask,
-                            onClick = { repeatDays = mask },
-                            enabled = !frozen,
-                            leadingIcon = if (repeatDays == mask) Icons.Default.Check else null,
-                            modifier = Modifier.weight(1f),
-                            compact = true,
-                        )
+                    ).map { (name, mask) ->
+                        SegmentItem(name, selected = repeatDays == mask, onClick = { repeatDays = mask }, enabled = !frozen)
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-                    DayOfWeek.entries.forEach { day ->
-                        FocusChip(
+                )
+                // 요일은 여러 개를 켤 수 있다. 켠 요일이 눌린 키로 보인다
+                FocusSegmented(
+                    DayOfWeek.entries.map { day ->
+                        SegmentItem(
                             TaskSchedule.dayName(day),
                             selected = RepeatDays.contains(repeatDays, day),
                             onClick = { repeatDays = repeatDays xor RepeatDays.bit(day) },
                             enabled = !frozen,
-                            modifier = Modifier.weight(1f),
-                            compact = true,
                         )
                     }
-                }
+                )
                 FocusNotice(
                     TaskSchedule.describeDays(repeatDays) + " · " +
                         TaskSchedule.describeWindow(startMinute, durationMinutes) +
@@ -610,18 +622,15 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit, onAddTag: () -> Unit) {
                     FocusSwitch(checked = remindAtStart, onCheckedChange = { remindAtStart = it })
                 }
                 Text("마감 전 알림", style = MaterialTheme.typography.labelLarge)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    REMIND_BEFORE_PRESETS.forEach { minutes ->
-                        FocusChip(
+                FocusSegmented(
+                    REMIND_BEFORE_PRESETS.map { minutes ->
+                        SegmentItem(
                             if (minutes == 0) "끄기" else "${minutes}분 전",
                             selected = remindBeforeMinutes == minutes,
                             onClick = { remindBeforeMinutes = minutes },
                         )
                     }
-                }
+                )
                 if (!notificationsGranted && (remindAtStart || remindBeforeMinutes > 0)) {
                     FocusNotice(
                         "알림 권한이 없어서 알림이 오지 않아요",
@@ -667,60 +676,47 @@ fun TaskEditScreen(taskId: Long, onDone: () -> Unit, onAddTag: () -> Unit) {
                 val currentGeo = geo
                 if (currentGeo == null) {
                     Text(
-                        "지금 있는 곳을 등록하면 그 근처에서 체크하거나 찍어야 통과해요.",
+                        "장소를 정하면 그 근처에서 체크하거나 찍어야 통과해요. 지금 있는 곳이 아니어도 지도에서 고를 수 있어요.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Chrome.chromeIndigo,
                     )
                     FocusButton(
-                        "지금 있는 곳을 장소로 지정",
+                        "지도에서 고르기",
+                        onClick = ::openPlacePicker,
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.Default.LocationOn,
+                        enabled = !frozen,
+                    )
+                    FocusButton(
+                        "지금 있는 곳으로 정하기",
                         onClick = {
                             if (context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) fetchLocation()
                             else locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         style = FocusButtonStyle.Outline,
-                        icon = Icons.Default.LocationOn,
                         enabled = !frozen,
                     )
                 } else {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(ChromeShapes.small)
-                            .background(Chrome.white)
-                            .padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = Chrome.signal, modifier = Modifier.size(28.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            // 좌표를 장소 이름으로 바꾸려면 위치를 외부 서버로 보내야 해서, 기기 안에서 끝나도록 좌표는 보조로만 둔다
-                            Text("등록한 위치 (반경 ${radiusMeters.toInt()}m)", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                "%.5f, %.5f".format(currentGeo.first, currentGeo.second),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Chrome.chromeIndigo,
-                            )
-                        }
-                        FocusButton(
-                            "없애기", onClick = { geo = null },
-                            style = FocusButtonStyle.Ghost, height = 48.dp, enabled = !frozen,
-                        )
-                    }
+                    PlaceInfoBox(
+                        lat = currentGeo.first,
+                        lng = currentGeo.second,
+                        radiusMeters = radiusMeters,
+                        enabled = !frozen,
+                        onChange = ::openPlacePicker,
+                        onRemove = { geo = null },
+                    )
                     SubHeader("반경")
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        RADIUS_PRESETS.forEach { preset ->
-                            FocusChip(
+                    FocusSegmented(
+                        RADIUS_PRESETS.map { preset ->
+                            SegmentItem(
                                 "${preset.toInt()}m",
                                 selected = radiusMeters == preset,
                                 onClick = { radiusMeters = preset },
                                 enabled = !frozen,
                             )
                         }
-                    }
+                    )
                 }
             }
         }
@@ -799,6 +795,75 @@ private fun SettingRow(title: String, description: String? = null, control: @Com
 
 private const val NAG_MESSAGE_MAX_LENGTH = 60
 
+/**
+ * 정해 둔 장소. 디자인 가이드의 정보 상자 모양: 흰 판 + 카본 꼬리표 머리 + 앰버 배지,
+ * 좌표는 디지털 숫자로, 아래에 돌출 버튼 둘 (바꾸기는 앰버 도구 버튼, 초기화는 테두리 버튼).
+ * 따뜻한 색은 누를 수 있는 버튼과 배지에만 쓴다.
+ */
+@Composable
+private fun PlaceInfoBox(
+    lat: Double,
+    lng: Double,
+    radiusMeters: Float,
+    enabled: Boolean,
+    onChange: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(ChromeShapes.small)
+            .background(Chrome.white)
+            .border(1.dp, Chrome.hairline, ChromeShapes.small),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FocusTab("정한 장소", icon = Icons.Default.LocationOn)
+            Spacer(Modifier.weight(1f))
+            Pill("반경 ${radiusMeters.toInt()}m", Chrome.amber, Chrome.carbon)
+            Spacer(Modifier.width(10.dp))
+        }
+        Column(
+            Modifier.padding(start = 12.dp, top = 10.dp, end = 12.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            // 좌표를 장소 이름으로 바꾸려면 위치를 외부 서버로 보내야 해서, 편집 화면에서는 좌표만 보여 준다
+            Column {
+                Text(
+                    "위도 · 경도",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    color = Chrome.chromeIndigo,
+                )
+                Text(
+                    "%.5f  %.5f".format(lat, lng),
+                    style = DigitStyle.copy(fontSize = 20.sp),
+                    color = Chrome.carbon,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                FocusButton(
+                    "지도에서 바꾸기",
+                    onClick = onChange,
+                    modifier = Modifier.weight(1.4f),
+                    style = FocusButtonStyle.Tonal,
+                    icon = Icons.Default.LocationOn,
+                    height = 44.dp,
+                    enabled = enabled,
+                )
+                FocusButton(
+                    "초기화",
+                    onClick = onRemove,
+                    modifier = Modifier.weight(1f),
+                    style = FocusButtonStyle.Outline,
+                    height = 44.dp,
+                    enabled = enabled,
+                )
+            }
+        }
+    }
+}
+
 /** 놓쳤을 때 할 일과, 억제 화면·잠금 화면에 띄울 문구·이미지 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -816,19 +881,17 @@ private fun MissActionPanel(
 ) {
     FocusPanel(title = "놓쳤을 때", index = "04", modifier = Modifier.fillMaxWidth()) {
         val allowed = method.allowedMissActions()
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            MissAction.entries.forEach { action ->
-                FocusChip(
+        FocusSegmented(
+            MissAction.entries.map { action ->
+                SegmentItem(
                     action.title,
                     selected = missAction == action,
                     onClick = { onMissAction(action) },
-                    leadingIcon = action.icon,
                     enabled = !frozen && action in allowed,
-                    modifier = Modifier.weight(1f),
-                    compact = true,
+                    icon = action.icon,
                 )
             }
-        }
+        )
         Text(
             when (missAction) {
                 MissAction.NOTIFY -> "놓쳐도 막지 않아요. 알림과 기록으로만 챙겨요."
