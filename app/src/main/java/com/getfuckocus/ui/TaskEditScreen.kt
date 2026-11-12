@@ -40,7 +40,7 @@ import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -424,7 +424,7 @@ fun TaskEditScreen(
                     placeholder = "예: 아침 운동",
                     modifier = Modifier.fillMaxWidth(),
                 )
-                SettingRow(title = "사용", description = "끄면 알림도, 억제 화면도, 잠금도 멈춰요") {
+                SettingRow(title = "사용", description = "끄면 알림·억제 화면·잠금이 모두 멈춰요") {
                     FocusSwitch(checked = enabled, onCheckedChange = { enabled = it }, enabled = !frozen)
                 }
             }
@@ -612,7 +612,7 @@ fun TaskEditScreen(
                     durationKeys.chunked(4).forEach { FocusSegmented(it) }
                 }
 
-                SubHeader("반복 요일", "빠른 선택을 누르거나 요일을 하나씩 켜고 꺼요")
+                SubHeader("반복 요일", "요일을 눌러 켜고 꺼요")
                 FocusSegmented(
                     listOf(
                         "매일" to RepeatDays.EVERY_DAY,
@@ -707,7 +707,7 @@ fun TaskEditScreen(
                 val currentGeo = geo
                 if (currentGeo == null) {
                     Text(
-                        "장소를 정하면 그 근처에서 체크하거나 찍어야 통과해요. 지금 있는 곳이 아니어도 지도에서 고를 수 있어요.",
+                        "TIP. 지금 있는 곳이 아니어도 지도에서 고를 수 있어요",
                         style = MaterialTheme.typography.bodySmall,
                         color = Chrome.chromeIndigo,
                     )
@@ -926,27 +926,26 @@ private fun MissActionPanel(
         )
         Text(
             when (missAction) {
-                MissAction.NOTIFY -> "놓쳐도 막지 않아요. 알림과 기록으로만 챙겨요."
+                MissAction.NOTIFY -> "놓쳐도 막지 않고 알림과 기록으로만 챙겨요."
                 MissAction.NAG ->
-                    "놓치면 폰은 그대로 쓸 수 있지만, 쓰던 화면 위로 아래 문구와 사진이 " +
-                        "${DANMAKU_INTERVAL_MS / 60_000}분마다 흘러가요. 인증해야 멈춰요."
+                    "폰은 그대로 쓸 수 있어요. 대신 인증할 때까지 " +
+                        "${DANMAKU_INTERVAL_MS / 60_000}분마다 아래 문구와 사진이 화면을 지나가요."
                 MissAction.LOCK ->
-                    "놓치면 인증할 때까지 허용한 앱 말고는 못 써요. 화면에는 아래 문구와 이미지가 떠요."
-            } + if (MissAction.LOCK !in allowed) " 탭 체크는 버튼 한 번으로 풀려서 앱 잠금은 고를 수 없어요." else "",
+                    "인증할 때까지 허용한 앱만 쓸 수 있어요. 잠금 화면에 아래 문구가 떠요."
+            } + if (MissAction.LOCK !in allowed) " 탭 체크는 버튼 한 번이면 풀려서 앱 잠금은 고를 수 없어요." else "",
             style = MaterialTheme.typography.bodySmall,
             color = Chrome.chromeIndigo,
         )
         if (missAction != MissAction.NOTIFY) {
-            FocusNotice(
-                "긴급전화, ${SafetyPolicy.EMERGENCY_DELAY_MS / 60_000}분 비상 해제, " +
-                    "${SafetyPolicy.MAX_LOCK_DURATION_MS / 3_600_000}시간 자동 해제는 항상 쓸 수 있어요",
-                tone = Tone.Info,
-                icon = PixelIcons.Shield,
+            Text(
+                "TIP. 긴급전화, ${SafetyPolicy.EMERGENCY_DELAY_MS / 60_000}분 비상 해제, " +
+                    "${SafetyPolicy.MAX_LOCK_DURATION_MS / 3_600_000}시간 자동 해제는 언제든 쓸 수 있어요",
+                style = MaterialTheme.typography.bodySmall,
+                color = Chrome.carbon,
             )
             SubHeader(
                 "흘러갈 문구",
-                "첫 문구는 가운데 크게, 모두 ${DANMAKU_INTERVAL_MS / 60_000}분마다 화면을 가로질러 지나가요 · " +
-                    "비워 두면 \"$DEFAULT_NAG_MESSAGE\"",
+                "첫 문구가 가장 크게 지나가요 · 비워 두면 \"$DEFAULT_NAG_MESSAGE\"",
             )
             // 입력칸을 위에 두고, 넣은 문구는 그 아래에 한 줄씩 쌓는다
             if (nagMessages.size < NagContent.MAX_MESSAGES) {
@@ -976,7 +975,7 @@ private fun MissActionPanel(
                 }
             }
 
-            SubHeader("흘러갈 사진", "선택 · 최대 ${NagContent.MAX_IMAGES}장 · 문구와 함께 크기가 제각각으로 지나가요")
+            SubHeader("흘러갈 사진", "선택 · 최대 ${NagContent.MAX_IMAGES}장")
             if (nagImages.isNotEmpty()) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

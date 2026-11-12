@@ -25,7 +25,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -129,7 +129,7 @@ fun AllowedAppsScreen(onBack: () -> Unit) {
                     loaded.isEmpty() -> item {
                         FocusEmptyState(
                             title = "앱 목록을 불러오지 못했어요",
-                            body = "다시 열어 보거나, 기기의 앱 목록 권한을 확인해 주세요",
+                            body = "화면을 다시 열거나 앱 목록 권한을 확인해 주세요",
                             icon = Icons.Default.Warning,
                             tone = Tone.Warning,
                         )

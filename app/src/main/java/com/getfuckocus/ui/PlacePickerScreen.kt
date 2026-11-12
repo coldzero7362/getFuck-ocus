@@ -60,7 +60,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -403,7 +403,7 @@ private fun MapGuide(hidden: Boolean, modifier: Modifier = Modifier) {
         label = "guideAlpha",
     )
     Text(
-        "지도를 움직여 원하는 위치를 선택하세요",
+        "지도를 움직여 핀을 옮겨 주세요",
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
         color = Chrome.sky,
@@ -480,7 +480,7 @@ private fun CommandBar(
     ) {
         when (locationError) {
             LocationError.NoPermission -> FocusNotice(
-                "위치 권한이 필요해요. 기기 설정에서 위치 권한을 허용해 주세요",
+                "기기 설정에서 위치 권한을 허용해 주세요",
                 tone = Tone.Warning, actionLabel = "설정", onAction = onOpenAppSettings,
             )
             LocationError.ServiceOff -> FocusNotice(

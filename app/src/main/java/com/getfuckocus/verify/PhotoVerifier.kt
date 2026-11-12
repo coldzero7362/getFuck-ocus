@@ -25,7 +25,7 @@ class PhotoVerifier {
         // 2. EXIF 교차검증: 파일에 기록된 촬영 시각이 셔터 시점과 크게 다르면 거부
         evidence.exif.dateTimeOriginalMillis?.let { exifMillis ->
             if (abs(exifMillis - capturedMillis) > EXIF_TIME_TOLERANCE_MS) {
-                reasons += "사진 메타데이터의 촬영 시각이 일치하지 않아요"
+                reasons += "사진의 촬영 시각이 맞지 않아요"
             }
         }
 
@@ -40,7 +40,7 @@ class PhotoVerifier {
                     evidence.exif.latitude, evidence.exif.longitude,
                     location.latitude, location.longitude,
                 )
-                if (exifGap > EXIF_LOCATION_TOLERANCE_M) reasons += "사진 메타데이터의 위치가 일치하지 않아요"
+                if (exifGap > EXIF_LOCATION_TOLERANCE_M) reasons += "사진의 촬영 위치가 맞지 않아요"
             }
         }
 

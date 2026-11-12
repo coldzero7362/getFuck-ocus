@@ -34,7 +34,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -126,7 +126,7 @@ fun HistoryScreen(onBack: () -> Unit) {
 
 @Composable
 private fun StreakPanel(tasks: List<TaskEntity>, now: ZonedDateTime, passes: PassIndex) {
-    FocusPanel(title = "연속 달성", subtitle = "마감 전에 통과한 회차를 이어서 센 수예요", icon = Icons.Default.Star) {
+    FocusPanel(title = "연속 달성", subtitle = "마감 전에 연달아 통과한 횟수예요", icon = Icons.Default.Star) {
         if (tasks.isEmpty()) {
             Text("아직 과제가 없어요", style = MaterialTheme.typography.bodyMedium)
         }

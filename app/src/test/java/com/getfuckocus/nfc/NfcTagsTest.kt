@@ -32,7 +32,7 @@ class NfcTagsTest {
     @Test
     fun `두 번째에 ID가 다르면 처음부터 다시 찍는다`() {
         val next = NfcTags.onScan(ScanState.Confirming(a), b, registeredName = null)
-        assertTrue(next is ScanState.Waiting && next.notice!!.contains("ID가 달라요"))
+        assertTrue(next is ScanState.Waiting && next.notice!!.contains("처음 찍은 태그와 달라요"))
     }
 
     @Test

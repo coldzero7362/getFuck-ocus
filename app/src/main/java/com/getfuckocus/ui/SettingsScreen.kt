@@ -33,7 +33,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
@@ -110,7 +110,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit) {
     val cameraPermission = rememberPermissionRequest { cameraGranted = it }
     val locationPermission = rememberPermissionRequest { locationGranted = it }
 
-    Scaffold(topBar = { FocusTopBar(title = "설정", subtitle = "항목을 누르면 자세히 바꿀 수 있어요", onBack = onBack) }) { padding ->
+    Scaffold(topBar = { FocusTopBar(title = "설정", onBack = onBack) }) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).fillMaxSize(),
             contentPadding = PaddingValues(Dimens.screenPadding),
@@ -136,8 +136,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit) {
                         )
                     }
                     Text(
-                        "접근성 권한으로 지금 열린 앱의 이름만 확인해요. 화면 내용이나 입력한 글자는 읽지 않고, " +
-                            "어떤 데이터도 기기 밖으로 보내지 않아요.",
+                        "TIP. 지금 열린 앱 이름만 확인해요. 화면 내용과 입력한 글자는 읽지 않고 기기 밖으로도 보내지 않아요",
                         style = MaterialTheme.typography.bodySmall,
                         color = Chrome.chromeIndigo,
                     )
@@ -158,12 +157,18 @@ fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit) {
             // 권한은 앱이 직접 끌 수 없어서, 허용 전에는 요청하고 허용 뒤에는 시스템 설정 화면으로 보낸다
             item { FocusSectionLabel("권한") }
             item {
+                Text(
+                    "TIP. 허용한 권한은 누르면 시스템 설정에서 끌 수 있어요",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Chrome.carbon,
+                )
+            }
+            item {
                 PermissionCard(
                     icon = PixelIcons.Bell,
                     title = "알림",
                     description = "시작·마감 알림과 잠금 상태를 알려 줘요",
                     granted = notificationsGranted,
-                    grantedHint = "누르면 시스템 알림 설정에서 과제 알림, 잠금 알림을 따로 끌 수 있어요",
                     deniedWarning = "알림이 꺼져 있으면 마감이 다가와도 알 수 없어요",
                     onClick = {
                         if (notificationsGranted) openNotificationSettings(context)
@@ -177,7 +182,6 @@ fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit) {
                     title = "카메라",
                     description = "사진 인증 과제를 찍을 때만 써요",
                     granted = cameraGranted,
-                    grantedHint = "누르면 시스템 앱 정보에서 권한을 끌 수 있어요",
                     deniedWarning = "카메라가 없으면 사진 인증을 할 수 없어요",
                     onClick = {
                         if (cameraGranted) openAppDetails(context)
@@ -189,9 +193,8 @@ fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit) {
                 PermissionCard(
                     icon = Icons.Default.LocationOn,
                     title = "위치",
-                    description = "위치 인증, 장소를 정한 사진 인증을 할 때만 한 번 재요. 백그라운드 위치는 쓰지 않아요",
+                    description = "장소를 확인하는 인증 때만 한 번 재요. 백그라운드 위치는 쓰지 않아요",
                     granted = locationGranted,
-                    grantedHint = "누르면 시스템 앱 정보에서 권한을 끌 수 있어요",
                     deniedWarning = "위치가 없으면 장소를 확인하는 인증을 할 수 없어요",
                     onClick = {
                         if (locationGranted) openAppDetails(context)
@@ -223,7 +226,6 @@ private fun PermissionCard(
     title: String,
     description: String,
     granted: Boolean,
-    grantedHint: String,
     deniedWarning: String,
     onClick: () -> Unit,
 ) {
@@ -241,9 +243,7 @@ private fun PermissionCard(
                 modifier = Modifier.size(28.dp),
             )
         }
-        if (granted) {
-            Text(grantedHint, style = MaterialTheme.typography.bodySmall, color = Chrome.chromeIndigo)
-        } else {
+        if (!granted) {
             FocusNotice(deniedWarning, tone = Tone.Warning, icon = icon, actionLabel = "허용", onAction = onClick)
         }
     }

@@ -25,6 +25,6 @@ suspend fun editFreezeReason(
     val date = TaskSchedule.occurrenceContaining(task, now) ?: return null
     if (dao.passedOn(task.id, TaskSchedule.dayKey(date))) return null
     val deadline = TaskSchedule.deadline(task, date, now.zone)
-    return "진행 중인 회차가 ${TaskSchedule.formatMinute(deadline.hour * 60 + deadline.minute)}에 끝나야 " +
-        "시간과 조건을 바꿀 수 있어요. 이름만 바꿀 수 있어요"
+    return "진행 중인 회차가 ${TaskSchedule.formatMinute(deadline.hour * 60 + deadline.minute)}에 끝나면 " +
+        "시간과 조건을 바꿀 수 있어요. 지금은 이름만 바꿀 수 있어요"
 }

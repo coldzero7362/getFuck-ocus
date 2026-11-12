@@ -33,7 +33,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -101,12 +102,16 @@ fun LockScreen(
     val method = task?.verifyMethod ?: VerifyMethod.PHOTO
 
     CompositionLocalProvider(LocalContentColor provides LockColors.content) {
-        Box(Modifier.fillMaxSize().background(LockColors.background)) {
+        Box(Modifier.fillMaxSize().background(LockColors.background).halftone()) {
+        // 설정한 문구·사진이 1분마다 흘러간다. 버튼과 글자를 가리지 않게 내용 뒤에 옅게 깐다
+        DanmakuLayer(
+            texts = task?.nagMessages().orEmpty(),
+            pictures = task?.nagImagePaths().orEmpty(),
+            modifier = Modifier.fillMaxSize().systemBarsPadding().graphicsLayer { alpha = 0.45f },
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(LockColors.background)
-                .halftone()
                 .systemBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 24.dp),
@@ -138,8 +143,16 @@ fun LockScreen(
                         .clip(ChromeShapes.panel),
                 )
             }
+            // 어떤 과제 때문인지 한 줄, 그 아래 직접 적어 둔 문구를 가장 크게
             Text(
-                task?.nagMessages()?.firstOrNull() ?: DEFAULT_NAG_MESSAGE,
+                "'${s.taskTitle}' 마감을 놓쳤어요",
+                style = MaterialTheme.typography.titleMedium,
+                color = LockColors.contentMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "\u201C" + (task?.nagMessages()?.firstOrNull() ?: DEFAULT_NAG_MESSAGE) + "\u201D",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Black,
                 color = LockColors.content,
@@ -147,32 +160,19 @@ fun LockScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // 사유: 어떤 과제 때문인지
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .plate(LockColors.raised, ChromeShapes.panel, bevel = false)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(if (nag) "놓친 과제" else "잠금 사유", style = MaterialTheme.typography.labelMedium, color = LockColors.contentMuted)
-                Text("'${s.taskTitle}'", style = MaterialTheme.typography.titleMedium, color = LockColors.content)
-                Text(
-                    if (nag) "인증할 때까지 ${DANMAKU_INTERVAL_MS / 60_000}분마다 쓰던 화면 위로 문구가 지나가요"
-                    else "마감까지 인증하지 못했어요",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = LockColors.contentMuted,
-                )
-            }
-
             FocusButton(
-                "지금 인증하고 끝내기",
+                "지금 인증하기",
                 onClick = { onVerifyNow(s.taskId) },
                 modifier = Modifier.fillMaxWidth(),
                 height = 60.dp,
                 icon = method.actionIcon,
                 containerColor = LockColors.accent,
                 contentColor = LockColors.onAccent,
+            )
+            Text(
+                if (nag) "TIP. 인증하면 문구가 바로 멈춰요" else "TIP. 늦게라도 인증을 통과하면 바로 풀려요",
+                style = MaterialTheme.typography.bodySmall,
+                color = LockColors.contentMuted,
             )
 
             AutoReleaseRing(autoRemaining)
@@ -187,6 +187,8 @@ fun LockScreen(
             Column(
                 Modifier
                     .fillMaxWidth()
+                    // 뒤로 흘러가는 문구가 비치지 않게 바탕을 채운다
+                    .background(LockColors.background, ChromeShapes.panel)
                     .border(1.dp, LockColors.contentMuted.copy(alpha = 0.4f), ChromeShapes.panel)
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -212,26 +214,21 @@ fun LockScreen(
                     }
                 }
                 Text(
-                    if (nag) "억제 중에도 폰은 그대로 쓸 수 있어요. 전화·설정 화면 위에는 문구가 뜨지 않아요"
-                    else "전화, 문자, 알람, 설정과 허용한 앱도 잠금 중에 쓸 수 있어요",
+                    if (nag) "억제 중에도 폰은 그대로 쓸 수 있어요. 전화·설정 위에는 문구가 뜨지 않아요"
+                    else "전화·문자·알람·설정과 허용한 앱은 잠금 중에도 열려요",
                     style = MaterialTheme.typography.bodySmall,
                     color = LockColors.contentMuted,
                 )
             }
         }
-        // 설정한 문구·사진이 1분마다 화면을 가로질러 흘러간다 (터치는 아래로 그대로 지나간다)
-        DanmakuLayer(
-            texts = task?.nagMessages().orEmpty(),
-            pictures = task?.nagImagePaths().orEmpty(),
-            modifier = Modifier.fillMaxSize().systemBarsPadding(),
-        )
         }
     }
 }
 
 @Composable
 private fun AutoReleaseRing(remaining: Long) {
-    Box(contentAlignment = Alignment.Center) {
+    // 링 안쪽을 채워 뒤로 흘러가는 문구가 남은 시간 숫자와 겹치지 않게 한다
+    Box(Modifier.background(LockColors.background, CircleShape), contentAlignment = Alignment.Center) {
         FocusRing(
             progress = remaining.toFloat() / SafetyPolicy.MAX_LOCK_DURATION_MS,
             modifier = Modifier.size(196.dp),

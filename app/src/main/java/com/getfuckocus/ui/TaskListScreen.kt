@@ -40,7 +40,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -425,7 +425,7 @@ private fun LockHeroCard(
     ) {
         Box(Modifier.fillMaxWidth().height(4.dp).background(Chrome.red))
         FocusTab(
-            if (nag) "억제 화면" else "잠금 중",
+            if (nag) "억제 중" else "잠금 중",
             icon = lock.mode.icon,
             container = Chrome.red,
             content = Chrome.white,
@@ -437,8 +437,8 @@ private fun LockHeroCard(
             Column {
                 Text(lock.taskTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
                 Text(
-                    if (nag) "마감까지 인증하지 못해서 ${DANMAKU_INTERVAL_MS / 60_000}분마다 화면 위로 문구가 지나가고 있어요"
-                    else "마감까지 인증하지 못해서 다른 앱이 잠겨 있어요",
+                    if (nag) "인증할 때까지 ${DANMAKU_INTERVAL_MS / 60_000}분마다 문구가 지나가요"
+                    else "인증할 때까지 다른 앱이 잠겨 있어요",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Chrome.redInk,
                 )
@@ -450,19 +450,13 @@ private fun LockHeroCard(
                     icon = PixelIcons.Hourglass,
                     large = true,
                     valueColor = Chrome.redInk,
-                    modifier = Modifier.weight(1.15f).fillMaxHeight(),
-                )
-                FocusStatBox(
-                    label = "바로 푸는 법",
-                    value = "인증하기",
-                    caption = "늦어도 통과하면 해제",
-                    icon = method.icon,
+                    caption = "늦게라도 인증하면 바로 풀려요",
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
             }
             // 앱 안에서는 잠금 화면을 거치지 않고 바로 인증한다
             FocusButton(
-                "지금 인증하고 해제", onClick = onVerifyNow,
+                "지금 인증하기", onClick = onVerifyNow,
                 modifier = Modifier.fillMaxWidth(), icon = method.actionIcon, height = 56.dp,
             )
             // 비상 해제와 긴급전화는 잠금 화면에만 있으므로 그리로 가는 길은 남겨 둔다
@@ -586,7 +580,8 @@ private fun TaskCard(
                 lateCheckable -> StatusLine("마감이 지났어요 · 했다면 늦게라도 체크해 두세요", Icons.Default.Warning)
                 else -> StatusLine("마감을 놓쳤어요", Icons.Default.Warning, Chrome.redInk)
             }
-            TaskStatus.Done -> StatusLine("오늘 회차를 마쳤어요", PixelIcons.CheckCircle, Chrome.teal)
+            // 완료는 배지와 오른쪽 체크 원으로 충분해서 상태 줄을 따로 두지 않는다
+            TaskStatus.Done -> Unit
             TaskStatus.Disabled -> StatusLine("꺼 둔 과제예요 · 눌러서 켤 수 있어요", Icons.Default.Close)
         }
     }

@@ -51,7 +51,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -221,7 +221,7 @@ fun CaptureScreen(taskId: Long, onBack: () -> Unit) {
                         },
                     )
                     Text(
-                        if (busy) "확인 중…" else "눌러서 촬영하고 인증",
+                        if (busy) "확인 중…" else "눌러서 찍기",
                         style = MaterialTheme.typography.labelLarge,
                         color = Chrome.carbon,
                     )

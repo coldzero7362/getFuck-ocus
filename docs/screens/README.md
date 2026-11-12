@@ -54,4 +54,6 @@
 python -I tools/extract_strings.py . docs/strings.json
 ```
 
+문구를 고칠 때는 [`../tone-and-manner.md`](../tone-and-manner.md) 기준을 따른다.
+
 `resources`(strings.xml)와 `kotlin`(파일별 `{line, text}`, 한글이 든 문자열 리터럴만)으로 나뉜다.

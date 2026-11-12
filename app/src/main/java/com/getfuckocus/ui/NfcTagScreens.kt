@@ -28,7 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -109,8 +109,8 @@ fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
                 item {
                     FocusEmptyState(
                         title = "아직 등록한 태그가 없어요",
-                        body = "책상, 약통, 현관처럼 과제를 하는 곳에 NFC 스티커를 붙이고 등록해 두세요. " +
-                            "교통카드나 출입카드도 쓸 수 있어요",
+                        body = "약통, 책상, 현관처럼 과제하는 곳에 NFC 스티커를 붙여 두세요. " +
+                            "교통카드나 출입카드도 돼요",
                         icon = PixelIcons.Nfc,
                         actionLabel = "첫 태그 등록하기",
                         onAction = onAdd,
@@ -262,7 +262,7 @@ fun NfcTagAddScreen(onDone: () -> Unit) {
                 // 쓸 수 없는 기기에서는 대기 안내 대신 이유를 크게 보여 준다
                 NfcAvailability.Unsupported -> if (state !is ScanState.Ready) FocusEmptyState(
                     title = "이 기기에서는 NFC를 쓸 수 없어요",
-                    body = "NFC 칩이 없는 기기라 태그를 읽을 수 없어요. 태그 등록은 NFC가 있는 폰에서 해 주세요",
+                    body = "NFC가 없는 기기예요. NFC가 있는 폰에서 등록해 주세요",
                     icon = PixelIcons.Nfc,
                     tone = Tone.Danger,
                 )
@@ -290,7 +290,7 @@ fun NfcTagAddScreen(onDone: () -> Unit) {
                     uid = s.uid,
                     scanning = availability == NfcAvailability.Ready,
                 )
-                is ScanState.Ready -> FocusPanel(title = "인식 완료", subtitle = "이름을 붙여 저장하세요", icon = Icons.Default.CheckCircle) {
+                is ScanState.Ready -> FocusPanel(title = "인식 완료", subtitle = "이름을 붙여 주세요", icon = Icons.Default.CheckCircle) {
                     FocusNotice(s.uid, title = "같은 태그인지 확인했어요", tone = Tone.Success)
                     FocusTextField(
                         value = name,
