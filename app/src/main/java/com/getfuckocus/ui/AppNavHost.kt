@@ -16,7 +16,6 @@ private object Routes {
     const val SETTINGS = "settings"
     const val ALLOWED_APPS = "allowed_apps"
     const val ADD_TAG = "add_tag"
-    const val TAGS = "tags"
     const val EDIT = "edit/{taskId}"
     const val CAPTURE = "capture/{taskId}"
     const val CHECK_IN = "check/{taskId}"
@@ -56,10 +55,6 @@ fun AppNavHost(startVerifyTaskId: Long?) {
                 onBack = { nav.popBackStack() },
             )
         }
-        // 설정 > 인증 관리에서 여는 태그 목록. 홈에서 옆으로 넘겨 보는 쪽과 같은 화면이다
-        composable(Routes.TAGS) {
-            NfcTagListScreen(onBack = { nav.popBackStack() }, onAdd = { nav.navigate(Routes.ADD_TAG) })
-        }
         composable(Routes.ADD_TAG) {
             NfcTagAddScreen(onDone = { nav.popBackStack() })
         }
@@ -80,7 +75,6 @@ fun AppNavHost(startVerifyTaskId: Long?) {
             SettingsScreen(
                 onBack = { nav.popBackStack() },
                 onOpenAllowedApps = { nav.navigate(Routes.ALLOWED_APPS) },
-                onOpenTags = { nav.navigate(Routes.TAGS) },
             )
         }
         composable(Routes.ALLOWED_APPS) {
