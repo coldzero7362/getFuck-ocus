@@ -1,3 +1,6 @@
 <resources>
-    <style name="Theme.GetFocus" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- 앱 바탕(블루 라벤더)을 창 배경으로 깔아 첫 화면이 그려지기 전 흰 화면이 번쩍이지 않게 한다 -->
+    <style name="Theme.GetFocus" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/app_canvas</item>
+    </style>
 </resources>

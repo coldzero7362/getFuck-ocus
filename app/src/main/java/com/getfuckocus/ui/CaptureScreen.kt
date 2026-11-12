@@ -42,7 +42,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
@@ -87,6 +89,9 @@ import com.getfuckocus.ui.components.FocusButton
 import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusSpinner
 import com.getfuckocus.ui.components.FocusTopBar
+import com.getfuckocus.ui.components.Tone
+import com.getfuckocus.ui.theme.PixelIcons
+import com.getfuckocus.ui.theme.bevel
 import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.ChromeShapes
 import com.getfuckocus.ui.theme.circleBevel
@@ -162,6 +167,22 @@ fun CaptureScreen(taskId: Long, onBack: () -> Unit) {
                 ) {
                     if (cameraGranted) {
                         CameraPreview(imageCapture, Modifier.fillMaxSize())
+                        // 인증 진행 중: 미리보기 위에 상태 띠를 띄워 촬영 결과와 헷갈리지 않게 한다
+                        if (busy) {
+                            Row(
+                                Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 12.dp)
+                                    .clip(ChromeShapes.small)
+                                    .background(Chrome.carbon.copy(alpha = 0.85f))
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                FocusSpinner(Modifier.size(18.dp), strokeWidth = 3.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("사진을 확인하는 중…", style = MaterialTheme.typography.labelLarge, color = Chrome.white)
+                            }
+                        }
                     } else {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("카메라 권한이 필요해요", color = Color.White)
@@ -200,9 +221,9 @@ fun CaptureScreen(taskId: Long, onBack: () -> Unit) {
                         },
                     )
                     Text(
-                        if (busy) "확인 중…" else "촬영해서 인증",
+                        if (busy) "확인 중…" else "눌러서 촬영하고 인증",
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Chrome.carbon,
                     )
                 }
             }
@@ -238,21 +259,27 @@ fun CaptureScreen(taskId: Long, onBack: () -> Unit) {
     }
 }
 
+/** 이 사진이 통과하려면 맞아야 할 조건. 좁은 화면에서는 줄을 바꿔 잘리지 않게 한다. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ConditionRow(task: TaskEntity) {
     val labels = task.requiredLabels()
-    if (!task.hasGeoFence() && labels.isEmpty()) return
-    val colors = MaterialTheme.colorScheme
-    Row(
-        // 위쪽 보조 띠에 붙지 않게 여백을 둔다
-        modifier = Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Column(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        if (task.hasGeoFence()) {
-            Pill("지정 장소 ${task.geoRadiusMeters!!.toInt()}m 이내", colors.surfaceContainerHigh, colors.onSurface, icon = Icons.Default.LocationOn)
-        }
-        if (labels.isNotEmpty()) {
-            Pill("${labels.joinToString(" · ")} 중 하나", colors.surfaceContainerHigh, colors.onSurface, icon = Icons.Default.Search)
+        Text("통과 조건", style = MaterialTheme.typography.labelMedium, color = Chrome.carbon)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Pill("마감 전 촬영", Chrome.white, Chrome.carbon, icon = PixelIcons.Clock)
+            if (task.hasGeoFence()) {
+                Pill("지정 장소 ${task.geoRadiusMeters!!.toInt()}m 이내", Chrome.white, Chrome.carbon, icon = Icons.Default.LocationOn)
+            }
+            if (labels.isNotEmpty()) {
+                Pill("${labels.joinToString(" · ")} 중 하나", Chrome.white, Chrome.carbon, icon = Icons.Default.Search)
+            }
         }
     }
 }
@@ -317,75 +344,108 @@ private fun ResultPanel(
         .filter { label -> label.isAccepted(task) }
         .sortedByDescending { it.confidence }
 
+    val tone = if (passed) Tone.Success else Tone.Danger
+    val reasons = (result.verdict as? Verdict.Fail)?.reasons.orEmpty()
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .plate(Chrome.platinum, ChromeShapes.sheet)
             .clickable(remember { MutableInteractionSource() }, indication = null) { }
-            .navigationBarsPadding()
-            .padding(start = 24.dp, top = 12.dp, end = 24.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .navigationBarsPadding(),
     ) {
-        Box(
+        // 결과 머리띠: 성공은 초록, 실패는 빨강 + 아이콘 + 글자로 한눈에 구분한다
+        Row(
             Modifier
-                .align(Alignment.CenterHorizontally)
-                .size(width = 40.dp, height = 4.dp)
-                .clip(ChromeShapes.control)
-                .background(Chrome.hairline)
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                if (passed) Icons.Default.CheckCircle else Icons.Default.Warning,
-                contentDescription = null,
-                tint = if (passed) colors.tertiary else colors.error,
-                modifier = Modifier.size(32.dp),
-            )
-            Spacer(Modifier.width(12.dp))
-            Text(
-                if (passed) "인증 성공" else "인증 실패",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
+                .fillMaxWidth()
+                .background(tone.container)
+                .bevel(shadow = tone.accent, shadowWidth = 3.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.size(48.dp).clip(CircleShape).background(tone.accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (passed) Icons.Default.Check else Icons.Default.Close,
+                    contentDescription = null,
+                    tint = Chrome.white,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(
+                    if (passed) "인증 성공" else "인증 실패",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    color = tone.content,
+                )
+                Text(
+                    when {
+                        passed && result.releasedLock -> "잠금이 해제됐어요"
+                        passed -> "이번 회차를 완료했어요"
+                        else -> "맞지 않은 조건 ${reasons.size}개"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = tone.content,
+                )
+            }
         }
 
-        when (val verdict = result.verdict) {
-            Verdict.Pass -> Text(
-                if (result.releasedLock) "잠금이 해제됐어요" else "이번 회차를 완료했어요",
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            is Verdict.Fail -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                verdict.reasons.forEach { reason ->
-                    Row {
-                        Text("•  ", color = colors.error)
-                        Text(reason, style = MaterialTheme.typography.bodyLarge)
+        Column(
+            Modifier.fillMaxWidth().padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            // 실패 이유는 항목마다 따로 칸을 나눈다
+            reasons.forEachIndexed { index, reason ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(ChromeShapes.small)
+                        .background(Chrome.white)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        "${index + 1}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Chrome.white,
+                        modifier = Modifier
+                            .clip(ChromeShapes.control)
+                            .background(Chrome.red)
+                            .padding(horizontal = 7.dp, vertical = 2.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(reason, style = MaterialTheme.typography.bodyMedium, color = Chrome.carbon)
+                }
+            }
+
+            if (passedLabels.isNotEmpty()) {
+                Text("통과한 라벨", style = MaterialTheme.typography.titleSmall)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    passedLabels.forEach { label ->
+                        Pill(
+                            "${label.text} ${(label.confidence * 100).toInt()}%",
+                            Chrome.ice,
+                            Chrome.teal,
+                            icon = Icons.Default.CheckCircle,
+                        )
                     }
                 }
             }
-        }
 
-        if (passedLabels.isNotEmpty()) {
-            Text("통과한 라벨", style = MaterialTheme.typography.titleSmall)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                passedLabels.forEach { label ->
-                    Pill(
-                        "${label.text} ${(label.confidence * 100).toInt()}%",
-                        colors.tertiaryContainer,
-                        colors.onTertiaryContainer,
-                        icon = Icons.Default.CheckCircle,
-                    )
-                }
+            Spacer(Modifier.height(4.dp))
+            if (passed) {
+                FocusButton("확인", onClick = onDone, modifier = Modifier.fillMaxWidth(), height = 56.dp, icon = Icons.Default.Check)
+            } else {
+                FocusButton("다시 찍기", onClick = onRetry, modifier = Modifier.fillMaxWidth(), height = 56.dp, icon = PixelIcons.Camera)
+                Spacer(Modifier.height(4.dp))
+                FocusButton("나가기", onClick = onDone, modifier = Modifier.fillMaxWidth(), style = FocusButtonStyle.Outline, height = 48.dp)
             }
-        }
-
-        Spacer(Modifier.height(4.dp))
-        if (passed) {
-            FocusButton("확인", onClick = onDone, modifier = Modifier.fillMaxWidth())
-        } else {
-            FocusButton("다시 찍기", onClick = onRetry, modifier = Modifier.fillMaxWidth())
-            FocusButton("나가기", onClick = onDone, modifier = Modifier.fillMaxWidth(), style = FocusButtonStyle.Ghost, height = 44.dp)
         }
     }
 }

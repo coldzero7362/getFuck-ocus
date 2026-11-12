@@ -24,6 +24,10 @@ interface TaskDao {
     @Delete
     suspend fun delete(task: TaskEntity)
 
+    /** 이 NFC 태그로 인증하는 과제 이름들. 쓰는 중인 태그는 지우지 못하게 한다. */
+    @Query("SELECT title FROM tasks WHERE nfcTagId = :tagId")
+    suspend fun titlesUsingTag(tagId: Long): List<String>
+
     @Query("UPDATE tasks SET startedAt = :startedAt WHERE id = :id")
     suspend fun markStarted(id: Long, startedAt: Long)
 

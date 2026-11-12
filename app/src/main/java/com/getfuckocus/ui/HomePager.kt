@@ -60,6 +60,7 @@ fun HomePager(
     onAdd: () -> Unit,
     onEdit: (Long) -> Unit,
     onCapture: (Long) -> Unit,
+    onCheckScreen: (Long) -> Unit,
     onSettings: () -> Unit,
     onAddTag: () -> Unit,
 ) {
@@ -79,6 +80,7 @@ fun HomePager(
                     onAdd = onAdd,
                     onEdit = onEdit,
                     onCapture = onCapture,
+                    onCheckScreen = onCheckScreen,
                     onSettings = onSettings,
                     onHistory = { goTo(PAGE_HISTORY) },
                 )

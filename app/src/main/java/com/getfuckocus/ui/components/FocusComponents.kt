@@ -47,6 +47,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -83,6 +85,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.ChromeShapes
+import com.getfuckocus.ui.theme.DigitStyle
 import com.getfuckocus.ui.theme.bevel
 import com.getfuckocus.ui.theme.circleBevel
 import com.getfuckocus.ui.theme.halftone
@@ -171,7 +174,7 @@ fun FocusIconButton(
     val pressed by interaction.collectIsPressedAsState()
     Box(
         modifier = modifier
-            .size(44.dp)
+            .size(48.dp)
             .clip(ChromeShapes.small)
             .background(if (pressed) tint.copy(alpha = 0.15f) else Color.Transparent)
             .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
@@ -189,6 +192,10 @@ fun FocusPlayButton(
     contentDescription: String,
     modifier: Modifier = Modifier,
     size: Dp = 52.dp,
+    /** 재생 말고 다른 행동(촬영, 체크)에도 같은 크기·위치의 버튼을 쓰도록 아이콘을 바꿀 수 있다 */
+    icon: ImageVector = Icons.Default.PlayArrow,
+    containerColor: Color = Chrome.signal,
+    iconScale: Float = 0.55f,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -204,16 +211,16 @@ fun FocusPlayButton(
             .background(Chrome.chromeIndigo)
             .padding(3.dp)
             .clip(CircleShape)
-            .background(Chrome.signal)
+            .background(containerColor)
             .circleBevel(highlight = if (pressed) Color.Transparent else Chrome.highlight)
             .clickable(interaction, indication = null, role = Role.Button, onClickLabel = contentDescription, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            Icons.Default.PlayArrow,
+            icon,
             contentDescription = contentDescription,
             tint = Chrome.carbon,
-            modifier = Modifier.size(size * 0.55f),
+            modifier = Modifier.size(size * iconScale),
         )
     }
 }
@@ -278,7 +285,7 @@ fun FocusChip(
     Row(
         modifier = modifier
             .graphicsLayer { alpha = if (enabled) 1f else 0.4f }
-            .height(40.dp)
+            .height(46.dp)
             .clip(ChromeShapes.control)
             .background(container)
             .then(
@@ -468,28 +475,58 @@ fun FocusCard(
 }
 
 /**
- * 제목 띠가 붙은 판. 페리윙클 띠에 ≡ 표시와 굵은 제목, 아래는 플래티넘 내용 판.
+ * 제목 띠가 붙은 판. 라이트 블루 띠에 아이콘과 굵은 제목, 아래는 웜 그레이 내용 판.
  * 화면 안의 구역(과제, 시간, 장소…)을 나눌 때 쓴다.
+ * - [index]를 주면 제목 앞에 "01" 같은 번호 탭이 붙는다 (게임 메뉴의 항목 번호).
+ * - [expanded]를 주면 띠를 눌러 접고 펼 수 있다. null이면 항상 펼쳐 둔다.
  */
 @Composable
 fun FocusPanel(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    icon: ImageVector? = Icons.Default.Menu,
+    index: String? = null,
+    expanded: Boolean? = null,
+    onToggle: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val collapsible = expanded != null && onToggle != null
     Column(modifier.plate(Chrome.platinum)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Chrome.periwinkle)
+                .background(Chrome.sky)
                 .bevel(shadow = Chrome.chromeIndigo, shadowWidth = 1.dp)
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .then(
+                    if (collapsible) Modifier.clickable(
+                        remember { MutableInteractionSource() },
+                        indication = null,
+                        role = Role.Button,
+                        onClickLabel = if (expanded == true) "$title 접기" else "$title 펼치기",
+                        onClick = onToggle!!,
+                    ) else Modifier
+                )
+                .heightIn(min = 48.dp)
+                .padding(start = if (index != null) 0.dp else 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Default.Menu, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
+            if (index != null) {
+                Text(
+                    index,
+                    style = DigitStyle.copy(fontSize = MaterialTheme.typography.titleSmall.fontSize),
+                    color = Chrome.navGold,
+                    modifier = Modifier
+                        .clip(CutCornerShape(bottomEnd = 8.dp))
+                        .background(Chrome.carbon)
+                        .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+            } else if (icon != null) {
+                Icon(icon, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+            }
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
                 if (subtitle != null) {
@@ -497,12 +534,22 @@ fun FocusPanel(
                 }
             }
             trailing?.invoke()
+            if (collapsible) {
+                Icon(
+                    if (expanded == true) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Chrome.carbon,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
         }
-        Column(
-            Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            CompositionLocalProvider(LocalContentColor provides Chrome.carbon) { content() }
+        if (expanded != false) {
+            Column(
+                Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                CompositionLocalProvider(LocalContentColor provides Chrome.carbon) { content() }
+            }
         }
     }
 }
@@ -516,6 +563,8 @@ fun FocusTopBar(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    /** 보조 띠 오른쪽 끝에 고정폭 숫자로 보여줄 값 (예: 현재 시각) */
+    subtitleTrailing: String? = null,
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
@@ -548,19 +597,31 @@ fun FocusTopBar(
                 actions()
             }
         }
-        if (subtitle != null) {
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.labelMedium,
-                color = Chrome.carbon,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        if (subtitle != null || subtitleTrailing != null) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Chrome.sky)
                     .bevel(shadow = Chrome.chromeIndigo, shadowWidth = 1.dp)
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-            )
+                    .padding(horizontal = 16.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    subtitle.orEmpty(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Chrome.carbon,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (subtitleTrailing != null) {
+                    Text(
+                        subtitleTrailing,
+                        style = DigitStyle.copy(fontSize = MaterialTheme.typography.titleSmall.fontSize),
+                        color = Chrome.carbon,
+                    )
+                }
+            }
         }
     }
 }

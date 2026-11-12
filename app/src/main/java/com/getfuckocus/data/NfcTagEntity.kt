@@ -27,6 +27,12 @@ interface NfcTagDao {
     @Query("SELECT * FROM nfc_tags ORDER BY createdAt")
     fun observeAll(): Flow<List<NfcTagEntity>>
 
+    @Query("SELECT * FROM nfc_tags WHERE id = :id")
+    suspend fun get(id: Long): NfcTagEntity?
+
+    @Query("SELECT * FROM nfc_tags ORDER BY createdAt")
+    suspend fun all(): List<NfcTagEntity>
+
     @Query("SELECT * FROM nfc_tags WHERE uid = :uid")
     suspend fun findByUid(uid: String): NfcTagEntity?
 

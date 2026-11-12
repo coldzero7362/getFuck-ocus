@@ -1,7 +1,7 @@
 package com.getfuckocus.task
 
 import com.getfuckocus.data.TaskDao
-import com.getfuckocus.data.locksOnMiss
+import com.getfuckocus.data.enforcesOnMiss
 import com.getfuckocus.lock.LockController
 import com.getfuckocus.safety.DeviceClock
 import com.getfuckocus.safety.SafetyPolicy
@@ -20,8 +20,8 @@ class DeadlineEvaluator(
         if (lock.current() != null) return false
         val nowMillis = now.toInstant().toEpochMilli()
 
-        // 탭 체크 과제는 놓쳐도 잠그지 않는다 (알림과 기록으로만 관리)
-        for (task in dao.enabledTasks().filter { it.locksOnMiss() }) {
+        // "알림만" 과제는 놓쳐도 잠그거나 덮지 않는다 (알림과 기록으로만 관리)
+        for (task in dao.enabledTasks().filter { it.enforcesOnMiss() }) {
             for (date in TaskSchedule.candidateDates(now)) {
                 // 반복 요일이 아니면 그날은 회차가 없다
                 if (!TaskSchedule.hasOccurrence(task, date, now.zone)) continue
@@ -35,7 +35,7 @@ class DeadlineEvaluator(
                     !lock.isHandled(task.id, dayKey) &&
                     !dao.passedOn(task.id, dayKey)
                 if (missed) {
-                    lock.lock(task.id, task.title, dayKey)
+                    lock.lock(task.id, task.title, dayKey, task.missAction)
                     return true
                 }
             }

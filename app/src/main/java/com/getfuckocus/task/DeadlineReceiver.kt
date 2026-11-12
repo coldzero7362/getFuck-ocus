@@ -35,6 +35,7 @@ class DeadlineReceiver : BroadcastReceiver() {
                         NotificationHelper.showLocked(
                             context,
                             taskTitle = lock.taskTitle,
+                            mode = lock.mode,
                             serviceEnabled = BlockerServiceStatus.isEnabled(context),
                         )
                     }

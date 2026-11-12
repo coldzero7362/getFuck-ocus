@@ -13,9 +13,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.getfuckocus.MainActivity
 import com.getfuckocus.R
+import com.getfuckocus.data.MissAction
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.VerifyMethod
-import com.getfuckocus.data.hasGeoFence
 import com.getfuckocus.task.CheckInReceiver
 import com.getfuckocus.verify.CheckInResult
 import com.getfuckocus.verify.Verdict
@@ -51,24 +51,30 @@ object NotificationHelper {
     }
 
     /**
-     * 과제 시작·마감 전 알림.
-     * - 사진 인증 과제: 누르면 그 과제의 촬영 화면이 열린다.
-     * - 탭 체크 과제: "완료" 버튼으로 앱을 열지 않고 바로 체크한다. 누르면 홈이 열린다.
-     *   장소 조건이 있으면 앱이 꺼진 채로는 위치를 잴 수 없어서(백그라운드 위치 권한을 받지 않음) 버튼을 달지 않는다.
+     * 과제 시작·마감 전 알림. 누르면 그 과제의 인증 화면(촬영, 위치 체크, NFC 찍기)이 열린다.
+     * 탭 체크 과제는 "완료" 버튼으로 앱을 열지 않고 바로 체크한다 (누르면 홈이 열린다).
+     * 위치·NFC는 앱이 꺼진 채로 확인할 수 없어서(백그라운드 위치 권한을 받지 않음) 버튼을 달지 않는다.
      */
     fun showReminder(context: Context, task: TaskEntity, kind: ReminderKind, deadline: ZonedDateTime) {
         val deadlineText = TaskSchedule.formatMinute(deadline.hour * 60 + deadline.minute)
         val tap = task.verifyMethod == VerifyMethod.TAP
+        val how = when (task.verifyMethod) {
+            VerifyMethod.TAP -> "완료를 눌러 체크하세요"
+            VerifyMethod.PHOTO -> "사진으로 인증하세요"
+            VerifyMethod.LOCATION -> "정한 장소에서 체크하세요"
+            VerifyMethod.NFC -> "NFC 태그를 찍어 체크하세요"
+        }
         val (title, text) = when (kind) {
-            ReminderKind.START ->
-                "'${task.title}' 시작했어요" to
-                    if (tap) "${deadlineText}까지 완료를 눌러 체크하세요." else "${deadlineText}까지 사진으로 인증하세요."
+            ReminderKind.START -> "'${task.title}' 시작했어요" to "${deadlineText}까지 $how."
             ReminderKind.BEFORE_DEADLINE ->
-                "'${task.title}' 마감 ${task.remindBeforeMinutes}분 전" to
-                    if (tap) "${deadlineText}까지 체크해 주세요." else "${deadlineText}까지 인증하지 않으면 잠겨요."
+                "'${task.title}' 마감 ${task.remindBeforeMinutes}분 전" to when (task.missAction) {
+                    MissAction.NOTIFY -> "${deadlineText}까지 체크해 주세요."
+                    MissAction.NAG -> "${deadlineText}까지 인증하지 않으면 화면을 덮어요."
+                    MissAction.LOCK -> "${deadlineText}까지 인증하지 않으면 잠겨요."
+                }
         }
         val id = reminderId(task.id, kind)
-        val open = if (tap) Intent(context, MainActivity::class.java) else MainActivity.captureIntent(context, task.id)
+        val open = if (tap) Intent(context, MainActivity::class.java) else MainActivity.verifyIntent(context, task.id)
         val builder = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title)
@@ -77,7 +83,7 @@ object NotificationHelper {
             .setContentIntent(
                 PendingIntent.getActivity(context, id, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             )
-        if (tap && !task.hasGeoFence()) {
+        if (tap) {
             val checkIn = Intent(context, CheckInReceiver::class.java)
                 .setAction(CheckInReceiver.ACTION_CHECK_IN)
                 .putExtra(CheckInReceiver.EXTRA_TASK_ID, task.id)
@@ -133,18 +139,27 @@ object NotificationHelper {
         NotificationManagerCompat.from(context).cancel(ID_SERVICE_ACTIVE)
     }
 
-    fun showLocked(context: Context, taskTitle: String, serviceEnabled: Boolean) {
-        val (text, target) = if (serviceEnabled) {
-            "'$taskTitle' 마감을 놓쳐서 잠겼어요. 지금 인증하면 풀려요." to LockActivity.intent(context)
-        } else {
-            "'$taskTitle' 마감을 놓쳤지만 잠금 서비스가 꺼져 있어 잠기지 않았어요. 눌러서 켜 주세요." to
-                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun showLocked(context: Context, taskTitle: String, mode: MissAction, serviceEnabled: Boolean) {
+        val nag = mode == MissAction.NAG
+        val (text, target) = when {
+            !serviceEnabled ->
+                "'$taskTitle' 마감을 놓쳤지만 잠금 서비스가 꺼져 있어 ${if (nag) "억제 화면을 띄우지" else "잠그지"} 못했어요. " +
+                    "눌러서 켜 주세요." to
+                    Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            nag -> "'$taskTitle' 마감을 놓쳤어요. 인증할 때까지 화면을 덮어요." to LockActivity.intent(context)
+            else -> "'$taskTitle' 마감을 놓쳐서 잠겼어요. 지금 인증하면 풀려요." to LockActivity.intent(context)
         }
         notify(
             context, ID_LOCKED,
             NotificationCompat.Builder(context, CHANNEL_ALERTS)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
-                .setContentTitle(if (serviceEnabled) "잠금 중" else "잠금 서비스가 꺼져 있어요")
+                .setContentTitle(
+                    when {
+                        !serviceEnabled -> "잠금 서비스가 꺼져 있어요"
+                        nag -> "아직 안 했어요"
+                        else -> "잠금 중"
+                    }
+                )
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)

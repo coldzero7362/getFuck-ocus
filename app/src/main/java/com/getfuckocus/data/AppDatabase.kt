@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [TaskEntity::class, AttemptEntity::class, NfcTagEntity::class], version = 8, exportSchema = true)
+@Database(entities = [TaskEntity::class, AttemptEntity::class, NfcTagEntity::class], version = 9, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun nfcTagDao(): NfcTagDao
@@ -17,9 +17,28 @@ abstract class AppDatabase : RoomDatabase() {
             Room.databaseBuilder(context, AppDatabase::class.java, "getfocus.db")
                 .addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                    MIGRATION_7_8,
+                    MIGRATION_7_8, MIGRATION_8_9,
                 )
                 .build()
+
+        /**
+         * 인증 방식에 위치·NFC 추가, 놓쳤을 때 할 일, 억제 화면 문구·이미지.
+         * 지금까지처럼 사진 인증은 잠그고 탭 체크는 알림만 한다.
+         * 장소 조건이 있던 탭 체크는 위치 인증으로 옮긴다 (탭 체크는 이제 장소를 보지 않는다).
+         */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN missAction TEXT NOT NULL DEFAULT 'LOCK'")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN nfcTagId INTEGER")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN nagMessage TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN nagImagePath TEXT")
+                db.execSQL("UPDATE tasks SET missAction = 'NOTIFY' WHERE verifyMethod = 'TAP'")
+                db.execSQL(
+                    "UPDATE tasks SET verifyMethod = 'LOCATION' WHERE verifyMethod = 'TAP' " +
+                        "AND geoLat IS NOT NULL AND geoLng IS NOT NULL AND geoRadiusMeters IS NOT NULL"
+                )
+            }
+        }
 
         /** 등록한 NFC 태그 */
         private val MIGRATION_7_8 = object : Migration(7, 8) {

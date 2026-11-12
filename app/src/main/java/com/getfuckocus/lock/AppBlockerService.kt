@@ -3,6 +3,7 @@ package com.getfuckocus.lock
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import com.getfuckocus.container
+import com.getfuckocus.data.MissAction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
 
 /**
  * 잠금 중에 허용 목록 밖의 앱이 앞으로 나오면 잠금 화면을 띄운다.
+ * 억제 화면 모드에서는 같은 화면을 [NagPolicy.INTERVAL_MS]마다 한 번씩만 띄운다.
  * 창 전환 이벤트의 패키지명만 보고, 화면 내용은 읽지 않는다
  * (accessibility_service_config.xml의 canRetrieveWindowContent=false).
  */
@@ -40,8 +42,10 @@ class AppBlockerService : AccessibilityService() {
     }
 
     private fun enforce(packageName: String) {
-        if (container.lockController.current() == null) return
+        val lock = container.lockController.current() ?: return
         if (container.whitelist.isAllowed(packageName)) return
+        // 잠금은 매번 막고, 억제 화면은 몇 분마다 한 번씩만 덮는다 (그사이에는 쓰던 앱을 계속 쓸 수 있다)
+        if (lock.mode == MissAction.NAG && !container.lockController.claimNagSlot()) return
         startActivity(LockActivity.intent(this))
     }
 
