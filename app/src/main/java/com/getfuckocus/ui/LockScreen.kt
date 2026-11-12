@@ -9,6 +9,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import com.getfuckocus.data.MissAction
+import com.getfuckocus.data.nagImagePaths
+import com.getfuckocus.data.nagMessages
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.VerifyMethod
 import com.getfuckocus.lock.NagPolicy
@@ -76,7 +78,8 @@ fun LockScreen(
     val task by produceState<TaskEntity?>(null, state?.taskId) {
         value = state?.taskId?.let { container.taskDao.get(it) }
     }
-    val nagImage = rememberNagImage(task?.nagImagePath)
+    // 가운데에는 첫 사진·첫 문구를 크게 둔다. 나머지는 흘러가는 층에서 함께 지나간다
+    val nagImage = rememberNagImage(task?.nagImagePaths()?.firstOrNull())
     var autoRemaining by remember { mutableLongStateOf(SafetyPolicy.MAX_LOCK_DURATION_MS) }
     var emergencyRemaining by remember { mutableStateOf<Long?>(null) }
 
@@ -99,6 +102,7 @@ fun LockScreen(
     val method = task?.verifyMethod ?: VerifyMethod.PHOTO
 
     CompositionLocalProvider(LocalContentColor provides LockColors.content) {
+        Box(Modifier.fillMaxSize().background(LockColors.background)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -136,7 +140,7 @@ fun LockScreen(
                 )
             }
             Text(
-                task?.nagMessage?.takeIf { it.isNotBlank() } ?: DEFAULT_NAG_MESSAGE,
+                task?.nagMessages()?.firstOrNull() ?: DEFAULT_NAG_MESSAGE,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Black,
                 color = LockColors.content,
@@ -215,6 +219,13 @@ fun LockScreen(
                     color = LockColors.contentMuted,
                 )
             }
+        }
+        // 설정한 문구·사진이 1분마다 화면을 가로질러 흘러간다 (터치는 아래로 그대로 지나간다)
+        DanmakuLayer(
+            texts = task?.nagMessages().orEmpty(),
+            pictures = task?.nagImagePaths().orEmpty(),
+            modifier = Modifier.fillMaxSize().systemBarsPadding(),
+        )
         }
     }
 }
