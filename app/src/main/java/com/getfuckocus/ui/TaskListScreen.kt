@@ -90,6 +90,8 @@ import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.DigitStyle
 import com.getfuckocus.ui.theme.Dimens
 import com.getfuckocus.ui.theme.PixelIcons
+import com.getfuckocus.ui.theme.bevel
+import com.getfuckocus.ui.theme.circleBevel
 import com.getfuckocus.verify.Verdict
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -619,8 +621,13 @@ private fun CardAction(
             onClick = onVerify, contentDescription = "$title 늦게라도 체크",
             icon = method.actionIcon, iconScale = iconScale, containerColor = Chrome.amber,
         )
+        // 완료 원: 위는 밝게, 아래는 그늘지게 둘러 살짝 튀어나온 단추처럼
         status == TaskStatus.Done -> Box(
-            Modifier.size(52.dp).clip(CircleShape).background(Chrome.ice),
+            Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(Chrome.ice)
+                .circleBevel(highlight = Color(0xCCFFFFFF), shadow = Color(0x591F7A58), width = 3.dp),
             contentAlignment = Alignment.Center,
         ) {
             Icon(PixelIcons.Check, contentDescription = "완료", tint = Chrome.teal, modifier = Modifier.size(28.dp))
@@ -665,7 +672,11 @@ private fun StatusBadge(status: TaskStatus) {
         TaskStatus.Missed -> BadgeStyle("놓침", Icons.Default.Warning, Chrome.redSoft, Chrome.redInk)
         TaskStatus.Disabled -> BadgeStyle("꺼짐", Icons.Default.Close, Chrome.white, Chrome.hairline)
     }
-    Pill(style.text, style.container, style.content, icon = style.icon)
+    // 상태 배지도 위 밝은 선 + 아래 그늘로 살짝 튀어나온 명찰처럼
+    Pill(
+        style.text, style.container, style.content, icon = style.icon,
+        modifier = Modifier.bevel(highlight = Color(0xB3FFFFFF), shadow = Color(0x40000000), highlightWidth = 1.dp, shadowWidth = 2.dp),
+    )
 }
 
 /** 인증 방식·장소·사진 조건을 아이콘과 짧은 라벨로. 좁은 화면에서는 다음 줄로 넘긴다. */
