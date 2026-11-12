@@ -2,7 +2,6 @@ package com.getfuckocus.lock
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.SystemClock
 import androidx.core.content.edit
 import com.getfuckocus.data.MissAction
 import com.getfuckocus.safety.DeviceClock
@@ -19,18 +18,12 @@ data class LockState(
     val dayKey: String,
     val lockedAt: Stamp,
     val emergencyRequestedAt: Stamp?,
-    /** [MissAction.LOCK]이면 허용 앱 말고는 막고, [MissAction.NAG]면 몇 분마다 억제 화면으로 덮기만 한다. */
+    /**
+     * [MissAction.LOCK]이면 허용 앱 말고는 막고, [MissAction.NAG]면 앱은 막지 않고
+     * 쓰던 화면 위로 문구·사진만 흘려보낸다.
+     */
     val mode: MissAction = MissAction.LOCK,
 )
-
-/** 억제 화면을 얼마나 자주 다시 띄울지. */
-object NagPolicy {
-    const val INTERVAL_MS = 5 * 60_000L
-
-    /** 마지막으로 띄운 뒤 [INTERVAL_MS]가 지났으면(또는 아직 안 띄웠으면) 다시 띄울 때다. 둘 다 부팅 후 경과 시간. */
-    fun due(lastShownElapsed: Long?, nowElapsed: Long): Boolean =
-        lastShownElapsed == null || nowElapsed - lastShownElapsed !in 0 until INTERVAL_MS
-}
 
 /**
  * 잠금 상태 저장소. 경과 시간은 [Stamp.elapsedSince]로 재기 때문에
@@ -61,20 +54,7 @@ class LockController(context: Context, private val clock: DeviceClock) {
     @Synchronized
     fun lock(taskId: Long, taskTitle: String, dayKey: String, mode: MissAction = MissAction.LOCK) {
         markHandled(taskId, dayKey)
-        lastNagShownElapsed = null
         write(LockState(taskId, taskTitle, dayKey, clock.now(), emergencyRequestedAt = null, mode = mode))
-    }
-
-    /** 억제 화면을 마지막으로 띄운 때. 앱이 다시 시작되면 바로 한 번 더 띄워도 되므로 저장하지 않는다. */
-    private var lastNagShownElapsed: Long? = null
-
-    /** 억제 화면을 띄울 때면 띄운 것으로 기록하고 true. */
-    @Synchronized
-    fun claimNagSlot(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (!NagPolicy.due(lastNagShownElapsed, now)) return false
-        lastNagShownElapsed = now
-        return true
     }
 
     @Synchronized

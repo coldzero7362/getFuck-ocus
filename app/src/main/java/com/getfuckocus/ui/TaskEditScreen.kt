@@ -76,7 +76,6 @@ import com.getfuckocus.data.nagMessages
 import androidx.compose.foundation.clickable
 import com.getfuckocus.data.allowedMissActions
 import com.getfuckocus.data.saveProblem
-import com.getfuckocus.lock.NagPolicy
 import com.getfuckocus.safety.SafetyPolicy
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.foundation.Image
@@ -926,8 +925,8 @@ private fun MissActionPanel(
             when (missAction) {
                 MissAction.NOTIFY -> "놓쳐도 막지 않아요. 알림과 기록으로만 챙겨요."
                 MissAction.NAG ->
-                    "놓치면 아래 문구와 이미지를 화면 가득 띄워요. 인증해야 멈추고, " +
-                        "그전까지는 다른 앱을 쓰다가도 ${NagPolicy.INTERVAL_MS / 60_000}분마다 다시 덮어요."
+                    "놓치면 폰은 그대로 쓸 수 있지만, 쓰던 화면 위로 아래 문구와 사진이 " +
+                        "${DANMAKU_INTERVAL_MS / 60_000}분마다 흘러가요. 인증해야 멈춰요."
                 MissAction.LOCK ->
                     "놓치면 인증할 때까지 허용한 앱 말고는 못 써요. 화면에는 아래 문구와 이미지가 떠요."
             } + if (MissAction.LOCK !in allowed) " 탭 체크는 버튼 한 번으로 풀려서 앱 잠금은 고를 수 없어요." else "",

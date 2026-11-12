@@ -68,7 +68,6 @@ import com.getfuckocus.hasPermission
 import com.getfuckocus.lock.BlockerServiceStatus
 import com.getfuckocus.lock.LockActivity
 import com.getfuckocus.lock.LockState
-import com.getfuckocus.lock.NagPolicy
 import com.getfuckocus.task.History
 import com.getfuckocus.task.PassIndex
 import com.getfuckocus.task.TaskSchedule
@@ -434,7 +433,7 @@ private fun LockHeroCard(
             Column {
                 Text(lock.taskTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
                 Text(
-                    if (nag) "마감까지 인증하지 못해서 ${NagPolicy.INTERVAL_MS / 60_000}분마다 화면을 덮고 있어요"
+                    if (nag) "마감까지 인증하지 못해서 ${DANMAKU_INTERVAL_MS / 60_000}분마다 화면 위로 문구가 지나가고 있어요"
                     else "마감까지 인증하지 못해서 다른 앱이 잠겨 있어요",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Chrome.redInk,
