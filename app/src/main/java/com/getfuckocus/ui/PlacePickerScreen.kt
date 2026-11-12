@@ -130,7 +130,8 @@ const val DEFAULT_PLACE_RADIUS_M = 150f
 
 /** 처음 열 때 위치를 모르면 보여 줄 곳 (서울시청) */
 private val FALLBACK_CENTER = GeoPoint(37.5665, 126.9780)
-private const val PICK_ZOOM = 17.0
+/** 처음 열 때와 "지금 위치로"의 확대 수준. 17에서 1.5배 크게 보이도록 log2(1.5)≈0.585만큼 올렸다 */
+private const val PICK_ZOOM = 17.585
 /** 지도가 이만큼 멈춰 있으면 이동이 끝난 것으로 보고 주소를 찾는다 */
 private const val SETTLE_MS = 600L
 
