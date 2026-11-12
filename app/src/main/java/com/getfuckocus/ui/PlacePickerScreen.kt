@@ -158,9 +158,10 @@ fun PlacePickerScreen(initial: PickedPlace?, onPicked: (PickedPlace) -> Unit, on
 
     DisposableEffect(mapView) {
         val polygon = Polygon(mapView).apply {
-            fillPaint.color = Chrome.signal.copy(alpha = 0.16f).toArgb()
-            outlinePaint.color = Chrome.signal.toArgb()
-            outlinePaint.strokeWidth = 5f
+            // 게임기 화면의 녹색 톤에 맞춘 초록 원. 녹색 지도 위에서도 보이게 테두리는 짙게 한다
+            fillPaint.color = Chrome.success.copy(alpha = 0.22f).toArgb()
+            outlinePaint.color = Chrome.teal.toArgb()
+            outlinePaint.strokeWidth = 6f
             // 원을 눌러도 말풍선이 뜨지 않게
             infoWindow = null
         }
@@ -486,34 +487,60 @@ private fun RadiusChips(radius: Float, onRadius: (Float) -> Unit) {
 private val BezelLabel = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
 
 /**
- * 가운데 고정 핀. 핀 끝이 정확히 지도 가운데(고른 좌표)에 오도록 그림의 아래 끝을 중심에 맞춘다.
- * 주황 몸통에 짙은 테두리를 둘러 어떤 지도 색 위에서도 보이게 한다.
+ * 도트 핀 그림. 글자 하나가 픽셀 하나다.
+ * K 짙은 테두리, O 주황 몸통, H 밝은 반사광, W 흰 가운데, . 빈칸. 맨 아래 가운데 픽셀이 핀 끝이다.
+ */
+private val PIN_PIXELS = listOf(
+    "....KKKKK....",
+    "..KKOOOOOKK..",
+    ".KOHHOOOOOOK.",
+    ".KHHOOOOOOOK.",
+    "KOHOOKKKOOOOK",
+    "KOOOKWWWKOOOK",
+    "KOOOKWWWKOOOK",
+    "KOOOKWWWKOOOK",
+    "KOOOOKKKOOOOK",
+    ".KOOOOOOOOOK.",
+    ".KOOOOOOOOOK.",
+    "..KOOOOOOOK..",
+    "...KOOOOOK...",
+    "....KOOOK....",
+    ".....KOK.....",
+    ".....KOK.....",
+    "......K......",
+)
+private val PIN_PIXEL = 3.5.dp
+
+/**
+ * 가운데 고정 핀. 옛 게임기 화면처럼 네모 픽셀로 찍는다.
+ * 맨 아래 가운데 픽셀(핀 끝)이 정확히 지도 가운데(고른 좌표)에 오도록 그림 높이의 절반만큼 올린다.
  */
 @Composable
 private fun CenterPin(modifier: Modifier = Modifier) {
-    val width = 36.dp
-    val height = 48.dp
+    val columns = PIN_PIXELS.first().length
+    val width = PIN_PIXEL * columns
+    val height = PIN_PIXEL * PIN_PIXELS.size
     Canvas(
         modifier
             .size(width, height)
-            // 그림의 아래 끝(핀 끝)이 Box 가운데에 오도록 높이의 절반만큼 올린다
             .offset(y = -height / 2)
             .semantics { contentDescription = "고를 장소" },
     ) {
-        val w = size.width
-        val h = size.height
-        val r = w / 2
-        val body = Path().apply {
-            moveTo(w / 2, h)
-            cubicTo(w * 0.2f, h * 0.62f, 0f, r * 1.45f, 0f, r)
-            arcTo(androidx.compose.ui.geometry.Rect(0f, 0f, w, w), 180f, 180f, false)
-            cubicTo(w, r * 1.45f, w * 0.8f, h * 0.62f, w / 2, h)
-            close()
+        val px = size.width / columns
+        // 픽셀 사이에 틈이 보이지 않게 아주 조금 겹쳐 그린다
+        val cell = androidx.compose.ui.geometry.Size(px + 0.5f, px + 0.5f)
+        PIN_PIXELS.forEachIndexed { row, line ->
+            line.forEachIndexed { col, ch ->
+                val color = when (ch) {
+                    'K' -> Chrome.carbon
+                    'O' -> Chrome.signal
+                    'H' -> Chrome.amber
+                    'W' -> Chrome.white
+                    else -> null
+                } ?: return@forEachIndexed
+                drawRect(color, topLeft = Offset(col * px, row * px), size = cell)
+            }
         }
-        drawPath(body, Chrome.signal)
-        drawPath(body, Chrome.carbon, style = Stroke(width = 2.5.dp.toPx()))
-        drawCircle(Chrome.white, radius = r * 0.36f, center = Offset(w / 2, r))
-        drawCircle(Chrome.carbon, radius = r * 0.36f, center = Offset(w / 2, r), style = Stroke(width = 1.5.dp.toPx()))
     }
 }
 
