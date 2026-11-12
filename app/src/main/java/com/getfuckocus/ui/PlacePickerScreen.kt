@@ -583,6 +583,9 @@ private fun createMapView(context: Context, start: GeoPoint): MapView {
     }
 }
 
+private const val GREEN_TINT_RB = 0.82f
+private const val GREEN_TINT_LIFT = 10f
+
 private fun mapContrastFilter(): ColorMatrixColorFilter {
     val contrast = 1.12f
     val shift = (1 - contrast) * 128
@@ -593,6 +596,18 @@ private fun mapContrastFilter(): ColorMatrixColorFilter {
                 contrast, 0f, 0f, 0f, shift,
                 0f, contrast, 0f, 0f, shift,
                 0f, 0f, contrast, 0f, shift,
+                0f, 0f, 0f, 1f, 0f,
+            )
+        )
+    )
+    // 휴대용 게임기 화면처럼 녹색 기운을 얹는다: 빨강·파랑을 조금 줄이고 초록을 조금 띄운다.
+    // 원래 색 구분(도로, 공원, 건물)은 남도록 약하게만 건다
+    matrix.postConcat(
+        ColorMatrix(
+            floatArrayOf(
+                GREEN_TINT_RB, 0f, 0f, 0f, 0f,
+                0f, 1f, 0f, 0f, GREEN_TINT_LIFT,
+                0f, 0f, GREEN_TINT_RB, 0f, 0f,
                 0f, 0f, 0f, 1f, 0f,
             )
         )
