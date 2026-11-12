@@ -797,7 +797,7 @@ private const val NAG_MESSAGE_MAX_LENGTH = 60
 
 /**
  * 정해 둔 장소. 디자인 가이드의 정보 상자 모양: 흰 판 + 카본 꼬리표 머리 + 앰버 배지,
- * 좌표는 디지털 숫자로, 아래에 돌출 버튼 둘 (바꾸기는 앰버 도구 버튼, 없애기는 테두리 버튼).
+ * 좌표는 디지털 숫자로, 아래에 돌출 버튼 둘 (바꾸기는 앰버 도구 버튼, 초기화는 테두리 버튼).
  * 따뜻한 색은 누를 수 있는 버튼과 배지에만 쓴다.
  */
 @Composable
@@ -852,7 +852,7 @@ private fun PlaceInfoBox(
                     enabled = enabled,
                 )
                 FocusButton(
-                    "없애기",
+                    "초기화",
                     onClick = onRemove,
                     modifier = Modifier.weight(1f),
                     style = FocusButtonStyle.Outline,
