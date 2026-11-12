@@ -88,6 +88,8 @@ import com.getfuckocus.ui.components.FocusButton
 import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusCard
 import com.getfuckocus.ui.components.FocusChip
+import com.getfuckocus.ui.components.FocusSegmented
+import com.getfuckocus.ui.components.SegmentItem
 import com.getfuckocus.ui.components.FocusDialog
 import com.getfuckocus.ui.components.FocusIconButton
 import com.getfuckocus.ui.components.FocusPanel
@@ -561,57 +563,46 @@ fun TaskEditScreen(
                 }
 
                 SubHeader("소요 시간")
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    DURATION_PRESETS.forEach { preset ->
-                        FocusChip(
-                            TaskSchedule.formatDuration(preset),
-                            selected = durationMinutes == preset,
-                            onClick = { durationMinutes = preset },
-                            enabled = !frozen,
-                        )
-                    }
-                    FocusChip(
-                        if (durationMinutes in DURATION_PRESETS) "직접 설정" else TaskSchedule.formatDuration(durationMinutes),
-                        selected = durationMinutes !in DURATION_PRESETS,
-                        onClick = { picking = TimeField.DURATION },
-                        leadingIcon = Icons.Default.Edit,
+                // 일곱 칸은 한 줄에 다 들어가지 않아 4 + 3 두 블록으로 나눈다
+                val durationKeys = DURATION_PRESETS.map { preset ->
+                    SegmentItem(
+                        TaskSchedule.formatDuration(preset),
+                        selected = durationMinutes == preset,
+                        onClick = { durationMinutes = preset },
                         enabled = !frozen,
                     )
+                } + SegmentItem(
+                    if (durationMinutes in DURATION_PRESETS) "직접" else TaskSchedule.formatDuration(durationMinutes),
+                    selected = durationMinutes !in DURATION_PRESETS,
+                    onClick = { picking = TimeField.DURATION },
+                    enabled = !frozen,
+                    icon = Icons.Default.Edit,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    durationKeys.chunked(4).forEach { FocusSegmented(it) }
                 }
 
                 SubHeader("반복 요일", "빠른 선택을 누르거나 요일을 하나씩 켜고 꺼요")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                FocusSegmented(
                     listOf(
                         "매일" to RepeatDays.EVERY_DAY,
                         "평일" to RepeatDays.WEEKDAYS,
                         "주말" to RepeatDays.WEEKEND,
-                    ).forEach { (name, mask) ->
-                        FocusChip(
-                            name,
-                            selected = repeatDays == mask,
-                            onClick = { repeatDays = mask },
-                            enabled = !frozen,
-                            leadingIcon = if (repeatDays == mask) Icons.Default.Check else null,
-                            modifier = Modifier.weight(1f),
-                            compact = true,
-                        )
+                    ).map { (name, mask) ->
+                        SegmentItem(name, selected = repeatDays == mask, onClick = { repeatDays = mask }, enabled = !frozen)
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-                    DayOfWeek.entries.forEach { day ->
-                        FocusChip(
+                )
+                // 요일은 여러 개를 켤 수 있다. 켠 요일이 눌린 키로 보인다
+                FocusSegmented(
+                    DayOfWeek.entries.map { day ->
+                        SegmentItem(
                             TaskSchedule.dayName(day),
                             selected = RepeatDays.contains(repeatDays, day),
                             onClick = { repeatDays = repeatDays xor RepeatDays.bit(day) },
                             enabled = !frozen,
-                            modifier = Modifier.weight(1f),
-                            compact = true,
                         )
                     }
-                }
+                )
                 FocusNotice(
                     TaskSchedule.describeDays(repeatDays) + " · " +
                         TaskSchedule.describeWindow(startMinute, durationMinutes) +
@@ -629,18 +620,15 @@ fun TaskEditScreen(
                     FocusSwitch(checked = remindAtStart, onCheckedChange = { remindAtStart = it })
                 }
                 Text("마감 전 알림", style = MaterialTheme.typography.labelLarge)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    REMIND_BEFORE_PRESETS.forEach { minutes ->
-                        FocusChip(
+                FocusSegmented(
+                    REMIND_BEFORE_PRESETS.map { minutes ->
+                        SegmentItem(
                             if (minutes == 0) "끄기" else "${minutes}분 전",
                             selected = remindBeforeMinutes == minutes,
                             onClick = { remindBeforeMinutes = minutes },
                         )
                     }
-                }
+                )
                 if (!notificationsGranted && (remindAtStart || remindBeforeMinutes > 0)) {
                     FocusNotice(
                         "알림 권한이 없어서 알림이 오지 않아요",
@@ -737,19 +725,16 @@ fun TaskEditScreen(
                         )
                     }
                     SubHeader("반경")
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        RADIUS_PRESETS.forEach { preset ->
-                            FocusChip(
+                    FocusSegmented(
+                        RADIUS_PRESETS.map { preset ->
+                            SegmentItem(
                                 "${preset.toInt()}m",
                                 selected = radiusMeters == preset,
                                 onClick = { radiusMeters = preset },
                                 enabled = !frozen,
                             )
                         }
-                    }
+                    )
                 }
             }
         }
@@ -845,19 +830,17 @@ private fun MissActionPanel(
 ) {
     FocusPanel(title = "놓쳤을 때", index = "04", modifier = Modifier.fillMaxWidth()) {
         val allowed = method.allowedMissActions()
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            MissAction.entries.forEach { action ->
-                FocusChip(
+        FocusSegmented(
+            MissAction.entries.map { action ->
+                SegmentItem(
                     action.title,
                     selected = missAction == action,
                     onClick = { onMissAction(action) },
-                    leadingIcon = action.icon,
                     enabled = !frozen && action in allowed,
-                    modifier = Modifier.weight(1f),
-                    compact = true,
+                    icon = action.icon,
                 )
             }
-        }
+        )
         Text(
             when (missAction) {
                 MissAction.NOTIFY -> "놓쳐도 막지 않아요. 알림과 기록으로만 챙겨요."

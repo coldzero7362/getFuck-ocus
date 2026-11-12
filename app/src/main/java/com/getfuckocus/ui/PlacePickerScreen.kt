@@ -11,6 +11,8 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.view.MotionEvent
+import com.getfuckocus.ui.components.FocusSegmented
+import com.getfuckocus.ui.components.SegmentItem
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.selected
@@ -498,47 +500,14 @@ private fun CommandBar(
     }
 }
 
-/**
- * 반경 고르기: 칸을 하나로 붙인 일자 블록 (게임기 설정 메뉴의 눈금 스위치처럼).
- * 칸 사이는 가는 선으로 나누고, 고른 칸만 앰버 판으로 튀어나온다.
- */
+/** 반경 고르기: 앱 공통의 붙은 키 블록 (고른 칸이 카세트 키처럼 눌려 들어간다) */
 @Composable
 private fun RadiusChips(radius: Float, onRadius: (Float) -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .height(46.dp)
-            .clip(ChromeShapes.control)
-            .background(Chrome.white)
-            .border(1.dp, Chrome.hairline, ChromeShapes.control),
-    ) {
-        PLACE_RADIUS_PRESETS.forEachIndexed { index, preset ->
-            val selected = radius == preset
-            if (index > 0) {
-                Box(Modifier.width(1.dp).fillMaxHeight().background(Chrome.hairline))
-            }
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .then(
-                        if (selected) Modifier.background(Chrome.amber).bevel(shadow = Color(0x55000000))
-                        else Modifier
-                    )
-                    .clickable(role = Role.RadioButton) { onRadius(preset) }
-                    .semantics { this.selected = selected },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "${preset.toInt()}m",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    color = Chrome.carbon,
-                    maxLines = 1,
-                )
-            }
+    FocusSegmented(
+        PLACE_RADIUS_PRESETS.map { preset ->
+            SegmentItem("${preset.toInt()}m", selected = radius == preset, onClick = { onRadius(preset) })
         }
-    }
+    )
 }
 
 /** 베젤에 새긴 글자: 대문자 + 자간, 실크스크린 각인 느낌 */
