@@ -72,6 +72,7 @@ import com.getfuckocus.ui.theme.PixelIcons
 import com.getfuckocus.ui.components.FocusTopBar
 import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.ChromeShapes
+import com.getfuckocus.ui.theme.recessed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -355,8 +356,8 @@ private fun DayDetailPanel(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .clip(ChromeShapes.small)
-                    .background(Chrome.white)
+                    // 흰 칸을 얹지 않고 패널 판에 살짝 파인 칸으로 둔다
+                    .recessed(Chrome.platinum)
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {

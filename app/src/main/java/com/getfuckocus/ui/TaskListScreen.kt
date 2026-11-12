@@ -378,6 +378,7 @@ private fun HeroCard(
                     large = true,
                     valueColor = if (inProgress != null) Chrome.redInk else Chrome.carbon,
                     modifier = Modifier.weight(1.15f).fillMaxHeight(),
+                    surface = Chrome.lavender,
                 )
                 FocusStatBox(
                     label = "실행 가능",
@@ -385,6 +386,7 @@ private fun HeroCard(
                     caption = "~ $end 마감",
                     icon = PixelIcons.Clock,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
+                    surface = Chrome.lavender,
                 )
             }
             inProgress?.let { FocusProgressBar(it.progress) }
