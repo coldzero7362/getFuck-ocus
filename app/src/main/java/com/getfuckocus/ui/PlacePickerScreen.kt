@@ -11,6 +11,10 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.view.MotionEvent
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.selected
+import com.getfuckocus.ui.theme.bevel
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -494,26 +498,44 @@ private fun CommandBar(
     }
 }
 
-/** 반경 버튼. 넓은 화면은 한 줄, 좁은 화면(330dp 미만)은 3 + 2 두 줄. 선택된 것은 앰버 판으로 튀어나와 구분된다 */
+/**
+ * 반경 고르기: 칸을 하나로 붙인 일자 블록 (게임기 설정 메뉴의 눈금 스위치처럼).
+ * 칸 사이는 가는 선으로 나누고, 고른 칸만 앰버 판으로 튀어나온다.
+ */
 @Composable
 private fun RadiusChips(radius: Float, onRadius: (Float) -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val rows = if (maxWidth < 330.dp) PLACE_RADIUS_PRESETS.chunked(3) else listOf(PLACE_RADIUS_PRESETS)
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            rows.forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                    row.forEach { preset ->
-                        FocusChip(
-                            "${preset.toInt()}m",
-                            selected = radius == preset,
-                            onClick = { onRadius(preset) },
-                            modifier = Modifier.weight(1f),
-                            compact = true,
-                        )
-                    }
-                    // 두 줄로 나눌 때 아랫줄 버튼이 너무 넓어지지 않게 빈 칸을 채운다
-                    repeat(rows.first().size - row.size) { Box(Modifier.weight(1f)) }
-                }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .clip(ChromeShapes.control)
+            .background(Chrome.white)
+            .border(1.dp, Chrome.hairline, ChromeShapes.control),
+    ) {
+        PLACE_RADIUS_PRESETS.forEachIndexed { index, preset ->
+            val selected = radius == preset
+            if (index > 0) {
+                Box(Modifier.width(1.dp).fillMaxHeight().background(Chrome.hairline))
+            }
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .then(
+                        if (selected) Modifier.background(Chrome.amber).bevel(shadow = Color(0x55000000))
+                        else Modifier
+                    )
+                    .clickable(role = Role.RadioButton) { onRadius(preset) }
+                    .semantics { this.selected = selected },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "${preset.toInt()}m",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    color = Chrome.carbon,
+                    maxLines = 1,
+                )
             }
         }
     }
