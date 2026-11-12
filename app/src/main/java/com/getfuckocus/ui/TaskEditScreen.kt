@@ -89,6 +89,8 @@ import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusCard
 import com.getfuckocus.ui.components.FocusChip
 import com.getfuckocus.ui.components.FocusSegmented
+import com.getfuckocus.ui.components.FocusTab
+import androidx.compose.foundation.border
 import com.getfuckocus.ui.components.SegmentItem
 import com.getfuckocus.ui.components.FocusDialog
 import com.getfuckocus.ui.components.FocusIconButton
@@ -696,34 +698,14 @@ fun TaskEditScreen(
                         enabled = !frozen,
                     )
                 } else {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(ChromeShapes.small)
-                            .background(Chrome.white)
-                            .padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = Chrome.signal, modifier = Modifier.size(28.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            // 좌표를 장소 이름으로 바꾸려면 위치를 외부 서버로 보내야 해서, 기기 안에서 끝나도록 좌표는 보조로만 둔다
-                            Text("정한 장소 (반경 ${radiusMeters.toInt()}m)", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                "%.5f, %.5f".format(currentGeo.first, currentGeo.second),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Chrome.chromeIndigo,
-                            )
-                        }
-                        FocusButton(
-                            "지도", onClick = ::openPlacePicker,
-                            style = FocusButtonStyle.Ghost, height = 48.dp, enabled = !frozen,
-                        )
-                        FocusButton(
-                            "없애기", onClick = { geo = null },
-                            style = FocusButtonStyle.Ghost, height = 48.dp, enabled = !frozen,
-                        )
-                    }
+                    PlaceInfoBox(
+                        lat = currentGeo.first,
+                        lng = currentGeo.second,
+                        radiusMeters = radiusMeters,
+                        enabled = !frozen,
+                        onChange = ::openPlacePicker,
+                        onRemove = { geo = null },
+                    )
                     SubHeader("반경")
                     FocusSegmented(
                         RADIUS_PRESETS.map { preset ->
@@ -812,6 +794,75 @@ private fun SettingRow(title: String, description: String? = null, control: @Com
 }
 
 private const val NAG_MESSAGE_MAX_LENGTH = 60
+
+/**
+ * 정해 둔 장소. 디자인 가이드의 정보 상자 모양: 흰 판 + 카본 꼬리표 머리 + 앰버 배지,
+ * 좌표는 디지털 숫자로, 아래에 돌출 버튼 둘 (바꾸기는 앰버 도구 버튼, 없애기는 테두리 버튼).
+ * 따뜻한 색은 누를 수 있는 버튼과 배지에만 쓴다.
+ */
+@Composable
+private fun PlaceInfoBox(
+    lat: Double,
+    lng: Double,
+    radiusMeters: Float,
+    enabled: Boolean,
+    onChange: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(ChromeShapes.small)
+            .background(Chrome.white)
+            .border(1.dp, Chrome.hairline, ChromeShapes.small),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FocusTab("정한 장소", icon = Icons.Default.LocationOn)
+            Spacer(Modifier.weight(1f))
+            Pill("반경 ${radiusMeters.toInt()}m", Chrome.amber, Chrome.carbon)
+            Spacer(Modifier.width(10.dp))
+        }
+        Column(
+            Modifier.padding(start = 12.dp, top = 10.dp, end = 12.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            // 좌표를 장소 이름으로 바꾸려면 위치를 외부 서버로 보내야 해서, 편집 화면에서는 좌표만 보여 준다
+            Column {
+                Text(
+                    "위도 · 경도",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    color = Chrome.chromeIndigo,
+                )
+                Text(
+                    "%.5f  %.5f".format(lat, lng),
+                    style = DigitStyle.copy(fontSize = 20.sp),
+                    color = Chrome.carbon,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                FocusButton(
+                    "지도에서 바꾸기",
+                    onClick = onChange,
+                    modifier = Modifier.weight(1.4f),
+                    style = FocusButtonStyle.Tonal,
+                    icon = Icons.Default.LocationOn,
+                    height = 44.dp,
+                    enabled = enabled,
+                )
+                FocusButton(
+                    "없애기",
+                    onClick = onRemove,
+                    modifier = Modifier.weight(1f),
+                    style = FocusButtonStyle.Outline,
+                    height = 44.dp,
+                    enabled = enabled,
+                )
+            }
+        }
+    }
+}
 
 /** 놓쳤을 때 할 일과, 억제 화면·잠금 화면에 띄울 문구·이미지 */
 @OptIn(ExperimentalLayoutApi::class)
