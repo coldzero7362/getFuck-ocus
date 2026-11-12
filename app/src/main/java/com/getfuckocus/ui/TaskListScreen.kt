@@ -481,7 +481,7 @@ private fun DaySummaryCard(entries: List<Pair<TaskEntity, TaskStatus>>) {
             "오늘은 쉬는 날이에요" to Icons.Default.Home
         entries.all { it.second == TaskStatus.Done || it.second == TaskStatus.Disabled || it.second is TaskStatus.RestDay } ->
             "오늘 과제를 모두 끝냈어요" to PixelIcons.Sparkle
-        else -> "오늘 남은 과제가 없어요" to Icons.Default.CheckCircle
+        else -> "오늘 남은 과제가 없어요" to PixelIcons.CheckCircle
     }
     val done = entries.count { it.second == TaskStatus.Done }
     val total = entries.count { it.second != TaskStatus.Disabled && it.second !is TaskStatus.RestDay }
@@ -584,7 +584,7 @@ private fun TaskCard(
                 lateCheckable -> StatusLine("마감이 지났어요 · 했다면 늦게라도 체크해 두세요", Icons.Default.Warning)
                 else -> StatusLine("마감을 놓쳤어요", Icons.Default.Warning, Chrome.redInk)
             }
-            TaskStatus.Done -> StatusLine("오늘 회차를 마쳤어요", Icons.Default.CheckCircle, Chrome.teal)
+            TaskStatus.Done -> StatusLine("오늘 회차를 마쳤어요", PixelIcons.CheckCircle, Chrome.teal)
             TaskStatus.Disabled -> StatusLine("꺼 둔 과제예요 · 눌러서 켤 수 있어요", Icons.Default.Close)
         }
     }
@@ -623,7 +623,7 @@ private fun CardAction(
             Modifier.size(52.dp).clip(CircleShape).background(Chrome.ice),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Default.Check, contentDescription = "완료", tint = Chrome.teal, modifier = Modifier.size(28.dp))
+            Icon(PixelIcons.Check, contentDescription = "완료", tint = Chrome.teal, modifier = Modifier.size(28.dp))
         }
         else -> Spacer(Modifier.size(52.dp))
     }
@@ -661,7 +661,7 @@ private fun StatusBadge(status: TaskStatus) {
         is TaskStatus.Upcoming -> BadgeStyle("시작 전", PixelIcons.Hourglass, Chrome.sky, Chrome.carbon)
         is TaskStatus.RestDay -> BadgeStyle("쉬는 날", Icons.Default.Home, Chrome.sky, Chrome.carbon)
         is TaskStatus.InProgress -> BadgeStyle("진행 중", Icons.Default.PlayArrow, Chrome.amber, Chrome.carbon)
-        TaskStatus.Done -> BadgeStyle("완료", Icons.Default.CheckCircle, Chrome.ice, Chrome.teal)
+        TaskStatus.Done -> BadgeStyle("완료", PixelIcons.CheckCircle, Chrome.ice, Chrome.teal)
         TaskStatus.Missed -> BadgeStyle("놓침", Icons.Default.Warning, Chrome.redSoft, Chrome.redInk)
         TaskStatus.Disabled -> BadgeStyle("꺼짐", Icons.Default.Close, Chrome.white, Chrome.hairline)
     }
