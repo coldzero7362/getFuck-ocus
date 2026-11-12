@@ -34,6 +34,7 @@ class DeadlineReceiver : BroadcastReceiver() {
                     container.lockController.current()?.let { lock ->
                         NotificationHelper.showLocked(
                             context,
+                            taskId = lock.taskId,
                             taskTitle = lock.taskTitle,
                             mode = lock.mode,
                             serviceEnabled = BlockerServiceStatus.isEnabled(context),

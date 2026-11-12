@@ -9,7 +9,6 @@ import com.getfuckocus.data.VerifyMethod
 import com.getfuckocus.data.allowedMissActions
 import com.getfuckocus.data.enforcesOnMiss
 import com.getfuckocus.data.saveProblem
-import com.getfuckocus.lock.NagPolicy
 import com.getfuckocus.task
 import com.getfuckocus.verify.ConditionChecks
 import org.junit.Assert.assertEquals
@@ -46,15 +45,6 @@ class VerifyMethodTest {
         assertNull(saveProblem(VerifyMethod.NFC, hasGeoFence = false, nfcTagId = 3, MissAction.NAG))
         assertNotNull(saveProblem(VerifyMethod.TAP, hasGeoFence = false, nfcTagId = null, MissAction.LOCK))
         assertNull(saveProblem(VerifyMethod.PHOTO, hasGeoFence = false, nfcTagId = null, MissAction.NOTIFY))
-    }
-
-    @Test
-    fun `억제 화면은 5분에 한 번만 다시 띄운다`() {
-        assertTrue(NagPolicy.due(lastShownElapsed = null, nowElapsed = 1_000))
-        assertFalse(NagPolicy.due(lastShownElapsed = 1_000, nowElapsed = 1_000 + NagPolicy.INTERVAL_MS - 1))
-        assertTrue(NagPolicy.due(lastShownElapsed = 1_000, nowElapsed = 1_000 + NagPolicy.INTERVAL_MS))
-        // 재부팅으로 경과 시간이 처음부터 다시 세어지면 바로 띄운다
-        assertTrue(NagPolicy.due(lastShownElapsed = 50_000, nowElapsed = 1_000))
     }
 
     @Test

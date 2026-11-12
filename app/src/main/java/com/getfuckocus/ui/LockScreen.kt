@@ -9,9 +9,10 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import com.getfuckocus.data.MissAction
+import com.getfuckocus.data.nagImagePaths
+import com.getfuckocus.data.nagMessages
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.VerifyMethod
-import com.getfuckocus.lock.NagPolicy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,7 +77,8 @@ fun LockScreen(
     val task by produceState<TaskEntity?>(null, state?.taskId) {
         value = state?.taskId?.let { container.taskDao.get(it) }
     }
-    val nagImage = rememberNagImage(task?.nagImagePath)
+    // 가운데에는 첫 사진·첫 문구를 크게 둔다. 나머지는 흘러가는 층에서 함께 지나간다
+    val nagImage = rememberNagImage(task?.nagImagePaths()?.firstOrNull())
     var autoRemaining by remember { mutableLongStateOf(SafetyPolicy.MAX_LOCK_DURATION_MS) }
     var emergencyRemaining by remember { mutableStateOf<Long?>(null) }
 
@@ -99,6 +101,7 @@ fun LockScreen(
     val method = task?.verifyMethod ?: VerifyMethod.PHOTO
 
     CompositionLocalProvider(LocalContentColor provides LockColors.content) {
+        Box(Modifier.fillMaxSize().background(LockColors.background)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -136,7 +139,7 @@ fun LockScreen(
                 )
             }
             Text(
-                task?.nagMessage?.takeIf { it.isNotBlank() } ?: DEFAULT_NAG_MESSAGE,
+                task?.nagMessages()?.firstOrNull() ?: DEFAULT_NAG_MESSAGE,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Black,
                 color = LockColors.content,
@@ -155,7 +158,7 @@ fun LockScreen(
                 Text(if (nag) "놓친 과제" else "잠금 사유", style = MaterialTheme.typography.labelMedium, color = LockColors.contentMuted)
                 Text("'${s.taskTitle}'", style = MaterialTheme.typography.titleMedium, color = LockColors.content)
                 Text(
-                    if (nag) "인증할 때까지 ${NagPolicy.INTERVAL_MS / 60_000}분마다 이 화면이 다시 떠요"
+                    if (nag) "인증할 때까지 ${DANMAKU_INTERVAL_MS / 60_000}분마다 쓰던 화면 위로 문구가 지나가요"
                     else "마감까지 인증하지 못했어요",
                     style = MaterialTheme.typography.bodyMedium,
                     color = LockColors.contentMuted,
@@ -209,12 +212,19 @@ fun LockScreen(
                     }
                 }
                 Text(
-                    if (nag) "뒤로 가기를 누르면 홈으로 나가요. 그사이 다른 앱을 쓸 수 있지만 몇 분 뒤 다시 덮어요"
+                    if (nag) "억제 중에도 폰은 그대로 쓸 수 있어요. 전화·설정 화면 위에는 문구가 뜨지 않아요"
                     else "전화, 문자, 알람, 설정과 허용한 앱도 잠금 중에 쓸 수 있어요",
                     style = MaterialTheme.typography.bodySmall,
                     color = LockColors.contentMuted,
                 )
             }
+        }
+        // 설정한 문구·사진이 1분마다 화면을 가로질러 흘러간다 (터치는 아래로 그대로 지나간다)
+        DanmakuLayer(
+            texts = task?.nagMessages().orEmpty(),
+            pictures = task?.nagImagePaths().orEmpty(),
+            modifier = Modifier.fillMaxSize().systemBarsPadding(),
+        )
         }
     }
 }

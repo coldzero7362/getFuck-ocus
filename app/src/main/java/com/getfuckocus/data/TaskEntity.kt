@@ -45,10 +45,13 @@ data class TaskEntity(
     val missAction: MissAction = MissAction.LOCK,
     /** NFC 인증에 쓸 태그 ([NfcTagEntity.id]). NFC 인증 과제에만 쓴다. */
     val nfcTagId: Long? = null,
-    /** 억제 화면·잠금 화면에 크게 띄울 문구. 비어 있으면 기본 문구를 쓴다. */
+    /**
+     * 억제 화면·잠금 화면에 띄울 문구들 (줄바꿈으로 여러 개). 첫 문구는 가운데 크게, 모두 1분마다 화면을 가로질러 흘러간다.
+     * 비어 있으면 기본 문구를 쓴다. [nagMessages]로 읽는다.
+     */
     @ColumnInfo(defaultValue = "")
     val nagMessage: String = "",
-    /** 억제 화면·잠금 화면에 띄울 이미지 (앱 내부 저장소 경로). */
+    /** 억제 화면·잠금 화면에 띄울 이미지들 (앱 내부 저장소 경로, 줄바꿈으로 여러 개). [nagImagePaths]로 읽는다. */
     val nagImagePath: String? = null,
 )
 
@@ -81,6 +84,26 @@ enum class MissAction {
 /** 이 인증 방식으로 고를 수 있는 "놓쳤을 때" 동작. 버튼 한 번으로 풀리는 탭 체크에 앱 잠금은 의미가 없다. */
 fun VerifyMethod.allowedMissActions(): List<MissAction> =
     if (this == VerifyMethod.TAP) listOf(MissAction.NOTIFY, MissAction.NAG) else MissAction.entries
+
+/** 억제 화면 문구 목록 */
+fun TaskEntity.nagMessages(): List<String> = NagContent.split(nagMessage)
+
+/** 억제 화면 이미지 경로 목록 */
+fun TaskEntity.nagImagePaths(): List<String> = NagContent.split(nagImagePath)
+
+/** 억제 화면 문구·이미지를 한 칸에 줄바꿈으로 여러 개 담는다 (DB 구조를 바꾸지 않으려고) */
+object NagContent {
+    const val MAX_MESSAGES = 10
+    const val MAX_MESSAGE_LENGTH = 40
+    const val MAX_IMAGES = 6
+
+    fun split(value: String?): List<String> =
+        value.orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() }
+
+    /** 문구 안의 줄바꿈은 빈칸으로 바꿔 한 줄짜리로 만든다 */
+    fun join(items: List<String>): String =
+        items.map { it.replace('\n', ' ').trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+}
 
 /** 놓쳤을 때 억제 화면이나 잠금을 거는 과제인지. */
 fun TaskEntity.enforcesOnMiss(): Boolean = missAction != MissAction.NOTIFY

@@ -70,9 +70,12 @@ import com.getfuckocus.data.RepeatDays
 import com.getfuckocus.data.TaskDao
 import com.getfuckocus.data.VerifyMethod
 import com.getfuckocus.data.MissAction
+import com.getfuckocus.data.NagContent
+import com.getfuckocus.data.nagImagePaths
+import com.getfuckocus.data.nagMessages
+import androidx.compose.foundation.clickable
 import com.getfuckocus.data.allowedMissActions
 import com.getfuckocus.data.saveProblem
-import com.getfuckocus.lock.NagPolicy
 import com.getfuckocus.safety.SafetyPolicy
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.foundation.Image
@@ -140,8 +143,14 @@ fun TaskEditScreen(
     var verifyMethod by rememberSaveable { mutableStateOf(VerifyMethod.TAP) }
     var missAction by rememberSaveable { mutableStateOf(MissAction.NOTIFY) }
     var nfcTagId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var nagMessage by rememberSaveable { mutableStateOf("") }
-    var nagImagePath by rememberSaveable { mutableStateOf<String?>(null) }
+    // 억제 화면에 흘려보낼 문구·사진 (여러 개)
+    val nagMessages = rememberSaveable(saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })) {
+        mutableStateListOf<String>()
+    }
+    var nagInput by rememberSaveable { mutableStateOf("") }
+    val nagImages = rememberSaveable(saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })) {
+        mutableStateListOf<String>()
+    }
     val nfcTags by remember { container.nfcTagDao.observeAll() }.collectAsState(initial = emptyList())
     var importingImage by remember { mutableStateOf(false) }
     var remindAtStart by rememberSaveable { mutableStateOf(true) }
@@ -185,8 +194,10 @@ fun TaskEditScreen(
             verifyMethod = t.verifyMethod
             missAction = t.missAction
             nfcTagId = t.nfcTagId
-            nagMessage = t.nagMessage
-            nagImagePath = t.nagImagePath
+            nagMessages.clear()
+            nagMessages.addAll(t.nagMessages())
+            nagImages.clear()
+            nagImages.addAll(t.nagImagePaths())
             labels.clear()
             labels.addAll(t.requiredLabels())
             radiusMeters = t.geoRadiusMeters ?: DEFAULT_RADIUS_M
@@ -254,27 +265,39 @@ fun TaskEditScreen(
         if (method == VerifyMethod.NFC && nfcTagId == null) nfcTagId = nfcTags.singleOrNull()?.id
     }
 
-    // 이번 편집에서 새로 넣은 이미지는 저장하지 않고 나가면 지운다
-    fun discardNewImage(path: String?) {
-        if (path != null && path != original?.nagImagePath) deleteNagImage(context, path)
+    // 이번 편집에서 새로 넣은 이미지는 저장하지 않고 나가면 지운다 (원래 있던 이미지는 저장할 때 정리한다)
+    fun discardNewImage(path: String) {
+        if (path !in original?.nagImagePaths().orEmpty()) deleteNagImage(context, path)
     }
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+    fun removeNagImage(path: String) {
+        nagImages.remove(path)
+        discardNewImage(path)
+    }
+    fun addNagMessage(text: String) {
+        val value = text.replace('\n', ' ').trim().take(NagContent.MAX_MESSAGE_LENGTH)
+        if (value.isNotEmpty() && value !in nagMessages && nagMessages.size < NagContent.MAX_MESSAGES) nagMessages += value
+        nagInput = ""
+    }
+    val imagePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(NagContent.MAX_IMAGES)
+    ) { uris ->
+        val picked = uris.take(NagContent.MAX_IMAGES - nagImages.size)
+        if (picked.isEmpty()) return@rememberLauncherForActivityResult
         importingImage = true
         scope.launch {
-            val imported = importNagImage(context, uri)
-            if (imported == null) {
-                message = "이미지를 불러오지 못했어요"
-            } else {
-                discardNewImage(nagImagePath)
-                nagImagePath = imported
+            var failed = 0
+            picked.forEach { uri ->
+                val imported = importNagImage(context, uri)
+                if (imported == null) failed++ else nagImages += imported
             }
+            if (failed > 0) message = "이미지 ${failed}장을 불러오지 못했어요"
             importingImage = false
         }
     }
 
     fun save() {
         if (labelInput.isNotBlank() && !frozen) addLabel(labelInput)
+        if (nagInput.isNotBlank()) addNagMessage(nagInput)
         message = when {
             title.isBlank() -> "과제 이름을 입력하세요"
             durationMinutes !in 1..TaskSchedule.MAX_DURATION_MINUTES -> "소요 시간은 1분 이상이어야 해요"
@@ -291,8 +314,8 @@ fun TaskEditScreen(
             title = title.trim(),
             remindAtStart = remindAtStart,
             remindBeforeMinutes = remindBeforeMinutes,
-            nagMessage = nagMessage.trim(),
-            nagImagePath = nagImagePath,
+            nagMessage = NagContent.join(nagMessages),
+            nagImagePath = NagContent.join(nagImages).ifEmpty { null },
         )
         val task = if (frozen) shared else shared.copy(
             verifyMethod = verifyMethod,
@@ -309,8 +332,9 @@ fun TaskEditScreen(
         )
         scope.launch {
             container.taskDao.upsert(task)
-            // 바꾼 이미지의 옛 파일은 저장한 뒤에 지운다
-            if (original?.nagImagePath != task.nagImagePath) deleteNagImage(context, original?.nagImagePath)
+            // 빠진 이미지의 옛 파일은 저장한 뒤에 지운다
+            val kept = task.nagImagePaths().toSet()
+            original?.nagImagePaths().orEmpty().filter { it !in kept }.forEach { deleteNagImage(context, it) }
             onDone()
         }
     }
@@ -318,7 +342,8 @@ fun TaskEditScreen(
     // 저장하지 않은 변경 감지: 불러온 직후(새 과제는 처음 값)를 기준으로 삼는다
     fun snapshot(): String = listOf(
         title, startMinute, durationMinutes, repeatDays, verifyMethod, remindAtStart, remindBeforeMinutes,
-        labels.toList(), labelInput, radiusMeters, geo, enabled, missAction, nfcTagId, nagMessage, nagImagePath,
+        labels.toList(), labelInput, radiusMeters, geo, enabled, missAction, nfcTagId,
+        nagMessages.toList(), nagInput, nagImages.toList(),
     ).toString()
     var baseline by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(loaded, taskId) {
@@ -647,17 +672,20 @@ fun TaskEditScreen(
                 missAction = missAction,
                 onMissAction = { missAction = it },
                 frozen = frozen,
-                nagMessage = nagMessage,
-                onNagMessage = { nagMessage = it.take(NAG_MESSAGE_MAX_LENGTH) },
-                nagImagePath = nagImagePath,
+                nagMessages = nagMessages,
+                nagInput = nagInput,
+                onNagInput = { input ->
+                    // 엔터를 치면 바로 하나로 넣는다
+                    if (input.endsWith("\n")) addNagMessage(input) else nagInput = input.take(NagContent.MAX_MESSAGE_LENGTH)
+                },
+                onAddNagMessage = { addNagMessage(nagInput) },
+                onRemoveNagMessage = { nagMessages.remove(it) },
+                nagImages = nagImages,
                 importingImage = importingImage,
                 onPickImage = {
                     imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 },
-                onRemoveImage = {
-                    discardNewImage(nagImagePath)
-                    nagImagePath = null
-                },
+                onRemoveImage = ::removeNagImage,
             )
 
             // 위치 인증은 장소가 꼭 있어야 하므로 늘 펼쳐 둔다
@@ -748,8 +776,7 @@ fun TaskEditScreen(
                 confirmDelete = false
                 scope.launch {
                     container.taskDao.delete(toDelete)
-                    deleteNagImage(context, toDelete.nagImagePath)
-                    discardNewImage(nagImagePath)
+                    (toDelete.nagImagePaths() + nagImages).distinct().forEach { deleteNagImage(context, it) }
                     onDone()
                 }
             },
@@ -770,7 +797,7 @@ fun TaskEditScreen(
             danger = true,
             onConfirm = {
                 confirmLeave = false
-                discardNewImage(nagImagePath)
+                nagImages.forEach(::discardNewImage)
                 onDone()
             },
         ) {
@@ -793,7 +820,6 @@ private fun SettingRow(title: String, description: String? = null, control: @Com
     }
 }
 
-private const val NAG_MESSAGE_MAX_LENGTH = 60
 
 /**
  * 정해 둔 장소. 디자인 가이드의 정보 상자 모양: 흰 판 + 카본 꼬리표 머리 + 앰버 배지,
@@ -872,12 +898,15 @@ private fun MissActionPanel(
     missAction: MissAction,
     onMissAction: (MissAction) -> Unit,
     frozen: Boolean,
-    nagMessage: String,
-    onNagMessage: (String) -> Unit,
-    nagImagePath: String?,
+    nagMessages: List<String>,
+    nagInput: String,
+    onNagInput: (String) -> Unit,
+    onAddNagMessage: () -> Unit,
+    onRemoveNagMessage: (String) -> Unit,
+    nagImages: List<String>,
     importingImage: Boolean,
     onPickImage: () -> Unit,
-    onRemoveImage: () -> Unit,
+    onRemoveImage: (String) -> Unit,
 ) {
     FocusPanel(title = "놓쳤을 때", index = "04", modifier = Modifier.fillMaxWidth()) {
         val allowed = method.allowedMissActions()
@@ -896,8 +925,8 @@ private fun MissActionPanel(
             when (missAction) {
                 MissAction.NOTIFY -> "놓쳐도 막지 않아요. 알림과 기록으로만 챙겨요."
                 MissAction.NAG ->
-                    "놓치면 아래 문구와 이미지를 화면 가득 띄워요. 인증해야 멈추고, " +
-                        "그전까지는 다른 앱을 쓰다가도 ${NagPolicy.INTERVAL_MS / 60_000}분마다 다시 덮어요."
+                    "놓치면 폰은 그대로 쓸 수 있지만, 쓰던 화면 위로 아래 문구와 사진이 " +
+                        "${DANMAKU_INTERVAL_MS / 60_000}분마다 흘러가요. 인증해야 멈춰요."
                 MissAction.LOCK ->
                     "놓치면 인증할 때까지 허용한 앱 말고는 못 써요. 화면에는 아래 문구와 이미지가 떠요."
             } + if (MissAction.LOCK !in allowed) " 탭 체크는 버튼 한 번으로 풀려서 앱 잠금은 고를 수 없어요." else "",
@@ -911,44 +940,88 @@ private fun MissActionPanel(
                 tone = Tone.Info,
                 icon = PixelIcons.Shield,
             )
-            SubHeader("화면에 띄울 문구", "비워 두면 \"$DEFAULT_NAG_MESSAGE\"가 떠요")
-            FocusTextField(
-                nagMessage, onNagMessage,
-                label = "문구",
-                placeholder = DEFAULT_NAG_MESSAGE,
-                modifier = Modifier.fillMaxWidth(),
+            SubHeader(
+                "흘러갈 문구",
+                "첫 문구는 가운데 크게, 모두 ${DANMAKU_INTERVAL_MS / 60_000}분마다 화면을 가로질러 지나가요 · " +
+                    "비워 두면 \"$DEFAULT_NAG_MESSAGE\"",
             )
-            SubHeader("화면에 띄울 이미지", "선택 · 동기부여 사진이나 목표 이미지를 골라 보세요")
-            val image = rememberNagImage(nagImagePath, maxSide = 480)
-            if (image != null) {
-                Image(
-                    image,
-                    contentDescription = "고른 이미지",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().height(160.dp).clip(ChromeShapes.small),
+            if (nagMessages.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    nagMessages.forEach { text ->
+                        FocusChip(text, selected = true, onClick = { onRemoveNagMessage(text) }, trailingIcon = Icons.Default.Close)
+                    }
+                }
+            }
+            if (nagMessages.size < NagContent.MAX_MESSAGES) {
+                FocusTextField(
+                    nagInput, onNagInput,
+                    label = "문구 추가 (${nagMessages.size}/${NagContent.MAX_MESSAGES})",
+                    placeholder = DEFAULT_NAG_MESSAGE,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { onAddNagMessage() }),
+                    trailing = {
+                        FocusIconButton(
+                            Icons.Default.Add,
+                            contentDescription = "문구 추가",
+                            onClick = onAddNagMessage,
+                            enabled = nagInput.isNotBlank(),
+                            tint = Chrome.carbon,
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+
+            SubHeader("흘러갈 사진", "선택 · 최대 ${NagContent.MAX_IMAGES}장 · 문구와 함께 크기가 제각각으로 지나가요")
+            if (nagImages.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    nagImages.forEach { path -> NagThumbnail(path, onRemove = { onRemoveImage(path) }) }
+                }
+            }
+            if (nagImages.size < NagContent.MAX_IMAGES) {
                 FocusButton(
-                    when {
-                        importingImage -> "불러오는 중…"
-                        nagImagePath == null -> "이미지 고르기"
-                        else -> "바꾸기"
-                    },
+                    if (importingImage) "불러오는 중…" else "사진 고르기 (${nagImages.size}/${NagContent.MAX_IMAGES})",
                     onClick = onPickImage,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     style = FocusButtonStyle.Outline,
                     icon = Icons.Default.Add,
                     height = 48.dp,
                     enabled = !importingImage,
                 )
-                if (nagImagePath != null) {
-                    FocusButton(
-                        "없애기", onClick = onRemoveImage,
-                        style = FocusButtonStyle.Ghost, height = 48.dp,
-                    )
-                }
             }
+        }
+    }
+}
+
+/** 고른 사진 작은 칸. 오른쪽 위 X로 뺀다 */
+@Composable
+private fun NagThumbnail(path: String, onRemove: () -> Unit) {
+    val image = rememberNagImage(path, maxSide = 240)
+    Box(
+        Modifier
+            .size(76.dp)
+            .clip(ChromeShapes.small)
+            .background(Chrome.sky)
+            .border(1.dp, Chrome.hairline, ChromeShapes.small),
+    ) {
+        image?.let {
+            Image(it, contentDescription = "고른 사진", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        }
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .size(26.dp)
+                .background(Chrome.carbon)
+                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onRemove),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Default.Close, contentDescription = "사진 빼기", tint = Chrome.white, modifier = Modifier.size(16.dp))
         }
     }
 }

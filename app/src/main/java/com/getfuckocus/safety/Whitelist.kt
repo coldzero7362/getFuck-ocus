@@ -24,6 +24,21 @@ class Whitelist(private val context: Context) {
     fun systemPackages(): Set<String> =
         systemCache ?: computeSystemPackages().also { systemCache = it }
 
+    @Volatile
+    private var safetyCache: Set<String>? = null
+
+    /**
+     * 억제 화면의 흘러가는 문구조차 띄우지 않을 앱: 전화·긴급전화, 설정(서비스를 끌 수 있게), 권한·삭제 화면.
+     * 홈 화면이나 문자처럼 일상 앱은 빠져 있다.
+     */
+    fun safetyPackages(): Set<String> = safetyCache ?: run {
+        val pm = context.packageManager
+        val resolved = listOf(Intent(Intent.ACTION_DIAL), Intent(Settings.ACTION_SETTINGS))
+            .flatMap { pm.queryIntentActivities(it, 0) }
+            .map { it.activityInfo.packageName }
+        (ALWAYS_ALLOWED - setOf("android", "com.android.systemui") + resolved).also { safetyCache = it }
+    }
+
     /** 사용자가 추가로 허용한 앱. 처음에는 지도와 2단계 인증 앱이 기본으로 들어 있다. */
     fun userPackages(): Set<String> =
         prefs.getStringSet(KEY_USER, null) ?: DEFAULT_USER_PACKAGES

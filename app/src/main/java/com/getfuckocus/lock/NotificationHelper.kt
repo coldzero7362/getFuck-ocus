@@ -69,7 +69,7 @@ object NotificationHelper {
             ReminderKind.BEFORE_DEADLINE ->
                 "'${task.title}' 마감 ${task.remindBeforeMinutes}분 전" to when (task.missAction) {
                     MissAction.NOTIFY -> "${deadlineText}까지 체크해 주세요."
-                    MissAction.NAG -> "${deadlineText}까지 인증하지 않으면 화면을 덮어요."
+                    MissAction.NAG -> "${deadlineText}까지 인증하지 않으면 화면 위로 문구가 계속 지나가요."
                     MissAction.LOCK -> "${deadlineText}까지 인증하지 않으면 잠겨요."
                 }
         }
@@ -139,14 +139,15 @@ object NotificationHelper {
         NotificationManagerCompat.from(context).cancel(ID_SERVICE_ACTIVE)
     }
 
-    fun showLocked(context: Context, taskTitle: String, mode: MissAction, serviceEnabled: Boolean) {
+    fun showLocked(context: Context, taskId: Long, taskTitle: String, mode: MissAction, serviceEnabled: Boolean) {
         val nag = mode == MissAction.NAG
         val (text, target) = when {
             !serviceEnabled ->
-                "'$taskTitle' 마감을 놓쳤지만 잠금 서비스가 꺼져 있어 ${if (nag) "억제 화면을 띄우지" else "잠그지"} 못했어요. " +
+                "'$taskTitle' 마감을 놓쳤지만 잠금 서비스가 꺼져 있어 ${if (nag) "문구를 띄우지" else "잠그지"} 못했어요. " +
                     "눌러서 켜 주세요." to
                     Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            nag -> "'$taskTitle' 마감을 놓쳤어요. 인증할 때까지 화면을 덮어요." to LockActivity.intent(context)
+            nag -> "'$taskTitle' 마감을 놓쳤어요. 인증할 때까지 1분마다 화면 위로 문구가 지나가요. 눌러서 인증하세요." to
+                MainActivity.verifyIntent(context, taskId)
             else -> "'$taskTitle' 마감을 놓쳐서 잠겼어요. 지금 인증하면 풀려요." to LockActivity.intent(context)
         }
         notify(
