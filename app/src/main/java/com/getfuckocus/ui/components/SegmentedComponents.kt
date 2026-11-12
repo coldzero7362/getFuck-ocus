@@ -62,7 +62,7 @@ fun FocusSegmented(items: List<SegmentItem>, modifier: Modifier = Modifier, heig
         modifier
             .fillMaxWidth()
             .height(height)
-            .clip(ChromeShapes.control)
+            // 모서리는 둥글리지 않고 각지게 둔다
             // 칸 사이와 둘레로 보이는 짙은 홈 (키가 박힌 본체)
             .background(Chrome.hairline)
             .padding(1.dp),
@@ -89,7 +89,7 @@ private fun CassetteKey(item: SegmentItem, modifier: Modifier) {
     ) {
         Row(
             // 눌린 키는 글자도 살짝 내려앉는다
-            Modifier.offset(y = if (pressed) 2.dp else 0.dp).padding(horizontal = 2.dp),
+            Modifier.offset(y = if (pressed) 1.5.dp else 0.dp).padding(horizontal = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             item.icon?.let {
@@ -109,42 +109,29 @@ private fun CassetteKey(item: SegmentItem, modifier: Modifier) {
 }
 
 /** 고른 칸: 기본 앰버보다 한 단 짙게 해서 눌려 그늘진 느낌을 준다 */
-private val PRESSED_AMBER = lerp(Chrome.amber, Chrome.navGold, 0.3f)
+private val PRESSED_AMBER = lerp(Chrome.amber, Chrome.navGold, 0.2f)
 
 /**
- * 카세트 키 음영.
- * - 튀어나온 키: 위쪽 밝은 테두리, 아래쪽 짙은 그림자 띠
- * - 눌린 키: 위·옆 안쪽으로 짙은 그늘(안으로 꺼진 홈), 아래쪽에 가는 반사광
+ * 카세트 키 음영. 흐린 그라데이션 대신 단단한 띠로 각지게 그린다 (디자인 가이드: 깊이는 단단한 베벨로).
+ * - 튀어나온 키: 위쪽 밝은 선, 아래쪽 그림자 띠
+ * - 눌린 키: 위쪽 두 단 그늘 + 왼쪽 그늘(안으로 꺼진 홈), 아래쪽에 가는 반사광
  */
 private fun Modifier.cassetteShading(pressed: Boolean): Modifier = drawWithContent {
     drawContent()
     val w = size.width
     val h = size.height
     if (pressed) {
-        val top = 11.dp.toPx()
-        drawRect(
-            Brush.verticalGradient(listOf(Color(0xA6000000), Color(0x26000000), Color.Transparent), startY = 0f, endY = top),
-            size = Size(w, top),
-        )
-        val side = 6.dp.toPx()
-        drawRect(
-            Brush.horizontalGradient(listOf(Color(0x66000000), Color.Transparent), startX = 0f, endX = side),
-            size = Size(side, h),
-        )
-        drawRect(
-            Brush.horizontalGradient(listOf(Color.Transparent, Color(0x4D000000)), startX = w - side, endX = w),
-            topLeft = Offset(w - side, 0f),
-            size = Size(side, h),
-        )
-        val glint = 1.5.dp.toPx()
-        drawRect(Color(0x55FFFFFF), topLeft = Offset(0f, h - glint), size = Size(w, glint))
+        val top1 = 3.dp.toPx()
+        val top2 = 1.5.dp.toPx()
+        drawRect(Color(0x40000000), size = Size(w, top1))
+        drawRect(Color(0x1A000000), topLeft = Offset(0f, top1), size = Size(w, top2))
+        drawRect(Color(0x2E000000), topLeft = Offset(0f, top1), size = Size(2.dp.toPx(), h - top1))
+        drawRect(Color(0x1A000000), topLeft = Offset(w - 1.5.dp.toPx(), top1), size = Size(1.5.dp.toPx(), h - top1))
+        val glint = 1.dp.toPx()
+        drawRect(Color(0x40FFFFFF), topLeft = Offset(0f, h - glint), size = Size(w, glint))
     } else {
-        drawRect(Color(0xCCFFFFFF), size = Size(w, 2.dp.toPx()))
-        val shadow = 6.dp.toPx()
-        drawRect(
-            Brush.verticalGradient(listOf(Color.Transparent, Color(0x47000000)), startY = h - shadow, endY = h),
-            topLeft = Offset(0f, h - shadow),
-            size = Size(w, shadow),
-        )
+        drawRect(Color(0xB3FFFFFF), size = Size(w, 1.5.dp.toPx()))
+        val shadow = 3.dp.toPx()
+        drawRect(Color(0x24000000), topLeft = Offset(0f, h - shadow), size = Size(w, shadow))
     }
 }
