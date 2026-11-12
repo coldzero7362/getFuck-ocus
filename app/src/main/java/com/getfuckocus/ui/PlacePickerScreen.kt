@@ -10,6 +10,26 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
+import com.getfuckocus.ui.components.FocusPanel
+import com.getfuckocus.ui.theme.ChromeShapes
+import com.getfuckocus.ui.theme.DigitStyle
+import com.getfuckocus.ui.theme.circleBevel
+import com.getfuckocus.ui.theme.halftone
+import com.getfuckocus.ui.theme.plate
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -211,64 +231,193 @@ fun PlacePickerScreen(initial: PickedPlace?, onPicked: (PickedPlace) -> Unit, on
         onPicked(PickedPlace(center.latitude, center.longitude, radius))
     }
 
-    // 아래 내비게이션 영역은 하단 패널이 직접 비켜 가도록(흰 배경이 화면 끝까지 닿게) Scaffold 여백에서 뺀다
+    val openAppSettings = {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+    val openLocationSettings = {
+        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    // 휴대용 게임기처럼: 위는 카본 베젤에 박힌 지도 "화면", 아래는 판 위의 정보창과 카본 조작 띠
     Scaffold(
         topBar = { FocusTopBar("장소 선택", onBack = onBack) },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-    ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
-                MapGuide(Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
-                CenterPin(Modifier.align(Alignment.Center))
-                // OpenStreetMap 이용 조건: 지도 위에 출처를 보인다
-                Text(
-                    "© OpenStreetMap contributors",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Chrome.carbon,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(8.dp)
-                        .background(Chrome.white.copy(alpha = 0.85f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                )
-                MyLocationButton(
-                    loading = locating,
-                    onClick = ::goToCurrent,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp),
-                )
-            }
-            BottomPanel(
-                address = address,
-                center = center,
-                radius = radius,
-                onRadius = { radius = it },
+        bottomBar = {
+            CommandBar(
                 locationError = locationError,
-                onOpenAppSettings = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                },
-                onOpenLocationSettings = {
-                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                },
+                onOpenAppSettings = openAppSettings,
+                onOpenLocationSettings = openLocationSettings,
                 validCenter = validCenter,
                 confirming = confirming,
                 onConfirm = ::confirm,
             )
+        },
+        // 아래 내비게이션 영역은 조작 띠가 직접 비켜 간다 (카본 띠가 화면 끝까지 닿게)
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+    ) { padding ->
+        Column(
+            Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            ScreenBezel(
+                center = center,
+                busy = address is AddressState.Loading || locating,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            ) {
+                AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+                MapGuide(Modifier.align(Alignment.TopStart).padding(8.dp))
+                CenterPin(Modifier.align(Alignment.Center))
+                MyLocationButton(
+                    loading = locating,
+                    onClick = ::goToCurrent,
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp),
+                )
+            }
+            ReadoutPanel(address = address, radius = radius, onRadius = { radius = it })
         }
     }
 }
 
 private enum class LocationError { NoPermission, ServiceOff, Failed }
 
+/**
+ * 지도 "화면"을 감싼 카본 베젤. 위에는 전원 등과 각인 문구, 고른 좌표를 디지털 숫자로,
+ * 아래에는 지도 출처를 새겨 넣는다 (지도를 가리지 않으면서 OpenStreetMap 출처 표시를 지킨다).
+ */
 @Composable
-private fun BottomPanel(
-    address: AddressState,
+private fun ScreenBezel(
     center: GeoPoint,
-    radius: Float,
-    onRadius: (Float) -> Unit,
+    busy: Boolean,
+    modifier: Modifier = Modifier,
+    screen: @Composable BoxScope.() -> Unit,
+) {
+    Column(
+        modifier
+            .plate(Chrome.carbon, ChromeShapes.panel)
+            .halftone()
+            .padding(start = 10.dp, top = 8.dp, end = 10.dp, bottom = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PowerLed(busy)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "MAP · SCAN",
+                style = BezelLabel,
+                color = Chrome.sky,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "%.5f  %.5f".format(center.latitude, center.longitude),
+                style = DigitStyle.copy(fontSize = 13.sp),
+                color = Chrome.sky,
+                maxLines = 1,
+            )
+        }
+        // 화면 유리: 베젤 안쪽으로 파인 테두리
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .clip(ChromeShapes.control)
+                .border(2.dp, Chrome.chromeIndigo, ChromeShapes.control),
+            content = screen,
+        )
+        Text(
+            "© OpenStreetMap contributors",
+            style = BezelLabel.copy(fontSize = 10.sp, letterSpacing = 0.3.sp),
+            color = Chrome.sky.copy(alpha = 0.85f),
+        )
+    }
+}
+
+/** 전원 등: 평소에는 초록, 주소를 찾거나 위치를 재는 동안에는 앰버로 깜박인다 */
+@Composable
+private fun PowerLed(busy: Boolean) {
+    val blink = rememberInfiniteTransition(label = "led")
+    val alpha by blink.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.35f,
+        animationSpec = infiniteRepeatable(tween(450), RepeatMode.Reverse),
+        label = "ledAlpha",
+    )
+    Box(
+        Modifier
+            .size(9.dp)
+            .graphicsLayer { this.alpha = if (busy) alpha else 1f }
+            .clip(CircleShape)
+            .background(if (busy) Chrome.amber else Chrome.success)
+            .border(1.dp, Chrome.highlight, CircleShape),
+    )
+}
+
+/** 지도 화면 위 안내: 각진 카본 꼬리표 (경고·행동색이 아니라 차가운 하늘색 글자) */
+@Composable
+private fun MapGuide(modifier: Modifier = Modifier) {
+    Text(
+        "지도를 움직여 원하는 위치를 선택하세요",
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = Chrome.sky,
+        modifier = modifier
+            .background(Chrome.carbon.copy(alpha = 0.85f), ChromeShapes.control)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+    )
+}
+
+/**
+ * 베젤 아래 정보창: 선택한 위치(주소 → 보조 주소)와 적용 반경.
+ * 앱의 다른 화면과 같은 패널(하늘색 머리띠 + 플래티넘 판)을 쓴다.
+ */
+@Composable
+private fun ReadoutPanel(address: AddressState, radius: Float, onRadius: (Float) -> Unit) {
+    FocusPanel(title = "선택한 위치", icon = Icons.Default.LocationOn, modifier = Modifier.fillMaxWidth()) {
+        val (title, detail) = when (address) {
+            AddressState.Loading -> "주소 확인 중…" to null
+            AddressState.Failed -> "주소를 확인할 수 없어요" to null
+            is AddressState.Found -> address.address.title to address.address.detail
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                color = if (address is AddressState.Found) Chrome.carbon else Chrome.mutedIndigo,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            detail?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = Chrome.chromeIndigo, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        DottedDivider()
+        Text("적용 반경", style = BezelLabel, color = Chrome.chromeIndigo)
+        RadiusChips(radius, onRadius)
+    }
+}
+
+/** 디자인 가이드의 점선 구분선 */
+@Composable
+private fun DottedDivider() {
+    Canvas(Modifier.fillMaxWidth().height(1.dp)) {
+        drawLine(
+            Chrome.mutedIndigo,
+            Offset(0f, 0f),
+            Offset(size.width, 0f),
+            strokeWidth = size.height,
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 3.dp.toPx())),
+        )
+    }
+}
+
+/** 화면 아래 카본 조작 띠: 오류 안내와 주 버튼. 과제 편집 화면의 저장 띠와 같은 모양이다 */
+@Composable
+private fun CommandBar(
     locationError: LocationError?,
     onOpenAppSettings: () -> Unit,
     onOpenLocationSettings: () -> Unit,
@@ -279,43 +428,12 @@ private fun BottomPanel(
     Column(
         Modifier
             .fillMaxWidth()
-            .shadow(8.dp, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .background(Chrome.white, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(Chrome.carbon)
+            .halftone()
             .navigationBarsPadding()
-            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // 선택한 위치: 주소가 먼저, 좌표는 작은 보조 정보
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("선택한 위치", style = MaterialTheme.typography.labelMedium, color = Chrome.mutedIndigo)
-            val (title, detail) = when (address) {
-                AddressState.Loading -> "주소 확인 중…" to null
-                AddressState.Failed -> "주소를 확인할 수 없어요" to null
-                is AddressState.Found -> address.address.title to address.address.detail
-            }
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (address is AddressState.Found) Chrome.carbon else Chrome.mutedIndigo,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            detail?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = Chrome.carbon, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Text(
-                "%.5f, %.5f".format(center.latitude, center.longitude),
-                style = MaterialTheme.typography.bodySmall,
-                color = Chrome.mutedIndigo,
-            )
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("적용 반경", style = MaterialTheme.typography.labelMedium, color = Chrome.mutedIndigo)
-            RadiusChips(radius, onRadius)
-        }
-
         when (locationError) {
             LocationError.NoPermission -> FocusNotice(
                 "위치 권한이 필요해요. 기기 설정에서 위치 권한을 허용해 주세요",
@@ -329,7 +447,6 @@ private fun BottomPanel(
             null -> Unit
         }
         if (!validCenter) FocusNotice("좌표가 올바르지 않아요. 지도를 다시 움직여 주세요", tone = Tone.Danger)
-
         FocusButton(
             "이 장소로 정하기",
             onClick = onConfirm,
@@ -345,7 +462,7 @@ private fun BottomPanel(
 @Composable
 private fun RadiusChips(radius: Float, onRadius: (Float) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val rows = if (maxWidth < 360.dp) PLACE_RADIUS_PRESETS.chunked(3) else listOf(PLACE_RADIUS_PRESETS)
+        val rows = if (maxWidth < 330.dp) PLACE_RADIUS_PRESETS.chunked(3) else listOf(PLACE_RADIUS_PRESETS)
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             rows.forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
@@ -367,18 +484,8 @@ private fun RadiusChips(radius: Float, onRadius: (Float) -> Unit) {
     }
 }
 
-/** 지도 위쪽 안내. 지도를 많이 가리지 않게 작은 반투명 판으로 띄운다 */
-@Composable
-private fun MapGuide(modifier: Modifier = Modifier) {
-    Text(
-        "지도를 움직여 원하는 위치를 선택하세요",
-        style = MaterialTheme.typography.labelLarge,
-        color = Chrome.white,
-        modifier = modifier
-            .background(Chrome.carbon.copy(alpha = 0.78f), RoundedCornerShape(50))
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-    )
-}
+/** 베젤에 새긴 글자: 대문자 + 자간, 실크스크린 각인 느낌 */
+private val BezelLabel = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
 
 /**
  * 가운데 고정 핀. 핀 끝이 정확히 지도 가운데(고른 좌표)에 오도록 그림의 아래 끝을 중심에 맞춘다.
@@ -412,33 +519,36 @@ private fun CenterPin(modifier: Modifier = Modifier) {
     }
 }
 
-/** 지도 오른쪽 아래 현재 위치 버튼. 찾는 동안에는 돌아가는 표시를 보이고 다시 누르지 못하게 한다 */
+/**
+ * 지도 오른쪽 아래 현재 위치 버튼. 가이드의 둥근 오렌지 행동 버튼처럼 원형에 단단한 테두리를 단다.
+ * 찾는 동안에는 돌아가는 표시를 보이고 다시 누르지 못하게 한다.
+ */
 @Composable
 private fun MyLocationButton(loading: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier
             .size(52.dp)
-            .shadow(6.dp, CircleShape)
             .clip(CircleShape)
-            .background(Chrome.white)
-            .border(1.dp, Chrome.hairline.copy(alpha = 0.4f), CircleShape)
+            .background(Chrome.signal)
+            .circleBevel()
+            .border(2.dp, Chrome.carbon, CircleShape)
             .clickable(enabled = !loading, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = if (loading) "현재 위치 찾는 중" else "현재 위치로 이동" },
         contentAlignment = Alignment.Center,
     ) {
         if (loading) {
-            FocusSpinner(Modifier.size(24.dp), strokeWidth = 3.dp)
+            FocusSpinner(Modifier.size(24.dp), color = Chrome.carbon, strokeWidth = 3.dp)
         } else {
             // 위치 타깃: 가운데 점 + 고리 + 네 방향 눈금
             Canvas(Modifier.size(24.dp)) {
                 val c = Offset(size.width / 2, size.height / 2)
                 val stroke = 2.dp.toPx()
-                drawCircle(Chrome.chromeIndigo, radius = size.width * 0.3f, center = c, style = Stroke(stroke))
-                drawCircle(Chrome.chromeIndigo, radius = size.width * 0.13f, center = c)
+                drawCircle(Chrome.carbon, radius = size.width * 0.3f, center = c, style = Stroke(stroke))
+                drawCircle(Chrome.carbon, radius = size.width * 0.13f, center = c)
                 val inner = size.width * 0.3f
                 val outer = size.width * 0.5f
                 listOf(Offset(0f, -1f), Offset(0f, 1f), Offset(-1f, 0f), Offset(1f, 0f)).forEach { d ->
-                    drawLine(Chrome.chromeIndigo, c + d * inner, c + d * outer, strokeWidth = stroke)
+                    drawLine(Chrome.carbon, c + d * inner, c + d * outer, strokeWidth = stroke)
                 }
             }
         }
