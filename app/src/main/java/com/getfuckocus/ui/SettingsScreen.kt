@@ -122,18 +122,17 @@ fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit) {
                     SettingHeader(
                         icon = PixelIcons.Shield,
                         title = "잠금 서비스",
-                        description = "마감을 놓쳤을 때 다른 앱을 잠가요",
+                        description = "마감을 놓쳤을 때 앱을 잠그거나 억제 화면을 띄워요",
                         badge = { OnOffBadge(serviceEnabled) },
                     ) {
                         // 접근성 설정은 시스템 화면에서만 바꿀 수 있어서 스위치는 그 화면으로 보내는 역할만 한다
                         FocusSwitch(checked = serviceEnabled, onCheckedChange = { BlockerServiceStatus.openSettings(context) })
                     }
                     if (!serviceEnabled) {
+                        // 바로 위 스위치가 켜는 역할을 하므로 안내에는 버튼을 따로 달지 않는다
                         FocusNotice(
-                            "꺼져 있으면 마감을 놓쳐도 앱이 잠기지 않고 알림만 와요",
+                            "꺼져 있으면 마감을 놓쳐도 잠금이나 억제 화면 없이 알림만 와요",
                             tone = Tone.Warning,
-                            actionLabel = "켜기",
-                            onAction = { BlockerServiceStatus.openSettings(context) },
                         )
                     }
                     Text(
