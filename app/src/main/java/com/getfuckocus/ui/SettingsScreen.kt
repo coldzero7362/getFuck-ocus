@@ -1,7 +1,12 @@
 package com.getfuckocus.ui
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.core.app.ActivityCompat
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -64,15 +69,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 설정. 잠금 관리 · 앱 관리 · 인증 관리 · 기타 네 묶음으로 나누고,
+ * 설정. 잠금 관리 · 앱 관리 · 권한 · 기타 네 묶음으로 나누고,
  * 항목마다 지금 상태(켜짐/꺼짐, 개수)를 배지로 바로 보여 준다.
  */
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit, onOpenTags: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit) {
     val context = LocalContext.current
     val container = context.container
     val serviceEnabled = rememberBlockerServiceEnabled()
-    val tags by remember { container.nfcTagDao.observeAll() }.collectAsState(initial = null)
     // 잠금 예외 앱 화면과 같은 기준: 설치된 앱 중 허용한 것만 센다 (기본 목록에는 없는 앱도 있다)
     var allowedCount by remember { mutableStateOf<Int?>(null) }
     var resumes by remember { mutableIntStateOf(0) }
@@ -87,18 +91,24 @@ fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit, onOpenTags
         }
     }
 
-    var notificationsGranted by remember {
-        mutableStateOf(
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
-        )
+    fun notificationsAllowed() = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+    var notificationsGranted by remember { mutableStateOf(notificationsAllowed()) }
+    var cameraGranted by remember { mutableStateOf(context.hasPermission(Manifest.permission.CAMERA)) }
+    var locationGranted by remember { mutableStateOf(context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) }
+    // 시스템 설정에서 권한을 바꾸고 돌아오면 다시 확인한다
+    LifecycleResumeEffect(Unit) {
+        notificationsGranted = notificationsAllowed()
+        cameraGranted = context.hasPermission(Manifest.permission.CAMERA)
+        locationGranted = context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+        onPauseOrDispose { }
     }
-    val notificationPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
+    val notificationPermission = rememberPermissionRequest { granted ->
         notificationsGranted = granted
         if (granted && serviceEnabled) NotificationHelper.showServiceActive(context)
     }
+    val cameraPermission = rememberPermissionRequest { cameraGranted = it }
+    val locationPermission = rememberPermissionRequest { locationGranted = it }
 
     Scaffold(topBar = { FocusTopBar(title = "설정", subtitle = "항목을 누르면 자세히 바꿀 수 있어요", onBack = onBack) }) { padding ->
         LazyColumn(
@@ -146,56 +156,143 @@ fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit, onOpenTags
                 )
             }
 
-            item { FocusSectionLabel("인증 관리") }
+            // 권한은 앱이 직접 끌 수 없어서, 허용 전에는 요청하고 허용 뒤에는 시스템 설정 화면으로 보낸다
+            item { FocusSectionLabel("권한") }
             item {
-                NavigationCard(
-                    icon = PixelIcons.Nfc,
-                    title = "NFC 태그",
-                    description = "체크할 때 찍을 태그를 등록하고 지워요",
-                    badge = {
-                        tags?.let { FocusStatusBadge("${it.size}개 등록", Tone.Info, icon = PixelIcons.Nfc) }
+                PermissionCard(
+                    icon = PixelIcons.Bell,
+                    title = "알림",
+                    description = "시작·마감 알림과 잠금 상태를 알려 줘요",
+                    granted = notificationsGranted,
+                    grantedHint = "누르면 시스템 알림 설정에서 과제 알림, 잠금 알림을 따로 끌 수 있어요",
+                    deniedWarning = "알림이 꺼져 있으면 마감이 다가와도 알 수 없어요",
+                    onClick = {
+                        if (notificationsGranted) openNotificationSettings(context)
+                        else notificationPermission(Manifest.permission.POST_NOTIFICATIONS)
                     },
-                    onClick = onOpenTags,
+                )
+            }
+            item {
+                PermissionCard(
+                    icon = PixelIcons.Camera,
+                    title = "카메라",
+                    description = "사진 인증 과제를 찍을 때만 써요",
+                    granted = cameraGranted,
+                    grantedHint = "누르면 시스템 앱 정보에서 권한을 끌 수 있어요",
+                    deniedWarning = "카메라가 없으면 사진 인증을 할 수 없어요",
+                    onClick = {
+                        if (cameraGranted) openAppDetails(context)
+                        else cameraPermission(Manifest.permission.CAMERA)
+                    },
+                )
+            }
+            item {
+                PermissionCard(
+                    icon = Icons.Default.LocationOn,
+                    title = "위치",
+                    description = "위치 인증, 장소를 정한 사진 인증을 할 때만 한 번 재요. 백그라운드 위치는 쓰지 않아요",
+                    granted = locationGranted,
+                    grantedHint = "누르면 시스템 앱 정보에서 권한을 끌 수 있어요",
+                    deniedWarning = "위치가 없으면 장소를 확인하는 인증을 할 수 없어요",
+                    onClick = {
+                        if (locationGranted) openAppDetails(context)
+                        else locationPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                    },
                 )
             }
 
             item { FocusSectionLabel("기타") }
             item {
-                FocusCard(Modifier.fillMaxWidth()) {
-                    SettingHeader(
-                        icon = PixelIcons.Bell,
-                        title = "알림",
-                        description = if (notificationsGranted) "잠금 상태와 과제 알림을 받아요" else "허용하면 시작·마감 알림과 잠금 상태를 알려 줘요",
-                        badge = { OnOffBadge(notificationsGranted, onText = "허용됨", offText = "꺼짐") },
-                    ) {}
-                    if (!notificationsGranted) {
-                        FocusNotice(
-                            "알림이 꺼져 있으면 마감이 다가와도 알 수 없어요",
-                            tone = Tone.Warning,
-                            icon = PixelIcons.Bell,
-                            actionLabel = "허용",
-                            onAction = { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) },
-                        )
-                    }
-                }
-            }
-            item {
                 NavigationCard(
                     icon = PixelIcons.Info,
                     title = "앱 정보 · 삭제",
                     description = "시스템 앱 정보 화면을 열어요. 언제든 지울 수 있어요",
-                    onClick = {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                Uri.fromParts("package", context.packageName, null),
-                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        )
-                    },
+                    onClick = { openAppDetails(context) },
                 )
             }
         }
     }
+}
+
+/**
+ * 권한 하나. 허용 전에는 누르면 권한을 요청하고, 허용 뒤에는 시스템 설정 화면을 연다
+ * (권한을 거두는 것은 시스템 화면에서만 할 수 있다).
+ */
+@Composable
+private fun PermissionCard(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    granted: Boolean,
+    grantedHint: String,
+    deniedWarning: String,
+    onClick: () -> Unit,
+) {
+    FocusCard(Modifier.fillMaxWidth(), onClick = onClick) {
+        SettingHeader(
+            icon = icon,
+            title = title,
+            description = description,
+            badge = { OnOffBadge(granted, onText = "허용됨", offText = "허용 안 함") },
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Chrome.chromeIndigo,
+                modifier = Modifier.size(28.dp),
+            )
+        }
+        if (granted) {
+            Text(grantedHint, style = MaterialTheme.typography.bodySmall, color = Chrome.chromeIndigo)
+        } else {
+            FocusNotice(deniedWarning, tone = Tone.Warning, icon = icon, actionLabel = "허용", onAction = onClick)
+        }
+    }
+}
+
+private fun openAppDetails(context: Context) {
+    context.startActivity(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+}
+
+private fun openNotificationSettings(context: Context) {
+    context.startActivity(
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+}
+
+/**
+ * 권한 요청 결과를 받는다. 두 번 거절해서 시스템이 더 묻지 않으면(다시 묻기 안내도 없으면)
+ * 요청 창이 뜨지 않으므로, 앱 정보 화면을 열어 직접 켤 수 있게 한다.
+ */
+@Composable
+private fun rememberPermissionRequest(onResult: (Boolean) -> Unit): (permission: String) -> Unit {
+    val context = LocalContext.current
+    var requested by remember { mutableStateOf<String?>(null) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        onResult(granted)
+        val permission = requested
+        val activity = context.findActivity()
+        if (!granted && permission != null && activity != null &&
+            !ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)
+        ) {
+            openAppDetails(context)
+        }
+    }
+    return { permission ->
+        requested = permission
+        launcher.launch(permission)
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 /** 아이콘 칸 + 제목·설명 + 상태 배지 + 오른쪽 조작부 */
