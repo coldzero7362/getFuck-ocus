@@ -9,8 +9,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.getfuckocus.ui.AppNavHost
+import com.getfuckocus.ui.TitleScreen
 import com.getfuckocus.ui.components.AchievementToastHost
 import com.getfuckocus.ui.theme.GetFocusTheme
 
@@ -30,6 +35,14 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize()) {
                     AppNavHost(startVerifyTaskId = verifyTaskId)
                     AchievementToastHost(container.achievementDao, container.taskDao)
+                    // 타이틀은 앱을 새로 열 때만. 인증하러 들어왔거나 잠긴 상태면 한시라도 빨리 보여야 하므로 건너뛴다
+                    var showTitle by rememberSaveable {
+                        mutableStateOf(
+                            savedInstanceState == null && verifyTaskId == null &&
+                                container.lockController.state.value == null
+                        )
+                    }
+                    if (showTitle) TitleScreen(onFinished = { showTitle = false })
                 }
             }
         }

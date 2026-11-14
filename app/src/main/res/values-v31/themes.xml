@@ -1,7 +1,9 @@
 <resources>
-    <!-- 스플래시도 상단 바와 같은 딥 네이비로 맞춰 앱 첫인상을 이어지게 한다 -->
+    <!-- 시스템 스플래시는 타이틀 화면(TitleScreen)과 같은 딥 네이비 빈 판으로 둔다.
+         아이콘을 띄우면 작은 둥근 아이콘 → 큰 도트 자물쇠로 두 번 바뀌어 보여서 아이콘은 비운다 -->
     <style name="Theme.GetFocus" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/app_canvas</item>
         <item name="android:windowSplashScreenBackground">@color/app_header</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_blank</item>
     </style>
 </resources>
