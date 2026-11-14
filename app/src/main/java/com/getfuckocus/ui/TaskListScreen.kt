@@ -94,6 +94,10 @@ import com.getfuckocus.ui.theme.TaskIcon
 import com.getfuckocus.ui.components.TaskIconMark
 import com.getfuckocus.ui.components.TaskAchievementStrip
 import com.getfuckocus.ui.theme.bevel
+import com.getfuckocus.ui.theme.ChromeShapes
+import com.getfuckocus.ui.theme.plate
+import com.getfuckocus.ui.theme.recessed
+import androidx.compose.ui.unit.sp
 import com.getfuckocus.ui.theme.circleBevel
 import com.getfuckocus.verify.Verdict
 import kotlinx.coroutines.launch
@@ -222,6 +226,7 @@ fun TaskListScreen(
                     )
                 }
             }
+            if (tasks.isNotEmpty()) item { TodayProgressStrip(entries, now) }
             when {
                 currentLock != null -> item {
                     val lockTask = tasks.firstOrNull { it.id == currentLock.taskId }
@@ -371,35 +376,31 @@ private fun HeroCard(
                     color = Chrome.chromeIndigo,
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                val (label, value) = when {
-                    inProgress != null ->
-                        "마감까지" to formatMinutesLeft(Duration.between(now, inProgress.deadline).toMillis())
-                    status is TaskStatus.Upcoming && status.startsAt.toLocalDate() == now.toLocalDate() ->
-                        "시작까지" to formatMinutesLeft(Duration.between(now, status.startsAt).toMillis())
-                    status is TaskStatus.Upcoming ->
-                        "다음 시작" to formatStartsIn(now, status.startsAt).removeSuffix(" 시작")
-                    else -> "상태" to "-"
-                }
-                FocusStatBox(
-                    label = label,
-                    value = value,
-                    icon = PixelIcons.Hourglass,
-                    large = true,
-                    valueColor = if (inProgress != null) Chrome.redInk else Chrome.carbon,
-                    modifier = Modifier.weight(1.15f).fillMaxHeight(),
-                    surface = Chrome.lavender,
+            // 남은 시간·실행 시간대·진행 막대를 한 칸에 묶는다: 큰 숫자 하나 + 양 끝에 시각이 달린 막대
+            val duration = task.durationMinutes.toLong()
+            when {
+                inProgress != null -> HeroTimeBox(
+                    label = "마감까지",
+                    value = formatMinutesLeft(Duration.between(now, inProgress.deadline).toMillis()),
+                    valueColor = Chrome.redInk,
+                    from = hhmm(inProgress.deadline.minusMinutes(duration)),
+                    to = hhmm(inProgress.deadline),
+                    progress = inProgress.progress,
                 )
-                FocusStatBox(
-                    label = "실행 가능",
-                    value = start,
-                    caption = "~ $end 마감",
-                    icon = PixelIcons.Clock,
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    surface = Chrome.lavender,
+                status is TaskStatus.Upcoming -> HeroTimeBox(
+                    label = if (status.startsAt.toLocalDate() == now.toLocalDate()) "시작까지" else "다음 시작",
+                    value = if (status.startsAt.toLocalDate() == now.toLocalDate()) {
+                        formatMinutesLeft(Duration.between(now, status.startsAt).toMillis())
+                    } else {
+                        formatStartsIn(now, status.startsAt).removeSuffix(" 시작")
+                    },
+                    valueColor = Chrome.carbon,
+                    from = hhmm(status.startsAt),
+                    to = hhmm(status.startsAt.plusMinutes(duration)),
+                    progress = null,
                 )
+                else -> HeroTimeBox("시간", "-", Chrome.carbon, start, end, null)
             }
-            inProgress?.let { FocusProgressBar(it.progress) }
             ConditionPills(task)
             TaskAchievementStrip(TaskIcon.fromKey(task.iconKey), achievements, streak)
             when {
@@ -413,6 +414,108 @@ private fun HeroCard(
                 )
             }
         }
+    }
+}
+
+private fun hhmm(time: ZonedDateTime) = TaskSchedule.formatMinute(time.hour * 60 + time.minute)
+
+/**
+ * 맨 위 카드의 시간 칸. 남은 시간을 크게 하나만 보여 주고, 그 아래 막대 양 끝에 시작·마감 시각을 단다.
+ * 진행 중이 아니면 막대 없이 시간대만 한 줄로 둔다.
+ */
+@Composable
+private fun HeroTimeBox(
+    label: String,
+    value: String,
+    valueColor: Color,
+    from: String,
+    to: String,
+    progress: Float?,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .recessed(Chrome.lavender)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(PixelIcons.Hourglass, contentDescription = null, tint = Chrome.chromeIndigo, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, color = Chrome.chromeIndigo)
+            Spacer(Modifier.weight(1f))
+            Text(value, style = DigitStyle.copy(fontSize = 32.sp), color = valueColor, maxLines = 1)
+        }
+        if (progress != null) FocusProgressBar(progress)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (progress != null) from else "$from 시작",
+                style = MaterialTheme.typography.labelMedium,
+                color = Chrome.chromeIndigo,
+            )
+            Spacer(Modifier.weight(1f))
+            Text("$to 마감", style = MaterialTheme.typography.labelMedium, color = Chrome.chromeIndigo)
+        }
+    }
+}
+
+/**
+ * 홈 맨 위 오늘 진행 줄: 오늘 할 과제마다 칸 하나를 두고 상태 색으로 칠한 뒤, 끝낸 수/전체 수를 붙인다.
+ * 쉬는 날·꺼진 과제·내일부터 시작하는 과제는 세지 않는다.
+ */
+@Composable
+private fun TodayProgressStrip(entries: List<Pair<TaskEntity, TaskStatus>>, now: ZonedDateTime) {
+    val today = now.toLocalDate()
+    val todays = entries.map { it.second }.filter {
+        when (it) {
+            TaskStatus.Disabled, is TaskStatus.RestDay -> false
+            is TaskStatus.Upcoming -> it.startsAt.toLocalDate() == today
+            else -> true
+        }
+    }
+    if (todays.isEmpty()) return
+    // 끝난 것 → 놓친 것 → 진행 중 → 시작 전 순으로 왼쪽부터 칠한다
+    val ordered = todays.sortedBy {
+        when (it) {
+            TaskStatus.Done -> 0
+            TaskStatus.Missed -> 1
+            is TaskStatus.InProgress -> 2
+            else -> 3
+        }
+    }
+    val done = todays.count { it == TaskStatus.Done }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .plate(Chrome.periwinkle, ChromeShapes.small)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("오늘", style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
+        Spacer(Modifier.width(12.dp))
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            ordered.forEach { s ->
+                val color = when (s) {
+                    TaskStatus.Done -> Chrome.success
+                    TaskStatus.Missed -> Chrome.red
+                    is TaskStatus.InProgress -> Chrome.signal
+                    else -> Chrome.sky
+                }
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(12.dp)
+                        .clip(ChromeShapes.control)
+                        .background(color)
+                        .bevel(shadowWidth = 1.5.dp, shadow = Color(0x44000000), highlightWidth = 1.dp),
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Text("$done", style = DigitStyle.copy(fontSize = 22.sp), color = Chrome.carbon)
+        Text("/${todays.size}", style = DigitStyle.copy(fontSize = 16.sp), color = Chrome.chromeIndigo)
+        Spacer(Modifier.width(4.dp))
+        Text("완료", style = MaterialTheme.typography.labelMedium, color = Chrome.chromeIndigo)
     }
 }
 
@@ -488,8 +591,6 @@ private fun DaySummaryCard(entries: List<Pair<TaskEntity, TaskStatus>>) {
             "오늘 과제를 모두 끝냈어요" to PixelIcons.Sparkle
         else -> "오늘 남은 과제가 없어요" to PixelIcons.CheckCircle
     }
-    val done = entries.count { it.second == TaskStatus.Done }
-    val total = entries.count { it.second != TaskStatus.Disabled && it.second !is TaskStatus.RestDay }
     FocusCard(
         modifier = Modifier.fillMaxWidth(),
         color = Chrome.lavender,
@@ -503,14 +604,8 @@ private fun DaySummaryCard(entries: List<Pair<TaskEntity, TaskStatus>>) {
         ) {
             Icon(icon, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(28.dp))
             Spacer(Modifier.width(12.dp))
+            // 끝낸 수/전체 수는 바로 위 오늘 진행 줄에 있다
             Text(message, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            if (total > 0) {
-                Text(
-                    "$done/$total",
-                    style = DigitStyle.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
-                    color = Chrome.carbon,
-                )
-            }
         }
     }
 }
