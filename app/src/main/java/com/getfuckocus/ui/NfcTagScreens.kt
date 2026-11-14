@@ -1,6 +1,32 @@
 package com.getfuckocus.ui
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.getfuckocus.ui.theme.plate
+import kotlinx.coroutines.delay
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -79,14 +105,45 @@ import java.time.format.DateTimeFormatter
 
 private val REGISTERED_FORMAT = DateTimeFormatter.ofPattern("yyyy.M.d 등록")
 
-/** 기록 옆 쪽. 등록한 NFC 태그를 보여 주고, + 버튼으로 새 태그를 등록한다. */
+/**
+ * 기록 옆 쪽. 등록한 NFC 태그를 보여 주고, + 버튼으로 새 태그를 등록한다.
+ * 이 쪽이 보이는 동안([active]) 태그를 찍으면 해당 카드에 초록 스캔 효과가 지나간다.
+ */
 @Composable
-fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
-    val dao = LocalContext.current.container.nfcTagDao
-    val taskDao = LocalContext.current.container.taskDao
+fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit, active: Boolean = true) {
+    val context = LocalContext.current
+    val dao = context.container.nfcTagDao
+    val taskDao = context.container.taskDao
     val tags by remember { dao.observeAll() }.collectAsState(initial = null)
     val scope = rememberCoroutineScope()
     var confirmDelete by remember { mutableStateOf<NfcTagEntity?>(null) }
+    val listState = rememberLazyListState()
+
+    // 찍힌 태그: (태그 id, 몇 번째 찍힘). 같은 태그를 또 찍어도 효과가 다시 돌도록 번호를 올린다
+    var scanned by remember { mutableStateOf<Pair<Long, Int>?>(null) }
+    var unknownNotice by remember { mutableStateOf<Int?>(null) }
+    var scanCount by remember { mutableIntStateOf(0) }
+    fun onScanned(uid: String) {
+        val list = tags.orEmpty()
+        val index = list.indexOfFirst { it.uid == uid }
+        scanCount++
+        if (index < 0) {
+            unknownNotice = scanCount
+            return
+        }
+        scanned = list[index].id to scanCount
+        // 목록 밖에 있던 카드면 보이는 곳까지 굴려 준다 (빈 상태 칸이 없으니 카드 순서 = 항목 순서)
+        scope.launch { listState.animateScrollToItem(index) }
+    }
+    // 다른 쪽(홈·기록)을 보고 있을 때는 리더 모드를 켜지 않는다
+    NfcTagScanner(enabled = active, onTag = ::onScanned)
+    LaunchedEffect(unknownNotice) {
+        if (unknownNotice != null) {
+            delay(UNKNOWN_NOTICE_MS)
+            unknownNotice = null
+        }
+    }
+    val debug = remember { context.isDebuggable() }
 
     Scaffold(
         topBar = {
@@ -100,10 +157,12 @@ fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
             FocusFab(Icons.Default.Add, contentDescription = "NFC 태그 추가", onClick = onAdd)
         },
     ) { padding ->
+        Box(Modifier.padding(padding).fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = Dimens.fabClearance),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (tags?.isEmpty() == true) {
                 item {
@@ -118,8 +177,23 @@ fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
                 }
             }
             items(tags.orEmpty(), key = { it.id }) { tag ->
-                TagCard(tag, onDelete = { confirmDelete = tag })
+                TagCard(
+                    tag,
+                    scanKey = scanned?.takeIf { it.first == tag.id }?.second,
+                    onDelete = { confirmDelete = tag },
+                    // 실물 태그 없이 효과를 시험하는 디버그 빌드 전용: 카드를 길게 누르면 찍은 것처럼
+                    onDebugScan = if (debug) ({ onScanned(tag.uid) }) else null,
+                )
             }
+        }
+        AnimatedVisibility(
+            visible = unknownNotice != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),
+        ) {
+            FocusNotice("등록하지 않은 태그예요. + 를 눌러 등록할 수 있어요", tone = Tone.Warning, icon = PixelIcons.Nfc)
+        }
         }
     }
 
@@ -158,51 +232,116 @@ fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
     }
 }
 
-/** 등록한 태그 한 장: 이름 · 등록일 · 식별 번호, 아래에 따로 떨어진 삭제 버튼 */
+/** 등록되지 않은 태그를 찍었을 때 안내를 보여 주는 시간 */
+private const val UNKNOWN_NOTICE_MS = 2_500L
+/** 스캔 효과: 초록 띠가 왼쪽에서 오른쪽으로 지나가는 시간, 그 뒤 카드가 한 번 깜빡이고 사라지는 시간 */
+private const val SCAN_SWEEP_MS = 520
+private const val SCAN_BLINK_MS = 420
+
+/**
+ * 등록한 태그 한 장. 한 줄에 아이콘 · 이름/등록일·ID · 삭제 아이콘 버튼을 놓아 높이를 줄였다.
+ * [scanKey]가 바뀔 때마다(이 태그가 찍힐 때마다) 초록 스캔 효과를 한 번 보여 준다.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TagCard(tag: NfcTagEntity, onDelete: () -> Unit) {
-    FocusCard(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(start = 14.dp, top = 14.dp, end = 8.dp, bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+private fun TagCard(tag: NfcTagEntity, scanKey: Int?, onDelete: () -> Unit, onDebugScan: (() -> Unit)?) {
+    val sweep = remember { Animatable(0f) }
+    val blink = remember { Animatable(0f) }
+    LaunchedEffect(scanKey) {
+        if (scanKey == null) return@LaunchedEffect
+        blink.snapTo(0f)
+        sweep.snapTo(0f)
+        sweep.animateTo(1f, tween(SCAN_SWEEP_MS, easing = FastOutSlowInEasing))
+        // 다 지나가면 카드 전체가 초록으로 한 번 반짝이고 사라진다
+        blink.snapTo(1f)
+        sweep.snapTo(0f)
+        blink.animateTo(0f, tween(SCAN_BLINK_MS))
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .plate(Chrome.platinum)
+            .then(
+                if (onDebugScan != null) Modifier.combinedClickable(onClick = {}, onLongClick = onDebugScan)
+                else Modifier
+            )
+            .drawWithContent {
+                drawContent()
+                val p = sweep.value
+                if (p > 0f && p < 1f) {
+                    // 초록 띠: 카드 왼쪽 밖에서 들어와 오른쪽 밖으로 나간다
+                    val band = size.width * 0.45f
+                    val x = -band + (size.width + band) * p
+                    drawRect(
+                        Brush.horizontalGradient(
+                            0f to Color.Transparent,
+                            0.7f to SCAN_GREEN.copy(alpha = 0.55f),
+                            1f to SCAN_GREEN.copy(alpha = 0.9f),
+                            startX = x,
+                            endX = x + band,
+                        ),
+                        // 띠 범위만 칠한다 (그라데이션 끝 색이 띠 오른쪽까지 번지지 않게)
+                        topLeft = Offset(x, 0f),
+                        size = Size(band, size.height),
+                    )
+                    drawRect(SCAN_GREEN, topLeft = Offset(x + band - 2.dp.toPx(), 0f), size = Size(2.dp.toPx(), size.height))
+                }
+                if (blink.value > 0f) drawRect(SCAN_GREEN.copy(alpha = 0.35f * blink.value))
+            }
+            .padding(start = 10.dp, top = 8.dp, end = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(48.dp).clip(ChromeShapes.small).background(Chrome.sky).bevel(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(PixelIcons.Nfc, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(28.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(tag.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    Instant.ofEpochMilli(tag.createdAt).atZone(ZoneId.systemDefault()).format(REGISTERED_FORMAT),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Chrome.chromeIndigo,
-                )
-            }
+        Box(
+            Modifier.size(40.dp).clip(ChromeShapes.small).background(Chrome.sky).bevel(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(PixelIcons.Nfc, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(24.dp))
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(tag.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "ID  ${tag.uid}",
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                Instant.ofEpochMilli(tag.createdAt).atZone(ZoneId.systemDefault()).format(REGISTERED_FORMAT) +
+                    "  ·  " + tag.uid,
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                 color = Chrome.chromeIndigo,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            FocusButton(
-                "삭제",
-                onClick = onDelete,
-                style = FocusButtonStyle.Ghost,
-                icon = Icons.Default.Delete,
-                height = 48.dp,
-                contentColor = Chrome.redInk,
             )
         }
+        Spacer(Modifier.width(8.dp))
+        DeleteIconButton(label = "'${tag.name}' 태그 지우기", onClick = onDelete)
     }
 }
+
+/** 휴지통 아이콘만 있는 작은 입체 버튼. 누르면 아래로 눌려 들어간다 */
+@Composable
+private fun DeleteIconButton(label: String, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val sink by animateDpAsState(if (pressed) 2.dp else 0.dp, label = "deleteSink")
+    Box(
+        Modifier
+            .size(44.dp)
+            .offset(y = sink)
+            .clip(ChromeShapes.small)
+            .background(Chrome.redSoft)
+            .bevel(
+                highlight = if (pressed) Color.Transparent else Chrome.highlight,
+                shadow = Chrome.red.copy(alpha = 0.6f),
+                shadowWidth = if (pressed) 1.dp else 3.dp,
+            )
+            .border(1.dp, Chrome.red.copy(alpha = 0.45f), ChromeShapes.small)
+            .clickable(interaction, indication = null, role = Role.Button, onClickLabel = label, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Default.Delete, contentDescription = null, tint = Chrome.redInk, modifier = Modifier.size(22.dp))
+    }
+}
+
+/** 스캔 효과 초록: 앱의 성공 초록보다 밝게 해서 회색 카드 위에서 잘 보이게 한다 */
+private val SCAN_GREEN = Color(0xFF3DDC84)
 
 /**
  * 태그를 두 번 찍어 ID가 같은지 확인하고, 이름을 붙여 저장한다.

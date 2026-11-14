@@ -74,7 +74,12 @@ fun HomePager(
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(state = pager, beyondViewportPageCount = 1) { page ->
             when (page) {
-                PAGE_TAGS -> NfcTagListScreen(onBack = { goTo(PAGE_HISTORY) }, onAdd = onAddTag)
+                PAGE_TAGS -> NfcTagListScreen(
+                    onBack = { goTo(PAGE_HISTORY) },
+                    onAdd = onAddTag,
+                    // 옆 쪽으로 미리 그려 둘 때는 NFC를 읽지 않는다
+                    active = pager.currentPage == PAGE_TAGS,
+                )
                 PAGE_HISTORY -> HistoryScreen(onBack = { goTo(PAGE_HOME) })
                 else -> TaskListScreen(
                     onAdd = onAdd,
