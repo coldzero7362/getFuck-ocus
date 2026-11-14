@@ -27,7 +27,7 @@ class AppContainer(context: Context) {
     val deadlineScheduler = DeadlineScheduler(appContext)
     val evidenceCollector = EvidenceCollector(appContext, deviceClock)
     val verificationFlow = VerificationFlow(taskDao, nfcTagDao, evidenceCollector, PhotoVerifier(), lockController, deviceClock)
-    val photoRetention = PhotoRetention(taskDao)
+    val photoRetention = PhotoRetention(appContext, taskDao)
     /** 요청 간격 제한과 캐시를 앱 전체에서 함께 쓰도록 하나만 둔다 */
     val reverseGeocoder = ReverseGeocoder(appContext)
 }

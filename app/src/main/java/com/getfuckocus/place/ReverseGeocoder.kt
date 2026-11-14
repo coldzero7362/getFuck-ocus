@@ -51,7 +51,13 @@ class ReverseGeocoder(context: Context) {
             connection.readTimeout = TIMEOUT_MS
             connection.setRequestProperty("User-Agent", userAgent)
             if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
-            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            // 응답 하나는 수 KB다. 비정상적으로 큰 응답은 읽다 말고 버린다
+            val body = connection.inputStream.use { input ->
+                val bytes = input.readNBytesCompat(MAX_RESPONSE_BYTES + 1)
+                if (bytes.size > MAX_RESPONSE_BYTES) return null
+                String(bytes, Charsets.UTF_8)
+            }
+            val json = JSONObject(body)
             if (json.has("error")) return null
             return AddressFormat.from(name = json.optString("name"), displayName = json.optString("display_name"))
         } finally {
@@ -63,6 +69,19 @@ class ReverseGeocoder(context: Context) {
         const val MIN_INTERVAL_MS = 1_100L
         const val TIMEOUT_MS = 8_000
         const val CACHE_SIZE = 50
+        const val MAX_RESPONSE_BYTES = 64 * 1024
+
+        /** InputStream.readNBytes는 Android 13부터라 직접 읽는다 */
+        fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
+            val out = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8 * 1024)
+            while (out.size() < limit) {
+                val read = read(buffer, 0, minOf(buffer.size, limit - out.size()))
+                if (read < 0) break
+                out.write(buffer, 0, read)
+            }
+            return out.toByteArray()
+        }
 
         fun appVersion(context: Context): String = runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName

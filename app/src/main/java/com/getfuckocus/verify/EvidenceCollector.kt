@@ -48,18 +48,30 @@ class EvidenceCollector(
             .build()
 
         val capturedAt = clock.now()
-        imageCapture.takePictureTo(options, ContextCompat.getMainExecutor(context))
+        try {
+            imageCapture.takePictureTo(options, ContextCompat.getMainExecutor(context))
 
-        val labels = labeler.process(InputImage.fromFilePath(context, Uri.fromFile(file)))
-            .await()
-            .map { DetectedLabel(it.text, it.confidence) }
+            val labels = labeler.process(InputImage.fromFilePath(context, Uri.fromFile(file)))
+                .await()
+                .map { DetectedLabel(it.text, it.confidence) }
 
-        return Evidence(file, capturedAt, location, labels, ExifReader.read(file))
+            return Evidence(file, capturedAt, location, labels, ExifReader.read(file))
+        } catch (e: Throwable) {
+            // 기록으로 남지 않는 사진은 보존 기간 정리에도 걸리지 않으므로 여기서 바로 지운다
+            file.delete()
+            throw e
+        }
     }
 
     companion object {
         fun evidenceDir(context: Context): File =
             File(context.filesDir, "evidence").apply { mkdirs() }
+
+        /** 인증 사진 폴더 안의 파일만 지운다. 기록에 적힌 경로가 이상해도 다른 파일은 건드리지 않는다 */
+        fun deleteEvidence(context: Context, path: String) {
+            val file = File(path)
+            if (file.parentFile?.canonicalPath == evidenceDir(context).canonicalPath) file.delete()
+        }
     }
 }
 
