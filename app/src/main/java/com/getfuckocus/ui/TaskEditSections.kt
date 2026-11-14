@@ -1,5 +1,16 @@
 package com.getfuckocus.ui
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import com.getfuckocus.ui.theme.bevel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -731,38 +742,94 @@ private fun SubHeader(title: String, description: String? = null) {
     }
 }
 
+/** 한 줄에 놓는 아이콘 칸 수. "없음" 1칸 + 아이콘 27개 = 4줄 × 7칸을 빈칸 없이 채운다 */
+private const val ICON_COLUMNS = 7
+
 /** 과제 아이콘 고르기. 업적 알림에도 이 아이콘이 나온다. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun IconPicker(selected: TaskIcon?, onSelect: (TaskIcon?) -> Unit) {
     SubHeader("아이콘", "연속 달성 업적을 받으면 이 아이콘에 별과 오라가 붙어요")
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        IconTile(selected == null, "아이콘 없음", onClick = { onSelect(null) }) {
-            Icon(Icons.Default.Close, contentDescription = null, tint = Chrome.chromeIndigo, modifier = Modifier.size(20.dp))
-        }
-        TaskIcon.entries.forEach { icon ->
-            IconTile(selected == icon, icon.label, onClick = { onSelect(icon) }) {
-                TaskIconMark(icon, Modifier.size(24.dp))
+    val cells: List<TaskIcon?> = listOf(null) + TaskIcon.entries
+    // 화면 너비를 7칸으로 나눠 정사각형 버튼을 꽉 채운다
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        cells.chunked(ICON_COLUMNS).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                row.forEach { icon ->
+                    IconTile(
+                        selected = selected == icon,
+                        label = icon?.label ?: "아이콘 없음",
+                        onClick = { onSelect(icon) },
+                        modifier = Modifier.weight(1f),
+                    ) { tint ->
+                        if (icon == null) {
+                            Icon(Icons.Default.Close, contentDescription = null, tint = tint, modifier = Modifier.fillMaxSize(0.5f))
+                        } else {
+                            TaskIconMark(icon, Modifier.fillMaxSize(0.62f), tint = tint)
+                        }
+                    }
+                }
+                // 마지막 줄이 모자라면 빈 자리로 칸 너비를 맞춘다
+                repeat(ICON_COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
 }
 
+/**
+ * 아이콘 한 칸: 다른 버튼처럼 판이 튀어나와 있다가 누르면 아래로 눌려 들어간다.
+ * 고른 칸은 앰버 판에 카본 테두리, 오른쪽 위에 체크 표시가 붙는다.
+ */
 @Composable
-private fun IconTile(selected: Boolean, label: String, onClick: () -> Unit, content: @Composable () -> Unit) {
-    Box(
-        Modifier
-            .size(44.dp)
-            .clip(ChromeShapes.small)
-            .background(if (selected) Chrome.amber else Chrome.white)
-            .border(2.dp, if (selected) Chrome.carbon else Chrome.platinum, ChromeShapes.small)
-            .clickable(onClickLabel = label, onClick = onClick)
-            .semantics(mergeDescendants = true) {
-                contentDescription = label
-                this.selected = selected
-            },
-        contentAlignment = Alignment.Center,
-    ) { content() }
+private fun IconTile(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable (tint: Color) -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val sink by animateDpAsState(if (pressed) 2.dp else 0.dp, label = "iconTileSink")
+    Box(modifier.aspectRatio(1f)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .offset(y = sink)
+                .clip(ChromeShapes.small)
+                .background(if (selected) Chrome.amber else Chrome.white)
+                .bevel(
+                    highlight = if (pressed) Color.Transparent else Chrome.highlight,
+                    shadow = if (selected) Chrome.carbon.copy(alpha = 0.55f) else Chrome.chromeIndigo.copy(alpha = 0.45f),
+                    shadowWidth = if (pressed) 1.dp else 3.dp,
+                )
+                .border(
+                    if (selected) 2.dp else 1.dp,
+                    if (selected) Chrome.carbon else Chrome.hairline.copy(alpha = 0.35f),
+                    ChromeShapes.small,
+                )
+                .clickable(interaction, indication = null, role = Role.Button, onClickLabel = label, onClick = onClick)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = label
+                    this.selected = selected
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            content(if (selected) Chrome.carbon else Chrome.chromeIndigo)
+        }
+        if (selected) {
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 4.dp, y = (-4).dp)
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(Chrome.carbon),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = Chrome.amber, modifier = Modifier.size(12.dp))
+            }
+        }
+    }
 }
 
 /** 인증 방식 고르기용 큰 타일. 선택되면 앰버 판으로 튀어나오고 체크 표시가 붙는다. */
