@@ -86,7 +86,7 @@ import java.time.ZonedDateTime
 
 /** 달력으로 날짜별 결과를 보고, 날짜를 누르면 그날 인증 기록을 본다. 과제별 연속 달성도 보여준다. */
 @Composable
-fun HistoryScreen(onBack: () -> Unit) {
+fun HistoryScreen() {
     val dao = LocalContext.current.container.taskDao
     val now = rememberNow(60_000)
     val tasks by remember { dao.observeAll() }.collectAsState(initial = emptyList())
@@ -99,7 +99,7 @@ fun HistoryScreen(onBack: () -> Unit) {
     val activeTasks = tasks.filter { it.enabled }
 
     Scaffold(
-        topBar = { FocusTopBar("기록", subtitle = "날짜를 누르면 아래에 그날 기록이 나와요", onBack = onBack) },
+        topBar = { FocusTopBar("기록", subtitle = "날짜를 누르면 아래에 그날 기록이 나와요") },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).fillMaxSize(),

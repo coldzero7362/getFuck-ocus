@@ -1,6 +1,39 @@
 package com.getfuckocus.ui
 
 import android.content.Intent
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.unit.sp
+import com.getfuckocus.ui.components.FocusIconButton
+import com.getfuckocus.ui.theme.Mulmaru
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.getfuckocus.ui.theme.plate
+import kotlinx.coroutines.delay
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +58,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -79,31 +113,64 @@ import java.time.format.DateTimeFormatter
 
 private val REGISTERED_FORMAT = DateTimeFormatter.ofPattern("yyyy.M.d 등록")
 
-/** 기록 옆 쪽. 등록한 NFC 태그를 보여 주고, + 버튼으로 새 태그를 등록한다. */
+/**
+ * 기록 옆 쪽. 등록한 NFC 태그를 보여 주고, + 버튼으로 새 태그를 등록한다.
+ * 이 쪽이 보이는 동안([active]) 태그를 찍으면 해당 카드에 초록 스캔 효과가 지나간다.
+ */
 @Composable
-fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
-    val dao = LocalContext.current.container.nfcTagDao
-    val taskDao = LocalContext.current.container.taskDao
+fun NfcTagListScreen(onAdd: () -> Unit, active: Boolean = true) {
+    val context = LocalContext.current
+    val dao = context.container.nfcTagDao
+    val taskDao = context.container.taskDao
     val tags by remember { dao.observeAll() }.collectAsState(initial = null)
     val scope = rememberCoroutineScope()
     var confirmDelete by remember { mutableStateOf<NfcTagEntity?>(null) }
+    var renaming by remember { mutableStateOf<NfcTagEntity?>(null) }
+    val listState = rememberLazyListState()
+
+    // 찍힌 태그: (태그 id, 몇 번째 찍힘). 같은 태그를 또 찍어도 효과가 다시 돌도록 번호를 올린다
+    var scanned by remember { mutableStateOf<Pair<Long, Int>?>(null) }
+    var unknownNotice by remember { mutableStateOf<Int?>(null) }
+    var scanCount by remember { mutableIntStateOf(0) }
+    fun onScanned(uid: String) {
+        val list = tags.orEmpty()
+        val index = list.indexOfFirst { it.uid == uid }
+        scanCount++
+        if (index < 0) {
+            unknownNotice = scanCount
+            return
+        }
+        scanned = list[index].id to scanCount
+        // 목록 밖에 있던 카드면 보이는 곳까지 굴려 준다 (빈 상태 칸이 없으니 카드 순서 = 항목 순서)
+        scope.launch { listState.animateScrollToItem(index) }
+    }
+    // 다른 쪽(홈·기록)을 보고 있을 때는 리더 모드를 켜지 않는다
+    NfcTagScanner(enabled = active, onTag = ::onScanned)
+    LaunchedEffect(unknownNotice) {
+        if (unknownNotice != null) {
+            delay(UNKNOWN_NOTICE_MS)
+            unknownNotice = null
+        }
+    }
+    val debug = remember { context.isDebuggable() }
 
     Scaffold(
         topBar = {
             FocusTopBar(
                 "NFC 태그",
                 subtitle = tags?.let { "${it.size}개 등록 · 체크할 때 찍을 태그예요" },
-                onBack = onBack,
             )
         },
         floatingActionButton = {
             FocusFab(Icons.Default.Add, contentDescription = "NFC 태그 추가", onClick = onAdd)
         },
     ) { padding ->
+        Box(Modifier.padding(padding).fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = Dimens.fabClearance),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (tags?.isEmpty() == true) {
                 item {
@@ -118,9 +185,36 @@ fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
                 }
             }
             items(tags.orEmpty(), key = { it.id }) { tag ->
-                TagCard(tag, onDelete = { confirmDelete = tag })
+                TagCard(
+                    tag,
+                    scanKey = scanned?.takeIf { it.first == tag.id }?.second,
+                    onRename = { renaming = tag },
+                    onDelete = { confirmDelete = tag },
+                    // 실물 태그 없이 효과를 시험하는 디버그 빌드 전용: 카드를 길게 누르면 찍은 것처럼
+                    onDebugScan = if (debug) ({ onScanned(tag.uid) }) else null,
+                )
             }
         }
+        AnimatedVisibility(
+            visible = unknownNotice != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),
+        ) {
+            FocusNotice("등록하지 않은 태그예요. + 를 눌러 등록할 수 있어요", tone = Tone.Warning, icon = PixelIcons.Nfc)
+        }
+        }
+    }
+
+    renaming?.let { tag ->
+        RenameTagDialog(
+            tag = tag,
+            onDismiss = { renaming = null },
+            onSave = { name ->
+                renaming = null
+                scope.launch { dao.rename(tag.id, name) }
+            },
+        )
     }
 
     confirmDelete?.let { tag ->
@@ -158,51 +252,209 @@ fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit) {
     }
 }
 
-/** 등록한 태그 한 장: 이름 · 등록일 · 식별 번호, 아래에 따로 떨어진 삭제 버튼 */
+/** 등록되지 않은 태그를 찍었을 때 안내를 보여 주는 시간 */
+private const val UNKNOWN_NOTICE_MS = 2_500L
+/** 스캔 효과: 초록 띠가 왼쪽에서 오른쪽으로 지나가는 시간, 그 뒤 카드가 한 번 깜빡이고 사라지는 시간 */
+private const val SCAN_SWEEP_MS = 520
+private const val SCAN_BLINK_MS = 420
+
+/**
+ * 등록한 태그 한 장.
+ * - 첫 줄: 이름(+ 연필 표시)과 등록일. 카드를 누르면 이름을 바꾼다 (어디에 붙인 태그인지 알아보게).
+ * - 둘째 줄: 하드웨어 ID를 고정폭 글자로 작게, 자르지 않고 전부.
+ * - 지우기는 실수로 누르지 않게 오른쪽 ⋮ 메뉴 안에 둔다 (누르면 확인 대화상자가 뜬다).
+ * [scanKey]가 바뀔 때마다(이 태그가 찍힐 때마다) 초록 스캔 효과를 한 번 보여 준다.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TagCard(tag: NfcTagEntity, onDelete: () -> Unit) {
-    FocusCard(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(start = 14.dp, top = 14.dp, end = 8.dp, bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(48.dp).clip(ChromeShapes.small).background(Chrome.sky).bevel(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(PixelIcons.Nfc, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(28.dp))
+private fun TagCard(
+    tag: NfcTagEntity,
+    scanKey: Int?,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+    onDebugScan: (() -> Unit)?,
+) {
+    val sweep = remember { Animatable(0f) }
+    val blink = remember { Animatable(0f) }
+    LaunchedEffect(scanKey) {
+        if (scanKey == null) return@LaunchedEffect
+        blink.snapTo(0f)
+        sweep.snapTo(0f)
+        sweep.animateTo(1f, tween(SCAN_SWEEP_MS, easing = FastOutSlowInEasing))
+        // 다 지나가면 카드 전체가 초록으로 한 번 반짝이고 사라진다
+        blink.snapTo(1f)
+        sweep.snapTo(0f)
+        blink.animateTo(0f, tween(SCAN_BLINK_MS))
+    }
+    var menuOpen by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .plate(Chrome.platinum)
+            .combinedClickable(
+                onClickLabel = "이름 바꾸기",
+                onClick = onRename,
+                // 실물 태그 없이 효과를 시험하는 디버그 빌드 전용: 길게 누르면 찍은 것처럼
+                onLongClick = onDebugScan,
+            )
+            .drawWithContent {
+                drawContent()
+                val p = sweep.value
+                if (p > 0f && p < 1f) {
+                    // 초록 띠: 카드 왼쪽 밖에서 들어와 오른쪽 밖으로 나간다
+                    val band = size.width * 0.45f
+                    val x = -band + (size.width + band) * p
+                    drawRect(
+                        Brush.horizontalGradient(
+                            0f to Color.Transparent,
+                            0.7f to SCAN_GREEN.copy(alpha = 0.55f),
+                            1f to SCAN_GREEN.copy(alpha = 0.9f),
+                            startX = x,
+                            endX = x + band,
+                        ),
+                        // 띠 범위만 칠한다 (그라데이션 끝 색이 띠 오른쪽까지 번지지 않게)
+                        topLeft = Offset(x, 0f),
+                        size = Size(band, size.height),
+                    )
+                    drawRect(SCAN_GREEN, topLeft = Offset(x + band - 2.dp.toPx(), 0f), size = Size(2.dp.toPx(), size.height))
+                }
+                if (blink.value > 0f) drawRect(SCAN_GREEN.copy(alpha = 0.35f * blink.value))
             }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(tag.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            .padding(start = 10.dp, top = 8.dp, end = 4.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SdCardIcon()
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    tag.name,
+                    style = MaterialTheme.typography.titleSmall.copy(fontFamily = Mulmaru),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Default.Edit, contentDescription = null, tint = Chrome.chromeIndigo, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.weight(1f))
                 Text(
                     Instant.ofEpochMilli(tag.createdAt).atZone(ZoneId.systemDefault()).format(REGISTERED_FORMAT),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
                     color = Chrome.chromeIndigo,
+                    maxLines = 1,
+                )
+            }
+            Text(
+                "ID " + tag.uid,
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
+                color = Chrome.chromeIndigo,
+                maxLines = 1,
+            )
+        }
+        Box {
+            FocusIconButton(
+                Icons.Default.MoreVert,
+                contentDescription = "'${tag.name}' 메뉴",
+                onClick = { menuOpen = true },
+                tint = Chrome.carbon,
+            )
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                containerColor = Chrome.platinum,
+                shape = ChromeShapes.small,
+            ) {
+                DropdownMenuItem(
+                    text = { Text("이름 바꾸기", style = MaterialTheme.typography.bodyMedium) },
+                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = Chrome.carbon) },
+                    onClick = {
+                        menuOpen = false
+                        onRename()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("삭제", style = MaterialTheme.typography.bodyMedium, color = Chrome.redInk) },
+                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Chrome.redInk) },
+                    onClick = {
+                        menuOpen = false
+                        onDelete()
+                    },
                 )
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "ID  ${tag.uid}",
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                color = Chrome.chromeIndigo,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            FocusButton(
-                "삭제",
-                onClick = onDelete,
-                style = FocusButtonStyle.Ghost,
-                icon = Icons.Default.Delete,
-                height = 48.dp,
-                contentColor = Chrome.redInk,
-            )
+    }
+}
+
+/** 태그 이름 바꾸기. 비우거나 길게 쓰지 못하게 등록 화면과 같은 규칙을 쓴다 */
+@Composable
+private fun RenameTagDialog(tag: NfcTagEntity, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var name by rememberSaveable(tag.id) { mutableStateOf(tag.name) }
+    val trimmed = name.trim()
+    FocusDialog(
+        title = "태그 이름 바꾸기",
+        onDismiss = onDismiss,
+        confirmText = "저장",
+        onConfirm = { if (trimmed.isNotEmpty()) onSave(trimmed) },
+    ) {
+        Text("어디에 붙인 태그인지 알아보기 쉽게 지어 주세요", style = MaterialTheme.typography.bodySmall, color = Chrome.chromeIndigo)
+        FocusTextField(
+            value = name,
+            onValueChange = { name = it.take(NAME_MAX_LENGTH) },
+            label = "태그 이름",
+            placeholder = "예: 책상, 약통, 현관",
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { if (trimmed.isNotEmpty()) onSave(trimmed) }),
+        )
+    }
+}
+
+/** SD 카드 모양: 오른쪽 위 모서리를 비스듬히 자른 세로 카드 */
+private val SdCardShape = CutCornerShape(topEnd = 11.dp, topStart = 2.dp, bottomStart = 2.dp, bottomEnd = 2.dp)
+
+/**
+ * 태그 카드 왼쪽의 아이콘 칸. 저장 매체(SD 카드)처럼 생긴 판에 금색 접점을 박고 NFC 표시를 찍는다.
+ * 위쪽 접점 줄, 아래쪽 라벨 자리(NFC 아이콘), 아래 그림자 선으로 끼워 넣는 카드 느낌을 낸다.
+ */
+@Composable
+private fun SdCardIcon() {
+    Box(
+        Modifier
+            .size(width = 36.dp, height = 44.dp)
+            .clip(SdCardShape)
+            .background(Chrome.carbon)
+            .padding(start = 1.5.dp, top = 1.5.dp, end = 1.5.dp, bottom = 3.dp)
+            .clip(SdCardShape)
+            .background(Chrome.sky),
+    ) {
+        // 접점: 자른 모서리를 피해 왼쪽부터 금색 막대를 나란히
+        Row(
+            Modifier.align(Alignment.TopStart).padding(start = 4.dp, top = 3.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            repeat(SD_PINS) {
+                Box(Modifier.size(width = 3.dp, height = 7.dp).background(SD_GOLD))
+            }
+        }
+        // 라벨 자리: 접점 아래 흰 스티커에 NFC 표시
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 3.dp)
+                .size(width = 26.dp, height = 24.dp)
+                .clip(ChromeShapes.control)
+                .background(Chrome.white.copy(alpha = 0.85f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(PixelIcons.Nfc, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(18.dp))
         }
     }
 }
+
+private const val SD_PINS = 4
+private val SD_GOLD = Color(0xFFE9B94A)
+
+/** 스캔 효과 초록: 앱의 성공 초록보다 밝게 해서 회색 카드 위에서 잘 보이게 한다 */
+private val SCAN_GREEN = Color(0xFF3DDC84)
 
 /**
  * 태그를 두 번 찍어 ID가 같은지 확인하고, 이름을 붙여 저장한다.

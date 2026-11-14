@@ -11,6 +11,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -86,7 +88,49 @@ fun Modifier.recessed(surface: Color = Chrome.platinum, shape: Shape = ChromeSha
 
 /** 모양대로 자르고, 색을 칠하고, 테두리를 단 판 하나. */
 fun Modifier.plate(color: Color, shape: Shape = ChromeShapes.panel, bevel: Boolean = true): Modifier =
-    clip(shape).background(color).then(if (bevel) Modifier.bevel() else Modifier)
+    clip(shape).background(color).then(
+        when {
+            !bevel -> Modifier
+            // 네 모서리를 깎은 판은 테두리도 깎인 모서리를 따라 꺾는다
+            shape === ChromeShapes.panel -> Modifier.chamferBevel(PANEL_CUT)
+            else -> Modifier.bevel()
+        }
+    )
+
+/** [ChromeShapes.panel]의 모서리를 깎은 길이 */
+private val PANEL_CUT = 10.dp
+
+/**
+ * 네 모서리를 45도로 깎은 판용 [bevel]. 위쪽 밝은 선과 아래쪽 그림자 선을 직선으로 끊지 않고
+ * 깎인 대각선을 따라 꺾어 그려서, 판 가장자리 전체가 하나의 입체 테두리처럼 보이게 한다.
+ * 판 모양으로 잘린(clip) 안쪽에 그리므로 선은 가장자리 안쪽 절반만 보인다 → 두께를 두 배로 그린다.
+ */
+fun Modifier.chamferBevel(
+    cut: Dp,
+    highlight: Color = Chrome.highlight,
+    shadow: Color = Chrome.chromeIndigo,
+    highlightWidth: Dp = 1.5.dp,
+    shadowWidth: Dp = 2.dp,
+): Modifier = drawWithContent {
+    drawContent()
+    val c = cut.toPx().coerceAtMost(minOf(size.width, size.height) / 2)
+    val w = size.width
+    val h = size.height
+    val top = Path().apply {
+        moveTo(0f, c)
+        lineTo(c, 0f)
+        lineTo(w - c, 0f)
+        lineTo(w, c)
+    }
+    val bottom = Path().apply {
+        moveTo(0f, h - c)
+        lineTo(c, h)
+        lineTo(w - c, h)
+        lineTo(w, h - c)
+    }
+    drawPath(top, highlight, style = Stroke(highlightWidth.toPx() * 2, join = StrokeJoin.Miter))
+    drawPath(bottom, shadow, style = Stroke(shadowWidth.toPx() * 2, join = StrokeJoin.Miter))
+}
 
 /** 스피커 그릴 같은 점무늬. 카본 판(상단 바, 잠금 화면)에 깐다. */
 fun Modifier.halftone(dot: Color = Color(0x14FFFFFF), step: Dp = 5.dp, radius: Dp = 0.9.dp): Modifier =
