@@ -128,6 +128,9 @@ object RepeatDays {
 fun TaskEntity.hasGeoFence(): Boolean =
     geoLat != null && geoLng != null && geoRadiusMeters != null
 
+/** 장소 조건이 있으면 그 반경(m), 없으면 null */
+fun TaskEntity.fenceRadiusMeters(): Float? = geoRadiusMeters?.takeIf { hasGeoFence() }
+
 /** 쉼표로 구분한 라벨 목록. 이 중 하나만 사진에 보여도 통과한다. */
 fun TaskEntity.requiredLabels(): List<String> =
     requiredLabel?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()

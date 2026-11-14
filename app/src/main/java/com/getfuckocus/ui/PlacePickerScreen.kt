@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.location.LocationManager
+import androidx.core.location.LocationManagerCompat
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -668,7 +669,8 @@ private fun MyLocationButton(loading: Boolean, onClick: () -> Unit, modifier: Mo
 
 private fun locationServiceOn(context: Context): Boolean {
     val manager = context.getSystemService(LocationManager::class.java) ?: return false
-    return runCatching { manager.isLocationEnabled }.getOrDefault(true)
+    // LocationManager.isLocationEnabled는 Android 9부터라, 8에서도 되는 호환 함수를 쓴다
+    return runCatching { LocationManagerCompat.isLocationEnabled(manager) }.getOrDefault(true)
 }
 
 /**
