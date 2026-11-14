@@ -43,17 +43,22 @@ fun NfcTagScanner(enabled: Boolean, onTag: (uid: String) -> Unit): NfcAvailabili
         val activity = context.findActivity()
         val adapter = NfcAdapter.getDefaultAdapter(context)
         val main = Handler(Looper.getMainLooper())
-        val active = enabled && activity != null && adapter != null && availability == NfcAvailability.Ready
-        if (active) {
-            adapter!!.enableReaderMode(
-                activity,
+        // 켤 수 있을 때만 (어댑터, 화면) 짝을 잡아 두고, 같은 짝으로 끈다
+        val reader = if (enabled && availability == NfcAvailability.Ready && activity != null && adapter != null) {
+            adapter to activity
+        } else {
+            null
+        }
+        reader?.let { (nfc, screen) ->
+            nfc.enableReaderMode(
+                screen,
                 { tag -> tag.id?.let { id -> main.post { currentOnTag(NfcTags.formatUid(id)) } } },
                 READER_FLAGS,
                 null,
             )
         }
         onPauseOrDispose {
-            if (active) adapter!!.disableReaderMode(activity)
+            reader?.let { (nfc, screen) -> nfc.disableReaderMode(screen) }
         }
     }
     return availability

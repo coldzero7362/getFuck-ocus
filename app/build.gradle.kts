@@ -19,7 +19,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // 배포 빌드는 코드를 줄이고 이름을 바꿔 뜯어보기 어렵게 한다
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -38,6 +40,11 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    lint {
+        // Kotlin 2.x에서 produceState 안의 `value = ...`를 못 알아보는 오탐이라 끈다 (모든 호출이 값을 넣는다)
+        disable += "ProduceStateDoesNotAssignValue"
     }
 
     testOptions {

@@ -18,7 +18,8 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
-        val verifyTaskId = intent.getLongExtra(EXTRA_VERIFY_TASK_ID, 0L).takeIf { it > 0 }
+        // 화면 회전 등으로 다시 만들어질 때는 인증 화면을 또 열지 않는다 (내비게이션 기록이 이미 복원된다)
+        val verifyTaskId = intent.getLongExtra(EXTRA_VERIFY_TASK_ID, 0L).takeIf { it > 0 && savedInstanceState == null }
         setContent {
             GetFocusTheme {
                 AppNavHost(startVerifyTaskId = verifyTaskId)

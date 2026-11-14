@@ -74,6 +74,7 @@ class LockController(context: Context, private val clock: DeviceClock) {
     }
 
     /** 잠금 원인이 된 과제를 늦게라도 인증하면 해제한다. */
+    @Synchronized
     fun releaseIfVerified(taskId: Long) {
         if (_state.value?.taskId == taskId) unlock()
     }

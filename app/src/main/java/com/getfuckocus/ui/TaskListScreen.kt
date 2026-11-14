@@ -61,7 +61,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.getfuckocus.container
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.VerifyMethod
-import com.getfuckocus.data.hasGeoFence
+import com.getfuckocus.data.fenceRadiusMeters
 import com.getfuckocus.data.MissAction
 import com.getfuckocus.data.requiredLabels
 import com.getfuckocus.hasPermission
@@ -687,8 +687,9 @@ private fun ConditionPills(task: TaskEntity) {
         Pill(task.verifyMethod.title, Chrome.white, Chrome.carbon, icon = task.verifyMethod.icon)
         task.missAction.pillText?.let { Pill(it, Chrome.white, Chrome.redInk, icon = task.missAction.icon) }
         // 탭 체크와 NFC는 장소를 보지 않는다
-        if (task.hasGeoFence() && (task.verifyMethod == VerifyMethod.PHOTO || task.verifyMethod == VerifyMethod.LOCATION)) {
-            Pill("${task.geoRadiusMeters!!.toInt()}m 이내", Chrome.white, Chrome.carbon, icon = Icons.Default.LocationOn)
+        val radius = task.fenceRadiusMeters()
+        if (radius != null && (task.verifyMethod == VerifyMethod.PHOTO || task.verifyMethod == VerifyMethod.LOCATION)) {
+            Pill("${radius.toInt()}m 이내", Chrome.white, Chrome.carbon, icon = Icons.Default.LocationOn)
         }
         if (labels.isNotEmpty()) {
             val text = if (labels.size <= 2) labels.joinToString(" · ") else "${labels.first()} 외 ${labels.size - 1}개"

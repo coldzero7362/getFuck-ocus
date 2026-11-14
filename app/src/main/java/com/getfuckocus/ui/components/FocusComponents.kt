@@ -520,7 +520,8 @@ fun FocusPanel(
     trailing: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val collapsible = expanded != null && onToggle != null
+    val toggle = onToggle.takeIf { expanded != null }
+    val collapsible = toggle != null
     Column(modifier.plate(Chrome.platinum)) {
         Row(
             modifier = Modifier
@@ -528,12 +529,12 @@ fun FocusPanel(
                 .background(Chrome.sky)
                 .bevel(shadow = Chrome.chromeIndigo, shadowWidth = 1.dp)
                 .then(
-                    if (collapsible) Modifier.clickable(
+                    if (toggle != null) Modifier.clickable(
                         remember { MutableInteractionSource() },
                         indication = null,
                         role = Role.Button,
                         onClickLabel = if (expanded == true) "$title 접기" else "$title 펼치기",
-                        onClick = onToggle!!,
+                        onClick = toggle,
                     ) else Modifier
                 )
                 .heightIn(min = 48.dp)

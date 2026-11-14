@@ -97,8 +97,7 @@ suspend fun importNagImage(context: Context, uri: Uri): String? = withContext(Di
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        var sample = 1
-        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= NAG_IMAGE_MAX_SIDE) sample *= 2
+        val sample = sampleSizeFor(bounds.outWidth, bounds.outHeight, NAG_IMAGE_MAX_SIDE)
         val decoded = resolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
         } ?: return@runCatching null
@@ -127,12 +126,21 @@ fun rememberNagImage(path: String?, maxSide: Int = 1080): ImageBitmap? {
                 runCatching {
                     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeFile(p, bounds)
-                    var sample = 1
-                    while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxSide) sample *= 2
+                    val sample = sampleSizeFor(bounds.outWidth, bounds.outHeight, maxSide)
                     BitmapFactory.decodeFile(p, BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
                 }.getOrNull()
             }
         }
     }
     return image
+}
+
+/**
+ * 이미지를 줄여 읽을 배율(2의 거듭제곱). 줄인 뒤에도 긴 변이 [maxSide] 이상 남는 가장 큰 배율을 고른다.
+ * 크기를 모르면(0) 1을 돌려준다.
+ */
+internal fun sampleSizeFor(width: Int, height: Int, maxSide: Int): Int {
+    var sample = 1
+    while (maxOf(width, height) / (sample * 2) >= maxSide) sample *= 2
+    return sample
 }

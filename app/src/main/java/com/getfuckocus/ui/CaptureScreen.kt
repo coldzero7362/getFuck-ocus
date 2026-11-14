@@ -82,6 +82,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.getfuckocus.container
 import com.getfuckocus.data.TaskEntity
 import com.getfuckocus.data.hasGeoFence
+import com.getfuckocus.data.fenceRadiusMeters
 import com.getfuckocus.data.requiredLabels
 import com.getfuckocus.hasPermission
 import com.getfuckocus.task.TaskSchedule
@@ -274,8 +275,8 @@ private fun ConditionRow(task: TaskEntity) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Pill("마감 전 촬영", Chrome.white, Chrome.carbon, icon = PixelIcons.Clock)
-            if (task.hasGeoFence()) {
-                Pill("지정 장소 ${task.geoRadiusMeters!!.toInt()}m 이내", Chrome.white, Chrome.carbon, icon = Icons.Default.LocationOn)
+            task.fenceRadiusMeters()?.let { radius ->
+                Pill("지정 장소 ${radius.toInt()}m 이내", Chrome.white, Chrome.carbon, icon = Icons.Default.LocationOn)
             }
             if (labels.isNotEmpty()) {
                 Pill("${labels.joinToString(" · ")} 중 하나", Chrome.white, Chrome.carbon, icon = Icons.Default.Search)
