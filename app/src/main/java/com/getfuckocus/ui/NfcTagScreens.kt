@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -291,12 +292,7 @@ private fun TagCard(tag: NfcTagEntity, scanKey: Int?, onDelete: () -> Unit, onDe
             .padding(start = 10.dp, top = 8.dp, end = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier.size(40.dp).clip(ChromeShapes.small).background(Chrome.sky).bevel(),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(PixelIcons.Nfc, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(24.dp))
-        }
+        SdCardIcon()
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(tag.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -313,6 +309,51 @@ private fun TagCard(tag: NfcTagEntity, scanKey: Int?, onDelete: () -> Unit, onDe
         DeleteIconButton(label = "'${tag.name}' 태그 지우기", onClick = onDelete)
     }
 }
+
+/** SD 카드 모양: 오른쪽 위 모서리를 비스듬히 자른 세로 카드 */
+private val SdCardShape = CutCornerShape(topEnd = 11.dp, topStart = 2.dp, bottomStart = 2.dp, bottomEnd = 2.dp)
+
+/**
+ * 태그 카드 왼쪽의 아이콘 칸. 저장 매체(SD 카드)처럼 생긴 판에 금색 접점을 박고 NFC 표시를 찍는다.
+ * 위쪽 접점 줄, 아래쪽 라벨 자리(NFC 아이콘), 아래 그림자 선으로 끼워 넣는 카드 느낌을 낸다.
+ */
+@Composable
+private fun SdCardIcon() {
+    Box(
+        Modifier
+            .size(width = 36.dp, height = 44.dp)
+            .clip(SdCardShape)
+            .background(Chrome.carbon)
+            .padding(start = 1.5.dp, top = 1.5.dp, end = 1.5.dp, bottom = 3.dp)
+            .clip(SdCardShape)
+            .background(Chrome.sky),
+    ) {
+        // 접점: 자른 모서리를 피해 왼쪽부터 금색 막대를 나란히
+        Row(
+            Modifier.align(Alignment.TopStart).padding(start = 4.dp, top = 3.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            repeat(SD_PINS) {
+                Box(Modifier.size(width = 3.dp, height = 7.dp).background(SD_GOLD))
+            }
+        }
+        // 라벨 자리: 접점 아래 흰 스티커에 NFC 표시
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 3.dp)
+                .size(width = 26.dp, height = 24.dp)
+                .clip(ChromeShapes.control)
+                .background(Chrome.white.copy(alpha = 0.85f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(PixelIcons.Nfc, contentDescription = null, tint = Chrome.carbon, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+private const val SD_PINS = 4
+private val SD_GOLD = Color(0xFFE9B94A)
 
 /** 휴지통 아이콘만 있는 작은 입체 버튼. 누르면 아래로 눌려 들어간다 */
 @Composable
