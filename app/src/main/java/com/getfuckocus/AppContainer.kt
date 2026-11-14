@@ -7,6 +7,7 @@ import com.getfuckocus.place.ReverseGeocoder
 import com.getfuckocus.safety.DeviceClock
 import com.getfuckocus.safety.PhotoRetention
 import com.getfuckocus.safety.Whitelist
+import com.getfuckocus.task.AchievementRecorder
 import com.getfuckocus.task.DeadlineEvaluator
 import com.getfuckocus.task.DeadlineScheduler
 import com.getfuckocus.verify.EvidenceCollector
@@ -21,12 +22,16 @@ class AppContainer(context: Context) {
     private val database = AppDatabase.build(appContext)
     val taskDao = database.taskDao()
     val nfcTagDao = database.nfcTagDao()
+    val achievementDao = database.achievementDao()
     val lockController = LockController(appContext, deviceClock)
     val whitelist = Whitelist(appContext)
     val deadlineEvaluator = DeadlineEvaluator(taskDao, lockController, deviceClock)
     val deadlineScheduler = DeadlineScheduler(appContext)
     val evidenceCollector = EvidenceCollector(appContext, deviceClock)
-    val verificationFlow = VerificationFlow(taskDao, nfcTagDao, evidenceCollector, PhotoVerifier(), lockController, deviceClock)
+    val verificationFlow = VerificationFlow(
+        taskDao, nfcTagDao, evidenceCollector, PhotoVerifier(), lockController, deviceClock,
+        AchievementRecorder(taskDao, achievementDao, deviceClock),
+    )
     val photoRetention = PhotoRetention(appContext, taskDao)
     /** 요청 간격 제한과 캐시를 앱 전체에서 함께 쓰도록 하나만 둔다 */
     val reverseGeocoder = ReverseGeocoder(appContext)

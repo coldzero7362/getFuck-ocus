@@ -48,6 +48,13 @@ interface TaskDao {
     @Query("SELECT taskId, dayKey, MIN(capturedAt) AS firstPassedAt FROM attempts WHERE passed = 1 GROUP BY taskId, dayKey")
     fun observePassRecords(): Flow<List<PassRecord>>
 
+    /** [observePassRecords]의 과제 하나짜리. 업적 판정에 쓴다. */
+    @Query(
+        "SELECT taskId, dayKey, MIN(capturedAt) AS firstPassedAt FROM attempts " +
+            "WHERE passed = 1 AND taskId = :taskId GROUP BY taskId, dayKey"
+    )
+    suspend fun passRecordsOf(taskId: Long): List<PassRecord>
+
     @Query("SELECT * FROM attempts WHERE dayKey = :dayKey ORDER BY capturedAt")
     fun observeAttemptsOn(dayKey: String): Flow<List<AttemptEntity>>
 

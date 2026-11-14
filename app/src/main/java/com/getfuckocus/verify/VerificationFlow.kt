@@ -9,6 +9,7 @@ import com.getfuckocus.data.VerifyMethod
 import com.getfuckocus.data.hasGeoFence
 import com.getfuckocus.lock.LockController
 import com.getfuckocus.safety.DeviceClock
+import com.getfuckocus.task.AchievementRecorder
 import com.getfuckocus.task.CheckInTarget
 import com.getfuckocus.task.TaskSchedule
 import java.time.Instant
@@ -23,6 +24,7 @@ class VerificationFlow(
     private val verifier: PhotoVerifier,
     private val lock: LockController,
     private val clock: DeviceClock,
+    private val achievements: AchievementRecorder,
 ) {
     suspend fun run(task: TaskEntity, imageCapture: ImageCapture): VerificationResult {
         // 장소 조건이 있는 과제만 위치를 측정한다
@@ -54,7 +56,10 @@ class VerificationFlow(
             )
         )
 
-        if (passed) lock.releaseIfVerified(task.id)
+        if (passed) {
+            lock.releaseIfVerified(task.id)
+            achievements.onPassed(task)
+        }
         return VerificationResult(verdict, evidence.labels, releasedLock = passed && lockedByThis != null)
     }
 
@@ -104,7 +109,10 @@ class VerificationFlow(
                 method = task.verifyMethod,
             )
         )
-        if (passed) lock.releaseIfVerified(task.id)
+        if (passed) {
+            lock.releaseIfVerified(task.id)
+            achievements.onPassed(task)
+        }
         return CheckInResult(verdict, late = target?.late == true, releasedLock = passed && lockedByThis != null)
     }
 }

@@ -53,6 +53,8 @@ data class TaskEntity(
     val nagMessage: String = "",
     /** 억제 화면·잠금 화면에 띄울 이미지들 (앱 내부 저장소 경로, 줄바꿈으로 여러 개). [nagImagePaths]로 읽는다. */
     val nagImagePath: String? = null,
+    /** 과제 아이콘 ([com.getfuckocus.ui.theme.TaskIcon]의 이름). null이면 아이콘 없이 보인다. */
+    val iconKey: String? = null,
 )
 
 enum class VerifyMethod {

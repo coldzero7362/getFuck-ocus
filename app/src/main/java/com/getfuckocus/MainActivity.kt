@@ -7,7 +7,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import com.getfuckocus.ui.AppNavHost
+import com.getfuckocus.ui.components.AchievementToastHost
 import com.getfuckocus.ui.theme.GetFocusTheme
 
 class MainActivity : ComponentActivity() {
@@ -22,7 +26,11 @@ class MainActivity : ComponentActivity() {
         val verifyTaskId = intent.getLongExtra(EXTRA_VERIFY_TASK_ID, 0L).takeIf { it > 0 && savedInstanceState == null }
         setContent {
             GetFocusTheme {
-                AppNavHost(startVerifyTaskId = verifyTaskId)
+                // 업적 알림은 어느 화면에 있든 맨 위에 뜬다
+                Box(Modifier.fillMaxSize()) {
+                    AppNavHost(startVerifyTaskId = verifyTaskId)
+                    AchievementToastHost(container.achievementDao, container.taskDao)
+                }
             }
         }
     }

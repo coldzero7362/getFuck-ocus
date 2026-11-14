@@ -88,6 +88,7 @@ fun TaskEditScreen(
     var original by remember { mutableStateOf<TaskEntity?>(null) }
     var loaded by rememberSaveable { mutableStateOf(false) }
     var title by rememberSaveable { mutableStateOf("") }
+    var iconKey by rememberSaveable { mutableStateOf<String?>(null) }
     var startMinute by rememberSaveable { mutableIntStateOf(TaskSchedule.defaultStartMinute()) }
     var durationMinutes by rememberSaveable { mutableIntStateOf(TaskSchedule.DEFAULT_DURATION_MINUTES) }
     var repeatDays by rememberSaveable { mutableIntStateOf(RepeatDays.EVERY_DAY) }
@@ -138,6 +139,7 @@ fun TaskEditScreen(
         // 회전 후 다시 불러올 때는 저장된 원본으로 입력 중인 값을 덮어쓰지 않는다
         if (!loaded) {
             title = t.title
+            iconKey = t.iconKey
             startMinute = t.windowStartMinute
             durationMinutes = t.durationMinutes
             repeatDays = t.repeatDays
@@ -264,6 +266,7 @@ fun TaskEditScreen(
         // 알림 설정과 억제 문구·이미지는 잠금 조건이 아니므로 편집이 막힌 동안에도 바꿀 수 있다
         val shared = base.copy(
             title = title.trim(),
+            iconKey = iconKey,
             remindAtStart = remindAtStart,
             remindBeforeMinutes = remindBeforeMinutes,
             nagMessage = NagContent.join(nagMessages),
@@ -293,7 +296,7 @@ fun TaskEditScreen(
 
     // 저장하지 않은 변경 감지: 불러온 직후(새 과제는 처음 값)를 기준으로 삼는다
     fun snapshot(): String = listOf(
-        title, startMinute, durationMinutes, repeatDays, verifyMethod, remindAtStart, remindBeforeMinutes,
+        title, iconKey, startMinute, durationMinutes, repeatDays, verifyMethod, remindAtStart, remindBeforeMinutes,
         labels.toList(), labelInput, radiusMeters, geo, enabled, missAction, nfcTagId,
         nagMessages.toList(), nagInput, nagImages.toList(),
     ).toString()
@@ -367,6 +370,8 @@ fun TaskEditScreen(
                 isNew = isNew,
                 title = title,
                 onTitle = { title = it },
+                iconKey = iconKey,
+                onIcon = { iconKey = it },
                 enabled = enabled,
                 onEnabled = { enabled = it },
                 frozen = frozen,
@@ -471,6 +476,7 @@ fun TaskEditScreen(
                 confirmDelete = false
                 scope.launch {
                     container.taskDao.delete(toDelete)
+                    container.achievementDao.deleteForTask(toDelete.id)
                     (toDelete.nagImagePaths() + nagImages).distinct().forEach { deleteNagImage(context, it) }
                     onDone()
                 }

@@ -73,6 +73,11 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
 import com.getfuckocus.ui.theme.PixelIcons
 import com.getfuckocus.data.NfcTagEntity
+import com.getfuckocus.ui.components.TaskIconMark
+import com.getfuckocus.ui.theme.TaskIcon
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 
 // 과제 편집 화면의 구역들. 상태는 TaskEditScreen이 들고, 여기서는 그리기와 이벤트 전달만 한다
 
@@ -83,12 +88,14 @@ private val RADIUS_PRESETS = listOf(50f, 100f, 150f, 300f, 500f)
 private val REMIND_BEFORE_PRESETS = listOf(0, 5, 15, 30)
 internal const val DEFAULT_RADIUS_M = 150f
 
-/** 01 기본 정보: 이름, 사용 여부 */
+/** 01 기본 정보: 이름, 아이콘, 사용 여부 */
 @Composable
 internal fun BasicInfoPanel(
     isNew: Boolean,
     title: String,
     onTitle: (String) -> Unit,
+    iconKey: String?,
+    onIcon: (String?) -> Unit,
     enabled: Boolean,
     onEnabled: (Boolean) -> Unit,
     frozen: Boolean,
@@ -103,6 +110,7 @@ internal fun BasicInfoPanel(
             placeholder = "예: 아침 운동",
             modifier = Modifier.fillMaxWidth(),
         )
+        IconPicker(selected = TaskIcon.fromKey(iconKey), onSelect = { onIcon(it?.name) })
         SettingRow(title = "사용", description = "끄면 알림·억제 화면·잠금이 모두 멈춰요") {
             FocusSwitch(checked = enabled, onCheckedChange = onEnabled, enabled = !frozen)
         }
@@ -721,6 +729,40 @@ private fun SubHeader(title: String, description: String? = null) {
             Text(description, style = MaterialTheme.typography.bodySmall, color = Chrome.chromeIndigo)
         }
     }
+}
+
+/** 과제 아이콘 고르기. 업적 알림에도 이 아이콘이 나온다. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IconPicker(selected: TaskIcon?, onSelect: (TaskIcon?) -> Unit) {
+    SubHeader("아이콘", "연속 달성 업적을 받으면 이 아이콘에 별과 오라가 붙어요")
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        IconTile(selected == null, "아이콘 없음", onClick = { onSelect(null) }) {
+            Icon(Icons.Default.Close, contentDescription = null, tint = Chrome.chromeIndigo, modifier = Modifier.size(20.dp))
+        }
+        TaskIcon.entries.forEach { icon ->
+            IconTile(selected == icon, icon.label, onClick = { onSelect(icon) }) {
+                TaskIconMark(icon, Modifier.size(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun IconTile(selected: Boolean, label: String, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .clip(ChromeShapes.small)
+            .background(if (selected) Chrome.amber else Chrome.white)
+            .border(2.dp, if (selected) Chrome.carbon else Chrome.platinum, ChromeShapes.small)
+            .clickable(onClickLabel = label, onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                contentDescription = label
+                this.selected = selected
+            },
+        contentAlignment = Alignment.Center,
+    ) { content() }
 }
 
 /** 인증 방식 고르기용 큰 타일. 선택되면 앰버 판으로 튀어나오고 체크 표시가 붙는다. */

@@ -208,23 +208,40 @@ object PixelIcons {
     )
 }
 
-private fun pixelIcon(name: String, vararg rows: String): ImageVector {
-    val size = rows.size.toFloat()
+private fun pixelIcon(name: String, vararg rows: String): ImageVector = pixelVector("Pixel.$name", rows.toList(), '#')
+
+/**
+ * 채움과 외곽선을 따로 그리는 아이콘. 채움만 tint로 칠하면 지금 [PixelIcons]처럼 한 색으로 쓸 수 있고,
+ * 외곽선까지 깔면 밝은 바탕에서도 모양이 또렷하다.
+ */
+class TwoToneIcon(val fill: ImageVector, val outline: ImageVector) {
+    /** 가로:세로 비율 (정사각형이 아닌 장식용) */
+    val aspectRatio: Float = fill.viewportWidth / fill.viewportHeight
+}
+
+/** '#'은 채움, '+'는 외곽선 */
+internal fun twoToneIcon(name: String, rows: List<String>): TwoToneIcon =
+    TwoToneIcon(fill = pixelVector("$name.fill", rows, '#'), outline = pixelVector("$name.outline", rows, '+'))
+
+/** [mark] 글자가 있는 칸을 칠한 격자 아이콘 */
+private fun pixelVector(name: String, rows: List<String>, mark: Char): ImageVector {
+    val width = rows.maxOf { it.length }.toFloat()
+    val height = rows.size.toFloat()
     return ImageVector.Builder(
-        name = "Pixel.$name",
-        defaultWidth = 24.dp,
+        name = name,
+        defaultWidth = (24 * width / height).dp,
         defaultHeight = 24.dp,
-        viewportWidth = size,
-        viewportHeight = size,
+        viewportWidth = width,
+        viewportHeight = height,
     ).apply {
         path(fill = SolidColor(Color.Black)) {
             rows.forEachIndexed { y, row ->
                 // 한 줄 안에서 이어진 칸은 사각형 하나로 묶어 경로 수를 줄인다
                 var x = 0
                 while (x < row.length) {
-                    if (row[x] == '#') {
+                    if (row[x] == mark) {
                         val start = x
-                        while (x < row.length && row[x] == '#') x++
+                        while (x < row.length && row[x] == mark) x++
                         rect(start.toFloat(), y.toFloat(), x.toFloat(), y + 1f)
                     } else {
                         x++

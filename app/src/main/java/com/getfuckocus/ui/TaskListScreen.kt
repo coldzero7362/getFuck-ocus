@@ -90,6 +90,8 @@ import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.DigitStyle
 import com.getfuckocus.ui.theme.Dimens
 import com.getfuckocus.ui.theme.PixelIcons
+import com.getfuckocus.ui.theme.TaskIcon
+import com.getfuckocus.ui.components.TaskIconMark
 import com.getfuckocus.ui.theme.bevel
 import com.getfuckocus.ui.theme.circleBevel
 import com.getfuckocus.verify.Verdict
@@ -538,12 +540,18 @@ private fun TaskCard(
                         Pill("${streak}일 연속", Chrome.amber, Chrome.carbon, icon = Icons.Default.Star)
                     }
                 }
-                Text(
-                    task.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TaskIcon.fromKey(task.iconKey)?.let {
+                        TaskIconMark(it, Modifier.size(20.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        task.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(PixelIcons.Clock, contentDescription = null, tint = Chrome.chromeIndigo, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
