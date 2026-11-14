@@ -27,4 +27,14 @@ class AchievementTierTest {
     fun `기능이 생기기 전에 쌓은 연속 기록은 넘어선 단계를 모두 준다`() {
         assertEquals(listOf(3, 7, 14), reached(20))
     }
+
+    @Test
+    fun `가장 높은 업적과 다음 목표를 고른다`() {
+        assertEquals(AchievementTier.WEEK, AchievementTier.best(listOf(3, 7)))
+        assertEquals(null, AchievementTier.best(emptyList()))
+        assertEquals(AchievementTier.TWO_WEEKS, AchievementTier.next(8, listOf(3, 7)))
+        // 연속이 끊겨도 이미 받은 단계는 다음 목표로 치지 않는다
+        assertEquals(AchievementTier.TWO_WEEKS, AchievementTier.next(1, listOf(3, 7)))
+        assertEquals(null, AchievementTier.next(100, AchievementTier.entries.map { it.milestone }))
+    }
 }

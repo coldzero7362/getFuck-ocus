@@ -92,6 +92,7 @@ import com.getfuckocus.ui.theme.Dimens
 import com.getfuckocus.ui.theme.PixelIcons
 import com.getfuckocus.ui.theme.TaskIcon
 import com.getfuckocus.ui.components.TaskIconMark
+import com.getfuckocus.ui.components.TaskAchievementStrip
 import com.getfuckocus.ui.theme.bevel
 import com.getfuckocus.ui.theme.circleBevel
 import com.getfuckocus.verify.Verdict
@@ -131,6 +132,10 @@ fun TaskListScreen(
     val streaks = remember(records, tasks, today) {
         val passes = PassIndex(records)
         tasks.associate { it.id to History.streak(it, now, passes) }
+    }
+    val achievementRows by remember { container.achievementDao.observeAll() }.collectAsState(initial = emptyList())
+    val achievements = remember(achievementRows) {
+        achievementRows.groupBy({ it.taskId }, { it.milestone }).mapValues { it.value.toSet() }
     }
     val scope = rememberCoroutineScope()
     var confirmStart by remember { mutableStateOf<TaskEntity?>(null) }
@@ -233,6 +238,7 @@ fun TaskListScreen(
                         status = status,
                         now = now,
                         streak = streaks[task.id] ?: 0,
+                        achievements = achievements[task.id].orEmpty(),
                         onEdit = { onEdit(task.id) },
                         onStartNow = { confirmStart = task },
                         onVerify = { verify(task) },
@@ -266,6 +272,7 @@ fun TaskListScreen(
                     now = now,
                     lockedByThis = currentLock?.taskId == task.id,
                     streak = streaks[task.id] ?: 0,
+                    achievements = achievements[task.id].orEmpty(),
                     onVerify = { verify(task) },
                     onEdit = { onEdit(task.id) },
                     onStartNow = { confirmStart = task },
@@ -320,6 +327,7 @@ private fun HeroCard(
     status: TaskStatus,
     now: ZonedDateTime,
     streak: Int,
+    achievements: Set<Int>,
     onEdit: () -> Unit,
     onStartNow: () -> Unit,
     onVerify: () -> Unit,
@@ -342,10 +350,6 @@ private fun HeroCard(
                 icon = if (inProgress != null) Icons.Default.PlayArrow else PixelIcons.Flag,
             )
             Spacer(Modifier.weight(1f))
-            if (streak >= 2) {
-                Pill("${streak}일 연속", Chrome.amber, Chrome.carbon, icon = Icons.Default.Star)
-                Spacer(Modifier.width(12.dp))
-            }
         }
         Column(
             Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 16.dp),
@@ -395,6 +399,7 @@ private fun HeroCard(
             }
             inProgress?.let { FocusProgressBar(it.progress) }
             ConditionPills(task)
+            TaskAchievementStrip(TaskIcon.fromKey(task.iconKey), achievements, streak)
             when {
                 inProgress != null -> FocusButton(
                     method.actionLabel, onClick = onVerify,
@@ -519,6 +524,7 @@ private fun TaskCard(
     now: ZonedDateTime,
     lockedByThis: Boolean,
     streak: Int,
+    achievements: Set<Int>,
     onVerify: () -> Unit,
     onEdit: () -> Unit,
     onStartNow: () -> Unit,
@@ -533,13 +539,7 @@ private fun TaskCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    StatusBadge(status)
-                    if (streak >= 2) {
-                        Spacer(Modifier.width(6.dp))
-                        Pill("${streak}일 연속", Chrome.amber, Chrome.carbon, icon = Icons.Default.Star)
-                    }
-                }
+                StatusBadge(status)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TaskIcon.fromKey(task.iconKey)?.let {
                         TaskIconMark(it, Modifier.size(20.dp))
@@ -568,6 +568,10 @@ private fun TaskCard(
             CardAction(task, status, lateCheckable, lockedByThis, onStartNow, onVerify)
         }
         ConditionPills(task)
+        // 꺼 둔 과제는 쌓인 기록이 있을 때만 보여 준다
+        if (task.enabled || streak > 0 || achievements.isNotEmpty()) {
+            TaskAchievementStrip(TaskIcon.fromKey(task.iconKey), achievements, streak)
+        }
         when (status) {
             is TaskStatus.InProgress -> {
                 FocusProgressBar(status.progress)

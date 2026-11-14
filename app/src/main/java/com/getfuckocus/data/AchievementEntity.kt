@@ -28,6 +28,9 @@ interface AchievementDao {
     @Query("SELECT milestone FROM achievements WHERE taskId = :taskId")
     suspend fun milestonesOf(taskId: Long): List<Int>
 
+    @Query("SELECT * FROM achievements")
+    fun observeAll(): Flow<List<AchievementEntity>>
+
     @Query("SELECT * FROM achievements WHERE seen = 0 ORDER BY achievedAt, milestone")
     fun observeUnseen(): Flow<List<AchievementEntity>>
 

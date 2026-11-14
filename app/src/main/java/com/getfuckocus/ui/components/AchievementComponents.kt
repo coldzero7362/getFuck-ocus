@@ -1,6 +1,13 @@
 package com.getfuckocus.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -58,6 +65,8 @@ import com.getfuckocus.task.AchievementTier
 import com.getfuckocus.ui.theme.AchievementArt
 import com.getfuckocus.ui.theme.Chrome
 import com.getfuckocus.ui.theme.ChromeShapes
+import com.getfuckocus.ui.theme.DigitStyle
+import com.getfuckocus.ui.theme.recessed
 import com.getfuckocus.ui.theme.TaskIcon
 import com.getfuckocus.ui.theme.TwoToneIcon
 import kotlinx.coroutines.delay
@@ -115,13 +124,20 @@ fun AchievementBadge(icon: TaskIcon?, decor: AchievementDecor, size: Dp, modifie
     }
 }
 
+/** 반짝이는 별: 크기가 살짝 커졌다 작아진다 */
 @Composable
 private fun BoxScope.Star(size: Dp, alignment: Alignment) {
+    val scale by rememberInfiniteTransition(label = "star").animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(tween(450, easing = LinearEasing), RepeatMode.Reverse),
+        label = "starScale",
+    )
     TwoToneImage(
         AchievementArt.Star,
         fill = Chrome.amber,
         outline = Color.Black,
-        modifier = Modifier.align(alignment).size(size),
+        modifier = Modifier.align(alignment).size(size).graphicsLayer { scaleX = scale; scaleY = scale },
     )
 }
 
@@ -146,6 +162,61 @@ private fun PixelAura(color: Color, modifier: Modifier = Modifier) {
             if (solid || sparse) {
                 drawRect(color, topLeft = Offset(x * cell, y * cell), size = Size(cell, cell))
             }
+        }
+    }
+}
+
+/**
+ * 과제 카드 안의 업적·연속 기록 줄. 왼쪽은 받은 업적 중 가장 높은 것, 오른쪽은 지금 연속 기록과 다음 업적까지 남은 횟수.
+ * [owned]는 이 과제가 받은 단계(연속 횟수)들.
+ */
+@Composable
+fun TaskAchievementStrip(icon: TaskIcon?, owned: Set<Int>, streak: Int, modifier: Modifier = Modifier) {
+    val best = AchievementTier.best(owned)
+    val next = AchievementTier.next(streak, owned)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .recessed()
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(36.dp)
+                .background(SlotColor, ChromeShapes.small)
+                .then(if (best != null) Modifier.border(1.dp, best.frameColor(), ChromeShapes.small) else Modifier),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (best != null) {
+                AchievementBadge(icon, best.decor, size = 32.dp)
+            } else {
+                TwoToneImage(AchievementArt.Trophy, fill = Chrome.hairline, outline = null, modifier = Modifier.size(18.dp))
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                "업적 ${owned.count { AchievementTier.of(it) != null }}/${AchievementTier.entries.size}",
+                style = MaterialTheme.typography.labelSmall,
+                color = Chrome.chromeIndigo,
+            )
+            Text(
+                best?.title ?: "아직 없음",
+                style = MaterialTheme.typography.labelLarge,
+                color = if (best != null) Chrome.carbon else Chrome.mutedIndigo,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text("연속 ${streak}회", style = DigitStyle.copy(fontSize = 16.sp), color = Chrome.carbon)
+            Text(
+                next?.let { "다음 업적까지 ${it.milestone - streak}회" } ?: "모든 업적 달성",
+                style = MaterialTheme.typography.labelSmall,
+                color = Chrome.chromeIndigo,
+            )
         }
     }
 }
@@ -182,7 +253,7 @@ fun AchievementToastHost(achievements: AchievementDao, tasks: TaskDao, modifier:
     Box(modifier.fillMaxWidth().statusBarsPadding().padding(top = 8.dp), contentAlignment = Alignment.TopCenter) {
         AnimatedVisibility(
             visible = visible,
-            enter = slideInVertically { -it * 2 } + fadeIn(),
+            enter = slideInVertically(spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow)) { -it * 2 } + fadeIn(),
             exit = slideOutVertically { -it * 2 } + fadeOut(),
         ) {
             shown?.let { AchievementToast(it, onClick = { dismissed = true }) }
@@ -194,31 +265,79 @@ private const val TOAST_MILLIS = 4_000L
 
 private data class ToastContent(val icon: TaskIcon?, val tier: AchievementTier, val taskTitle: String)
 
+/** 단계별 테두리 색: 브론즈(3·7회) → 실버(14·30회) → 골드(50·100회) */
+private fun AchievementTier.frameColor(): Color = when {
+    milestone <= 7 -> Color(0xFFC98A4B)
+    milestone <= 30 -> Color(0xFFC9D1E3)
+    else -> Chrome.amber
+}
+
+/** 아이콘 슬롯 바탕: 카드보다 한 단 더 짙은 남색 */
+private val SlotColor = Color(0xFF0D1222)
+
+/** 흐린 그림자 대신 앱의 다른 판처럼 아래·오른쪽으로 단단한 그림자를 깐다 */
+private val HardShadow = Color(0x8C000000)
+
+private val ToastShape = CutCornerShape(6.dp)
+
 @Composable
 private fun AchievementToast(content: ToastContent, onClick: () -> Unit) {
-    Row(
+    val frame = content.tier.frameColor()
+    // 남은 표시 시간을 카드 아래 얇은 띠로 보여 준다
+    val remaining = remember(content) { Animatable(1f) }
+    LaunchedEffect(content) { remaining.animateTo(0f, tween(TOAST_MILLIS.toInt(), easing = LinearEasing)) }
+
+    Box(
         Modifier
             .padding(horizontal = 16.dp)
             .widthIn(max = 360.dp)
             .fillMaxWidth()
-            .background(Chrome.carbon, ChromeShapes.small)
-            .border(2.dp, Chrome.hairline, ChromeShapes.small)
-            .clickable(onClick = onClick)
-            .semantics { liveRegion = LiveRegionMode.Polite }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
     ) {
-        AchievementBadge(content.icon, content.tier.decor, size = 48.dp)
-        Spacer(Modifier.width(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("업적 달성! ${content.tier.title}", style = MaterialTheme.typography.titleSmall, color = Chrome.amber)
-            Text(
-                "'${content.taskTitle}' ${content.tier.milestone}번 연속 성공",
-                style = MaterialTheme.typography.bodySmall,
-                color = Chrome.white,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        Box(Modifier.matchParentSize().offset(x = 4.dp, y = 4.dp).background(HardShadow, ToastShape))
+        Column(
+            Modifier
+                .background(Chrome.carbon, ToastShape)
+                .border(2.dp, frame, ToastShape)
+                .clip(ToastShape)
+                .clickable(onClickLabel = "닫기", onClick = onClick),
+        ) {
+            Row(
+                Modifier.padding(start = 10.dp, end = 14.dp, top = 10.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier
+                        .size(60.dp)
+                        .background(SlotColor, ChromeShapes.small)
+                        .border(1.dp, frame.copy(alpha = 0.5f), ChromeShapes.small),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AchievementBadge(content.icon, content.tier.decor, size = 52.dp)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("업적 달성!", style = MaterialTheme.typography.labelSmall, color = Chrome.sky)
+                    Text(
+                        content.tier.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Chrome.amber,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        "'${content.taskTitle}' ${content.tier.milestone}번 연속 성공",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Chrome.white.copy(alpha = 0.85f),
+                        letterSpacing = (-0.2).sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Box(Modifier.fillMaxWidth().height(3.dp).background(frame.copy(alpha = 0.2f))) {
+                Box(Modifier.fillMaxWidth(remaining.value).height(3.dp).background(frame))
+            }
         }
     }
 }

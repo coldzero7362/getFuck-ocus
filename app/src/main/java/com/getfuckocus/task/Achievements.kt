@@ -22,6 +22,13 @@ enum class AchievementTier(val milestone: Int, val title: String, val decor: Ach
     companion object {
         fun of(milestone: Int): AchievementTier? = entries.firstOrNull { it.milestone == milestone }
 
+        /** 받은 단계 중 가장 높은 것 */
+        fun best(owned: Collection<Int>): AchievementTier? = entries.lastOrNull { it.milestone in owned }
+
+        /** 연속 [streak]회에서 다음에 받을 수 있는 단계. 다 받았으면 null */
+        fun next(streak: Int, owned: Collection<Int>): AchievementTier? =
+            entries.firstOrNull { it.milestone > streak && it.milestone !in owned }
+
         /**
          * 연속 [streak]회에서 새로 받을 단계들. 이미 받은 단계([owned])는 빼고, 넘어선 단계는 모두 준다
          * (업적 기능이 생기기 전에 이미 쌓아 둔 연속 기록도 인정한다).
