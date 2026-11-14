@@ -118,7 +118,9 @@ fun TaskListScreen(
     val dao = container.taskDao
     val now = rememberNow()
 
-    val tasks by remember { dao.observeAll() }.collectAsState(initial = emptyList())
+    // 아직 못 읽은 것(null)과 정말 비어 있는 것을 구분해, 첫 프레임에 "아직 과제가 없어요"가 번쩍이지 않게 한다
+    val loadedTasks by remember { dao.observeAll() }.collectAsState(initial = null)
+    val tasks = loadedTasks.orEmpty()
     val today = now.toLocalDate()
     val recentKeys = remember(today) { TaskSchedule.candidateDates(now).map(TaskSchedule::dayKey) }
     val passed by remember(recentKeys) { dao.observePassed(recentKeys) }.collectAsState(initial = emptyList())
@@ -246,7 +248,7 @@ fun TaskListScreen(
                 }
                 tasks.isNotEmpty() -> item { DaySummaryCard(entries) }
             }
-            if (tasks.isEmpty()) {
+            if (loadedTasks?.isEmpty() == true) {
                 item {
                     FocusEmptyState(
                         title = "아직 과제가 없어요",
