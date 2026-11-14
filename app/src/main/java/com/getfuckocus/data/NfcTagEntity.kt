@@ -44,4 +44,7 @@ interface NfcTagDao {
 
     @Delete
     suspend fun delete(tag: NfcTagEntity)
+
+    @Query("UPDATE nfc_tags SET name = :name WHERE id = :id")
+    suspend fun rename(id: Long, name: String)
 }
