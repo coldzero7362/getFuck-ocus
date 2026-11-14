@@ -111,7 +111,7 @@ private val REGISTERED_FORMAT = DateTimeFormatter.ofPattern("yyyy.M.d 등록")
  * 이 쪽이 보이는 동안([active]) 태그를 찍으면 해당 카드에 초록 스캔 효과가 지나간다.
  */
 @Composable
-fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit, active: Boolean = true) {
+fun NfcTagListScreen(onAdd: () -> Unit, active: Boolean = true) {
     val context = LocalContext.current
     val dao = context.container.nfcTagDao
     val taskDao = context.container.taskDao
@@ -151,7 +151,6 @@ fun NfcTagListScreen(onBack: () -> Unit, onAdd: () -> Unit, active: Boolean = tr
             FocusTopBar(
                 "NFC 태그",
                 subtitle = tags?.let { "${it.size}개 등록 · 체크할 때 찍을 태그예요" },
-                onBack = onBack,
             )
         },
         floatingActionButton = {

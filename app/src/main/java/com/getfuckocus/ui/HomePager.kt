@@ -75,12 +75,12 @@ fun HomePager(
         HorizontalPager(state = pager, beyondViewportPageCount = 1) { page ->
             when (page) {
                 PAGE_TAGS -> NfcTagListScreen(
-                    onBack = { goTo(PAGE_HISTORY) },
                     onAdd = onAddTag,
                     // 옆 쪽으로 미리 그려 둘 때는 NFC를 읽지 않는다
                     active = pager.currentPage == PAGE_TAGS,
                 )
-                PAGE_HISTORY -> HistoryScreen(onBack = { goTo(PAGE_HOME) })
+                // 옆으로 넘기는 쪽이라 상단 뒤로 화살표는 두지 않는다 (시스템 뒤로 가기는 앞 쪽으로 돌아간다)
+                PAGE_HISTORY -> HistoryScreen()
                 else -> TaskListScreen(
                     onAdd = onAdd,
                     onEdit = onEdit,
