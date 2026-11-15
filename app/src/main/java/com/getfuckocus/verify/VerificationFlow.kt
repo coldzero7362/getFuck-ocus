@@ -113,12 +113,23 @@ class VerificationFlow(
             lock.releaseIfVerified(task.id)
             achievements.onPassed(task)
         }
-        return CheckInResult(verdict, late = target?.late == true, releasedLock = passed && lockedByThis != null)
+        return CheckInResult(
+            verdict,
+            late = target?.late == true,
+            releasedLock = passed && lockedByThis != null,
+            placeMiss = if (checksPlace && !passed) ConditionChecks.placeMiss(task, location, wallNow) else null,
+        )
     }
 }
 
 /**
  * 카메라 없는 인증의 결과. [late]면 마감 뒤에 기록했다 (기록 화면에서 "늦게 통과"로 보인다).
  * [releasedLock]이면 이 인증으로 잠금이나 억제 화면이 풀렸다.
+ * [placeMiss]는 장소 밖이라 실패했을 때 지금 위치와 장소의 차이 (실패 화면에 지도로 보여 준다).
  */
-data class CheckInResult(val verdict: Verdict, val late: Boolean, val releasedLock: Boolean = false)
+data class CheckInResult(
+    val verdict: Verdict,
+    val late: Boolean,
+    val releasedLock: Boolean = false,
+    val placeMiss: PlaceMiss? = null,
+)

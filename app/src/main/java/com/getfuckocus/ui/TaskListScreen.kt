@@ -99,6 +99,7 @@ import com.getfuckocus.ui.theme.plate
 import com.getfuckocus.ui.theme.recessed
 import androidx.compose.ui.unit.sp
 import com.getfuckocus.ui.theme.circleBevel
+import com.getfuckocus.verify.CheckInResult
 import com.getfuckocus.verify.Verdict
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -148,10 +149,21 @@ fun TaskListScreen(
 
     // 탭·위치 체크는 홈에서 바로 한다. 통과하면 카드가 곧바로 "완료"로 바뀌므로 따로 알리지 않고, 실패할 때만 이유를 보여 준다
     var checkFailure by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
+    // 장소 밖이라 실패하면 대화상자 대신 지도로 거리를 보여 주는 화면을 띄운다
+    var placeMiss by remember { mutableStateOf<Pair<TaskEntity, CheckInResult>?>(null) }
+    var rechecking by remember { mutableStateOf(false) }
     var waitingForLocation by remember { mutableStateOf<TaskEntity?>(null) }
     fun runCheckIn(task: TaskEntity) = scope.launch {
         val result = container.verificationFlow.checkIn(task)
-        (result.verdict as? Verdict.Fail)?.let { checkFailure = task.title to it.reasons }
+        val fail = result.verdict as? Verdict.Fail
+        when {
+            fail == null -> placeMiss = null
+            result.placeMiss != null -> placeMiss = task to result
+            else -> {
+                placeMiss = null
+                checkFailure = task.title to fail.reasons
+            }
+        }
     }
     val locationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -310,6 +322,26 @@ fun TaskListScreen(
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
+    }
+
+    placeMiss?.let { (task, result) ->
+        val miss = result.placeMiss ?: return@let
+        PlaceMissDialog(
+            taskTitle = task.title,
+            miss = miss,
+            otherReasons = placeMissOthers(result),
+            checking = rechecking,
+            onRetry = {
+                if (!rechecking) {
+                    rechecking = true
+                    scope.launch {
+                        runCheckIn(task).join()
+                        rechecking = false
+                    }
+                }
+            },
+            onDismiss = { placeMiss = null },
+        )
     }
 
     checkFailure?.let { (title, reasons) ->

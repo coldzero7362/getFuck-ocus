@@ -72,12 +72,15 @@ fun CheckInScreen(taskId: Long, onBack: () -> Unit) {
     }
     var checking by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<CheckInResult?>(null) }
+    // 장소 밖 실패 화면을 닫았는지. 다시 체크하면 새 결과로 또 띄운다
+    var missDismissed by remember { mutableStateOf(false) }
 
     fun run(t: TaskEntity, scannedUid: String? = null) {
         if (checking) return
         checking = true
         scope.launch {
             result = container.verificationFlow.checkIn(t, scannedUid)
+            missDismissed = false
             checking = false
         }
     }
@@ -148,6 +151,17 @@ fun CheckInScreen(taskId: Long, onBack: () -> Unit) {
                         FocusNotice("위치 권한이 없어 장소를 확인할 수 없어요", tone = Tone.Danger)
                     }
                     (r?.verdict as? Verdict.Fail)?.let { fail ->
+                        val miss = r.placeMiss
+                        if (miss != null && !missDismissed) {
+                            PlaceMissDialog(
+                                taskTitle = t.title,
+                                miss = miss,
+                                otherReasons = placeMissOthers(r),
+                                checking = checking,
+                                onRetry = { checkHere(t) },
+                                onDismiss = { missDismissed = true },
+                            )
+                        }
                         FocusNotice(
                             fail.reasons.joinToString("\n"),
                             title = "체크하지 못했어요",

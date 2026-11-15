@@ -41,6 +41,33 @@ object ConditionChecks {
     }
 
     /**
+     * 장소에서 벗어나 실패했을 때, 지금 위치와 정한 장소가 얼마나 떨어졌는지. 실패 화면의 지도와 거리 표시에 쓴다.
+     * 위치를 믿을 수 없거나 반경 안이면 null.
+     */
+    fun placeMiss(task: TaskEntity, location: Location?, atMillis: Long): PlaceMiss? {
+        val lat = task.geoLat ?: return null
+        val lng = task.geoLng ?: return null
+        val radius = task.geoRadiusMeters ?: return null
+        if (!usable(location, atMillis)) return null
+        location!!
+        val distance = distanceMeters(location.latitude, location.longitude, lat, lng)
+        val slack = min(location.accuracy, MAX_ACCURACY_SLACK_M)
+        if (distance <= radius + slack) return null
+        val result = FloatArray(2)
+        Location.distanceBetween(location.latitude, location.longitude, lat, lng, result)
+        return PlaceMiss(
+            hereLat = location.latitude,
+            hereLng = location.longitude,
+            targetLat = lat,
+            targetLng = lng,
+            radiusMeters = radius,
+            distanceMeters = distance,
+            accuracyMeters = location.accuracy,
+            bearingDegrees = result[1],
+        )
+    }
+
+    /**
      * NFC 인증 판정. [expected]는 과제에 고른 태그 (지워졌으면 null), [scannedUid]는 방금 찍은 태그 ID.
      */
     fun tagReason(expected: NfcTagEntity?, scannedUid: String?): String? = when {
@@ -59,4 +86,22 @@ object ConditionChecks {
     private fun Location.isMockLocation(): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) isMock
         else @Suppress("DEPRECATION") isFromMockProvider
+}
+
+/**
+ * 정한 장소 밖에서 체크했을 때의 위치 차이.
+ * [distanceMeters]는 지금 위치에서 장소 가운데까지의 직선거리, [bearingDegrees]는 지금 위치에서 본 장소 쪽 방위(북=0, 시계 방향).
+ */
+data class PlaceMiss(
+    val hereLat: Double,
+    val hereLng: Double,
+    val targetLat: Double,
+    val targetLng: Double,
+    val radiusMeters: Float,
+    val distanceMeters: Float,
+    val accuracyMeters: Float,
+    val bearingDegrees: Float,
+) {
+    /** 반경 가장자리까지 더 가야 하는 거리 */
+    val toEdgeMeters: Float get() = (distanceMeters - radiusMeters).coerceAtLeast(0f)
 }

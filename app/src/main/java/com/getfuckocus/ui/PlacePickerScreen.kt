@@ -135,8 +135,10 @@ const val DEFAULT_PLACE_RADIUS_M = 150f
 
 /** 처음 열 때 위치를 모르면 보여 줄 곳 (서울시청) */
 private val FALLBACK_CENTER = GeoPoint(37.5665, 126.9780)
-/** 처음 열 때와 "지금 위치로"의 확대 수준. 17에서 1.5배 크게 보이도록 log2(1.5)≈0.585만큼 올렸다 */
-private const val PICK_ZOOM = 17.585
+/** 처음 열 때와 "지금 위치로"의 확대 수준. 17에서 2.25배(1.5배를 두 번) 크게 보이도록 2×log2(1.5)≈1.17만큼 올렸다 */
+private const val PICK_ZOOM = 18.17
+/** 가장 멀리 뺐을 때. 12면 화면에 도시 하나(수십 km) 정도가 들어온다. 그 너머로 장소를 고를 일은 없다 */
+private const val MIN_PICK_ZOOM = 12.0
 /** 지도가 이만큼 멈춰 있으면 이동이 끝난 것으로 보고 주소를 찾는다 */
 private const val SETTLE_MS = 600L
 
@@ -305,6 +307,8 @@ fun PlacePickerScreen(initial: PickedPlace?, onPicked: (PickedPlace) -> Unit, on
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             ) {
                 AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+                // 스킨 무늬 (뉴트로 격자, 카세트 CRT). 핀과 버튼은 그 위에 그린다
+                MapSkinOverlay(Modifier.fillMaxSize())
                 // 반경 원 안을 레이더처럼 훑는다. 원 크기는 확대 수준에 따라 바뀌므로 그릴 때마다 지도에서 다시 잰다
                 RadarSweep(
                     radiusPx = { mapView.projection.metersToPixels(radius) },
@@ -330,10 +334,11 @@ private enum class LocationError { NoPermission, ServiceOff, Failed }
  * 아래에는 지도 출처를 새겨 넣는다 (지도를 가리지 않으면서 OpenStreetMap 출처 표시를 지킨다).
  */
 @Composable
-private fun ScreenBezel(
+internal fun ScreenBezel(
     center: GeoPoint,
     busy: Boolean,
     modifier: Modifier = Modifier,
+    label: String = "MAP · SCAN",
     screen: @Composable BoxScope.() -> Unit,
 ) {
     Column(
@@ -347,7 +352,7 @@ private fun ScreenBezel(
             PowerLed(busy)
             Spacer(Modifier.width(8.dp))
             Text(
-                "MAP · SCAN",
+                label,
                 style = BezelLabel,
                 color = Chrome.sky,
                 modifier = Modifier.weight(1f),
@@ -678,7 +683,7 @@ private fun locationServiceOn(context: Context): Boolean {
  * OpenStreetMap 이용 조건에 맞게 앱 패키지명을 User-Agent로 보낸다.
  * 기본 지도 색이 흐려 도로·건물 구분이 약해서 대비와 채도를 조금 올린다.
  */
-private fun createMapView(context: Context, start: GeoPoint): MapView {
+internal fun createMapView(context: Context, start: GeoPoint): MapView {
     Configuration.getInstance().apply {
         load(context, context.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
         userAgentValue = context.packageName
@@ -690,7 +695,7 @@ private fun createMapView(context: Context, start: GeoPoint): MapView {
         setMultiTouchControls(true)
         zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
         isVerticalMapRepetitionEnabled = false
-        minZoomLevel = 5.0
+        minZoomLevel = MIN_PICK_ZOOM
         maxZoomLevel = 19.0
         controller.setZoom(PICK_ZOOM)
         controller.setCenter(start)
