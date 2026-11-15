@@ -1,5 +1,9 @@
 package com.getfuckocus.ui.components
 
+import com.getfuckocus.ui.theme.SkinState
+import com.getfuckocus.ui.theme.phosphorGlow
+import com.getfuckocus.ui.theme.scanlines
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -49,11 +53,33 @@ import com.getfuckocus.ui.theme.recessed
  */
 
 /** 알림의 성격. 색과 기본 아이콘이 함께 정해진다. */
-enum class Tone(val container: Color, val content: Color, val accent: Color, val icon: ImageVector) {
-    Info(Chrome.sky, Chrome.carbon, Chrome.chromeIndigo, Icons.Default.Info),
-    Success(Chrome.ice, Chrome.teal, Chrome.success, Icons.Default.CheckCircle),
-    Warning(Chrome.warningSoft, Chrome.carbon, Chrome.warning, Icons.Default.Warning),
-    Danger(Chrome.redSoft, Chrome.redInk, Chrome.red, Icons.Default.Close),
+enum class Tone(val icon: ImageVector) {
+    Info(Icons.Default.Info),
+    Success(Icons.Default.CheckCircle),
+    Warning(Icons.Default.Warning),
+    Danger(Icons.Default.Close);
+
+    // 색은 스킨에 따라 바뀌므로 읽을 때마다 지금 팔레트에서 가져온다
+    val container: Color
+        get() = when (this) {
+            Info -> Chrome.sky
+            Success -> Chrome.ice
+            Warning -> Chrome.warningSoft
+            Danger -> Chrome.redSoft
+        }
+    val content: Color
+        get() = when (this) {
+            Info, Warning -> Chrome.carbon
+            Success -> Chrome.teal
+            Danger -> Chrome.redInk
+        }
+    val accent: Color
+        get() = when (this) {
+            Info -> Chrome.chromeIndigo
+            Success -> Chrome.success
+            Warning -> Chrome.warning
+            Danger -> Chrome.red
+        }
 }
 
 /**
@@ -176,6 +202,10 @@ fun FocusStatBox(
     /** 이 칸이 놓인 판의 색. 그 색 계열로 살짝 파여 들어간 칸이 된다 */
     surface: Color = Chrome.platinum,
 ) {
+    if (SkinState.isCassette) {
+        CrtStatBox(label, value, modifier, icon, valueColor, caption, large)
+        return
+    }
     Column(
         modifier = modifier
             .recessed(surface)
@@ -206,6 +236,63 @@ fun FocusStatBox(
         )
         if (caption != null) {
             Text(caption, style = MaterialTheme.typography.bodySmall, color = Chrome.chromeIndigo, maxLines = 1)
+        }
+    }
+}
+
+/**
+ * 카세트 스킨의 수치 칸: 짙은 갈색 테두리에 끼운 검은 CRT, 형광 녹 라벨, 큰 숫자는 앰버.
+ * 위험(빨강)으로 칠하던 값은 앰버, 성공(초록)은 형광 녹으로 옮긴다.
+ */
+@Composable
+private fun CrtStatBox(
+    label: String,
+    value: String,
+    modifier: Modifier,
+    icon: ImageVector?,
+    valueColor: Color,
+    caption: String?,
+    large: Boolean,
+) {
+    val ink = when {
+        valueColor == Chrome.redInk || valueColor == Chrome.red || large -> Chrome.phosphorAmber
+        else -> Chrome.phosphor
+    }
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Chrome.carbon)
+            .padding(3.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(Chrome.screen)
+            .scanlines()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = Chrome.phosphorDim, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(5.dp))
+            }
+            Text(label, style = MaterialTheme.typography.labelMedium, color = Chrome.phosphorDim, maxLines = 1)
+        }
+        Text(
+            value,
+            style = DigitStyle.copy(
+                fontSize = when {
+                    !large -> MaterialTheme.typography.titleLarge.fontSize
+                    value.length <= 4 -> 40.sp
+                    value.length <= 6 -> 30.sp
+                    else -> 24.sp
+                },
+                shadow = phosphorGlow(ink),
+            ),
+            color = ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (caption != null) {
+            Text(caption, style = MaterialTheme.typography.bodySmall, color = Chrome.phosphorDim, maxLines = 1)
         }
     }
 }

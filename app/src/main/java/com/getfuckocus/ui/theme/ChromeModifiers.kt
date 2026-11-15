@@ -132,6 +132,18 @@ fun Modifier.chamferBevel(
     drawPath(bottom, shadow, style = Stroke(shadowWidth.toPx() * 2, join = StrokeJoin.Miter))
 }
 
+/** CRT 주사선: 3dp마다 옅은 검은 줄. 카세트 스킨의 검은 화면 칸에만 쓴다 (본문 위에는 깔지 않는다) */
+fun Modifier.scanlines(alpha: Float = 0.35f, step: Dp = 3.dp): Modifier = drawWithContent {
+    drawContent()
+    val s = step.toPx()
+    val line = (s / 3f).coerceAtLeast(1f)
+    var y = 0f
+    while (y < size.height) {
+        drawRect(Color.Black.copy(alpha = alpha), topLeft = Offset(0f, y), size = size.copy(height = line))
+        y += s
+    }
+}
+
 /** 스피커 그릴 같은 점무늬. 카본 판(상단 바, 잠금 화면)에 깐다. */
 fun Modifier.halftone(dot: Color = Color(0x14FFFFFF), step: Dp = 5.dp, radius: Dp = 0.9.dp): Modifier =
     drawBehind {

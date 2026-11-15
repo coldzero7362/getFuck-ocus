@@ -1,5 +1,16 @@
 package com.getfuckocus.ui
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import com.getfuckocus.ui.theme.DigitStyle
+import com.getfuckocus.ui.theme.Skin
+import com.getfuckocus.ui.theme.SkinState
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -203,6 +214,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit) {
                 )
             }
 
+            item { FocusSectionLabel("화면 스킨") }
+            item { SkinPicker() }
+
             item { FocusSectionLabel("기타") }
             item {
                 NavigationCard(
@@ -359,3 +373,75 @@ private fun OnOffBadge(on: Boolean, onText: String = "켜짐", offText: String =
     if (on) FocusStatusBadge(onText, Tone.Success, icon = Icons.Default.CheckCircle)
     else FocusStatusBadge(offText, Tone.Danger, icon = Icons.Default.Close)
 }
+
+/** 화면 스킨 고르기. 고르는 즉시 앱 전체(잠금 화면 포함) 색과 부품 모양이 바뀐다 */
+@Composable
+private fun SkinPicker() {
+    val context = LocalContext.current
+    val current = SkinState.skin
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        Skin.entries.forEach { skin ->
+            SkinTile(
+                skin = skin,
+                selected = skin == current,
+                onClick = { SkinState.set(context, skin) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** 스킨 한 장: 그 스킨의 바탕·패널·화면·강조 색을 작은 견본으로 보여 준다 */
+@Composable
+private fun SkinTile(skin: Skin, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val p = when (skin) {
+        Skin.NEWTRO -> NewtroSwatch
+        Skin.CASSETTE -> CassetteSwatch
+    }
+    Column(
+        modifier = modifier
+            .clip(ChromeShapes.small)
+            .background(p[0])
+            .border(if (selected) 3.dp else 1.dp, if (selected) Chrome.signal else Chrome.hairline, ChromeShapes.small)
+            .clickable(role = Role.RadioButton, onClickLabel = "${skin.label} 스킨 쓰기", onClick = onClick)
+            .semantics {
+                this.selected = selected
+                contentDescription = "${skin.label} 스킨"
+            }
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // 견본: 패널 띠 + 화면 칸 + 강조 키
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth().height(36.dp)) {
+            Box(Modifier.weight(1f).fillMaxHeight().clip(ChromeShapes.control).background(p[1]))
+            Box(
+                Modifier.weight(1.4f).fillMaxHeight().clip(ChromeShapes.control).background(p[2]),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("12:00", style = DigitStyle, color = p[3])
+            }
+            Box(Modifier.weight(0.8f).fillMaxHeight().clip(ChromeShapes.control).background(p[4]))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                skin.label,
+                style = MaterialTheme.typography.titleSmall,
+                color = p[5],
+                modifier = Modifier.weight(1f),
+            )
+            if (selected) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = p[5], modifier = Modifier.size(18.dp))
+            }
+        }
+        Text(skin.caption, style = MaterialTheme.typography.bodySmall, color = p[5].copy(alpha = 0.8f))
+    }
+}
+
+// 견본 색: 바탕, 패널, 화면, 화면 글자, 강조, 글자 (스킨과 상관없이 그 스킨의 실제 색으로 보여 준다)
+private val NewtroSwatch = listOf(
+    Color(0xFF8094C5), Color(0xFFA5BCE5), Color(0xFF171E35), Color(0xFFF49A24), Color(0xFFF49A24), Color(0xFF171E35),
+)
+private val CassetteSwatch = listOf(
+    Color(0xFFD6CDB8), Color(0xFF2B2620), Color(0xFF0E120F), Color(0xFF7DFF9E), Color(0xFFE0662A), Color(0xFF2B2620),
+)
+
