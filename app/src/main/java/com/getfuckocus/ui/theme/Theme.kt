@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -21,29 +22,34 @@ import androidx.compose.ui.unit.sp
  * - 모서리는 기본적으로 날카롭거나 45도로 잘라낸다. 둥근 모양은 원형 버튼과 배지에만 쓴다.
  */
 object Chrome {
-    // 리디자인 팔레트 (2001 Nintendo Newtro 가이드). 이름은 역할로 유지하고 값만 맞춘다.
-    val signal = Color(0xFFF49A24)       // 닌텐도 오렌지: 앞으로 가기, 제출, 인증
-    val amber = Color(0xFFF2B54A)        // 도구 버튼, 선택된 칩, 배지
-    val navGold = Color(0xFFF49A24)      // 상단 바 제목
-    val canvas = Color(0xFF8094C5)       // 메인 배경 블루 라벤더
-    val periwinkle = Color(0xFF94A6D3)   // 한 단 올라온 판
-    val sky = Color(0xFFA5BCE5)          // 패널 헤더 라이트 블루, 보조 띠
-    val lavender = Color(0xFFB8B7E7)     // 보조 강조, 요약 카드
-    val ice = Color(0xFFCFEBDD)          // 성공 배지 바탕
-    val chromeIndigo = Color(0xFF34477F) // 판 아래 그림자 선, 보조 글자
-    val mutedIndigo = Color(0xFF5E6496)
-    val platinum = Color(0xFFE2E0DE)     // 카드 배경 웜 그레이
-    val white = Color(0xFFFFFFFF)
-    val carbon = Color(0xFF171E35)       // 헤더 딥 네이비, 기본 글자
-    val hairline = Color(0xFF5A5F8C)
-    val teal = Color(0xFF1F7A58)         // 성공 글자 (그린 #299B71보다 한 단 짙게 해서 대비 확보)
-    val success = Color(0xFF299B71)      // 성공
-    val warning = Color(0xFFE9B94A)      // 경고
-    val warningSoft = Color(0xFFF7E7BE)  // 경고 바탕
-    val red = Color(0xFFD94B4B)          // 실패, 위험, 놓침
-    val redSoft = Color(0xFFF6D5D2)      // 실패 바탕
-    val redInk = Color(0xFF8A1F1F)       // 실패 바탕 위 글자
-    val highlight = Color(0x99FFFFFF)    // 판 위쪽 밝은 테두리
+    // 값은 지금 고른 스킨([SkinState])의 팔레트에서 읽는다. 이름은 역할이라 스킨이 바뀌어도 그대로 쓴다.
+    val signal: Color get() = SkinState.palette.signal
+    val amber: Color get() = SkinState.palette.amber
+    val navGold: Color get() = SkinState.palette.navGold
+    val canvas: Color get() = SkinState.palette.canvas
+    val periwinkle: Color get() = SkinState.palette.periwinkle
+    val sky: Color get() = SkinState.palette.sky
+    val lavender: Color get() = SkinState.palette.lavender
+    val ice: Color get() = SkinState.palette.ice
+    val chromeIndigo: Color get() = SkinState.palette.chromeIndigo
+    val mutedIndigo: Color get() = SkinState.palette.mutedIndigo
+    val platinum: Color get() = SkinState.palette.platinum
+    val white: Color get() = SkinState.palette.white
+    val carbon: Color get() = SkinState.palette.carbon
+    val hairline: Color get() = SkinState.palette.hairline
+    val teal: Color get() = SkinState.palette.teal
+    val success: Color get() = SkinState.palette.success
+    val warning: Color get() = SkinState.palette.warning
+    val warningSoft: Color get() = SkinState.palette.warningSoft
+    val red: Color get() = SkinState.palette.red
+    val redSoft: Color get() = SkinState.palette.redSoft
+    val redInk: Color get() = SkinState.palette.redInk
+    val highlight: Color get() = SkinState.palette.highlight
+    /** CRT 화면 칸 (카세트 스킨) */
+    val screen: Color get() = SkinState.palette.screen
+    val phosphor: Color get() = SkinState.palette.phosphor
+    val phosphorDim: Color get() = SkinState.palette.phosphorDim
+    val phosphorAmber: Color get() = SkinState.palette.phosphorAmber
 }
 
 /** 간격·크기 토큰. 화면마다 숫자를 새로 정하지 않고 여기서 고른다. */
@@ -66,7 +72,7 @@ object Dimens {
  * - surfaceVariant(스카이): 시작 전 / 꺼짐
  * 하드웨어 외형을 흉내 내는 디자인이라 라이트/다크 모드와 관계없이 같은 색을 쓴다.
  */
-private val ChromeColors = lightColorScheme(
+private fun chromeColors() = lightColorScheme(
     primary = Chrome.chromeIndigo,
     onPrimary = Chrome.white,
     primaryContainer = Chrome.lavender,
@@ -158,24 +164,27 @@ val DigitStyle = TextStyle(fontFamily = MulmaruMono, fontWeight = FontWeight.Nor
 
 /** 잠금 화면: 짙은 카본 판에 앰버 강조. 앱의 "조작 계층"과 같은 색이다. */
 object LockColors {
-    val background = Chrome.carbon
-    val content = Color(0xFFF1F0F7)
-    val contentMuted = Chrome.sky
+    val background: Color get() = Chrome.carbon
+    val content: Color get() = SkinState.palette.lockContent
+    val contentMuted: Color get() = Chrome.sky
     /** 정상 해제(인증)가 가장 중요한 행동이라 앱 전체의 주 버튼과 같은 오렌지를 쓴다 */
-    val accent = Chrome.signal
-    val onAccent = Chrome.carbon
+    val accent: Color get() = Chrome.signal
+    val onAccent: Color get() = Chrome.carbon
     /** 자동 해제 링 */
-    val ring = Chrome.amber
+    val ring: Color get() = Chrome.amber
     /** 카본 위에 한 단 올라온 판 (사유 카드, 긴급전화 칸) */
-    val raised = Color(0xFF232C4A)
+    val raised: Color get() = SkinState.palette.lockRaised
     val track = Color(0x33F1F0F7)
     /** 주 버튼(앰버) 다음가는 버튼: 카본보다 한 단 밝은 남색 판 */
-    val secondary = Chrome.chromeIndigo
-    val badge = Chrome.red
-    val onBadge = Chrome.white
+    val secondary: Color get() = Chrome.chromeIndigo
+    val badge: Color get() = Chrome.red
+    val onBadge: Color get() = Chrome.white
 }
 
 @Composable
 fun GetFocusTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = ChromeColors, typography = ChromeTypography, content = content)
+    // 스킨이 바뀌면 Material 색표도 새 팔레트로 다시 만든다
+    val skin = SkinState.skin
+    val colors = remember(skin) { chromeColors() }
+    MaterialTheme(colorScheme = colors, typography = ChromeTypography, content = content)
 }

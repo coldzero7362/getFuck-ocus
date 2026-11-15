@@ -109,7 +109,7 @@ private fun CassetteKey(item: SegmentItem, modifier: Modifier) {
 }
 
 /** 고른 칸: 기본 앰버보다 한 단 짙게 해서 눌려 그늘진 느낌을 준다 */
-private val PRESSED_AMBER = lerp(Chrome.amber, Chrome.navGold, 0.2f)
+private val PRESSED_AMBER: Color get() = lerp(Chrome.amber, Chrome.navGold, 0.2f)
 
 /**
  * 카세트 키 음영. 흐린 그라데이션 대신 단단한 띠로 각지게 그린다 (디자인 가이드: 깊이는 단단한 베벨로).

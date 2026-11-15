@@ -1,5 +1,8 @@
 package com.getfuckocus.ui.components
 
+import com.getfuckocus.ui.theme.SkinState
+import com.getfuckocus.ui.theme.phosphorGlow
+import com.getfuckocus.ui.theme.scanlines
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -543,7 +546,7 @@ fun FocusPanel(
         ) {
             if (index != null) {
                 Text(
-                    index,
+                    if (SkinState.isCassette) "CH-$index" else index,
                     style = DigitStyle.copy(fontSize = MaterialTheme.typography.titleSmall.fontSize),
                     color = Chrome.navGold,
                     modifier = Modifier
@@ -557,7 +560,9 @@ fun FocusPanel(
                 Spacer(Modifier.width(10.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
+                if (SkinState.isCassette) DymoLabel(title) else {
+                    Text(title, style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
+                }
                 if (subtitle != null) {
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Chrome.chromeIndigo)
                 }
@@ -627,18 +632,23 @@ fun FocusTopBar(
             }
         }
         if (subtitle != null || subtitleTrailing != null) {
+            val crt = SkinState.isCassette
+            val stripInk = if (crt) Chrome.phosphor else Chrome.carbon
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Chrome.sky)
-                    .bevel(shadow = Chrome.chromeIndigo, shadowWidth = 1.dp)
-                    .padding(horizontal = 16.dp, vertical = 7.dp),
+                    .then(
+                        if (crt) Modifier.background(Chrome.carbon).padding(start = 10.dp, end = 10.dp, bottom = 8.dp)
+                            .clip(RoundedCornerShape(3.dp)).background(Chrome.screen).scanlines()
+                        else Modifier.background(Chrome.sky).bevel(shadow = Chrome.chromeIndigo, shadowWidth = 1.dp)
+                    )
+                    .padding(horizontal = if (crt) 10.dp else 16.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     subtitle.orEmpty(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Chrome.carbon,
+                    style = MaterialTheme.typography.labelMedium.copy(shadow = if (crt) phosphorGlow(stripInk) else null),
+                    color = stripInk,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -646,8 +656,11 @@ fun FocusTopBar(
                 if (subtitleTrailing != null) {
                     Text(
                         subtitleTrailing,
-                        style = DigitStyle.copy(fontSize = MaterialTheme.typography.titleSmall.fontSize),
-                        color = Chrome.carbon,
+                        style = DigitStyle.copy(
+                            fontSize = MaterialTheme.typography.titleSmall.fontSize,
+                            shadow = if (crt) phosphorGlow(stripInk) else null,
+                        ),
+                        color = stripInk,
                     )
                 }
             }
@@ -803,6 +816,10 @@ fun FocusProgressBar(
     height: Dp = 10.dp,
 ) {
     val animated by animateFloatAsState(progress.coerceIn(0f, 1f), label = "progress")
+    if (SkinState.isCassette) {
+        LedMeter(animated, modifier)
+        return
+    }
     Box(
         modifier
             .fillMaxWidth()
@@ -820,6 +837,46 @@ fun FocusProgressBar(
                 .bevel(shadowWidth = 1.dp, shadow = Color(0x44000000), highlightWidth = 1.dp)
         )
     }
+}
+
+/** 카세트 스킨의 진행 막대: 갈색 판에 박힌 LED 12칸. 앞쪽은 형광 녹, 끝 쪽은 앰버로 켜진다 */
+@Composable
+private fun LedMeter(progress: Float, modifier: Modifier = Modifier, segments: Int = 12) {
+    val lit = (progress * segments).let { kotlin.math.ceil(it).toInt() }.coerceIn(0, segments)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(ChromeShapes.control)
+            .background(Chrome.carbon)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        repeat(segments) { i ->
+            val color = when {
+                i >= lit -> Color(0xFF3A3530)
+                i < segments * 2 / 3 -> Chrome.phosphor
+                else -> Chrome.phosphorAmber
+            }
+            Box(Modifier.weight(1f).height(8.dp).background(color))
+        }
+    }
+}
+
+/** 카세트 스킨의 구역 이름: 검은 라벨 테이프에 흰 볼록 글자 (다이모 라벨) */
+@Composable
+fun DymoLabel(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = Color(0xFFF2F2F2),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .clip(ChromeShapes.control)
+            .background(Color(0xFF121212))
+            .bevel(highlight = Color(0x2EFFFFFF), shadow = Color.Black, highlightWidth = 1.dp, shadowWidth = 2.dp)
+            .padding(horizontal = 10.dp, vertical = 3.dp),
+    )
 }
 
 /** 원형 진행 표시. 12시 방향에서 시계 방향으로 찬다. */
