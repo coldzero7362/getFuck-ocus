@@ -1,5 +1,7 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.data.TagRemoval
+import com.getfuckocus.data.NfcTagIds
 import android.content.Intent
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -227,9 +229,11 @@ fun NfcTagListScreen(onAdd: () -> Unit, active: Boolean = true) {
     }
 
     confirmDelete?.let { tag ->
-        // 과제가 쓰는 태그를 지우면 그 과제를 인증할 방법이 사라지므로 먼저 과제에서 바꾸게 한다
-        val usedBy by produceState<List<String>?>(null, tag) { value = taskDao.titlesUsingTag(tag.id) }
-        val users = usedBy ?: return@let
+        // 이 태그만 쓰는 과제가 있으면 인증할 방법이 사라지므로 먼저 과제에서 바꾸게 한다.
+        // 다른 태그도 쓰는 과제는 이 태그만 빼고 그대로 둔다
+        val plan by produceState<TagRemoval?>(null, tag) { value = NfcTagIds.planRemoval(taskDao.nfcTasks(), tag.id) }
+        val removal = plan ?: return@let
+        val users = removal.blockedBy
         if (users.isNotEmpty()) {
             FocusDialog(
                 title = "'${tag.name}' 태그는 지울 수 없어요",
@@ -253,9 +257,19 @@ fun NfcTagListScreen(onAdd: () -> Unit, active: Boolean = true) {
             danger = true,
             onConfirm = {
                 confirmDelete = null
-                scope.launch { dao.delete(tag) }
+                scope.launch {
+                    removal.updated.forEach { taskDao.upsert(it) }
+                    dao.delete(tag)
+                }
             },
         ) {
+            if (removal.updated.isNotEmpty()) {
+                Text(
+                    removal.updated.joinToString(", ") { "'${it.title}'" } + " 과제에서도 이 태그가 빠져요. " +
+                        "남은 태그로는 계속 체크할 수 있어요.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
             Text("다시 쓰려면 태그를 새로 등록해야 해요.", style = MaterialTheme.typography.bodyMedium)
         }
     }

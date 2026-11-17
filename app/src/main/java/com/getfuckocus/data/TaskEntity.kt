@@ -43,8 +43,14 @@ data class TaskEntity(
     /** 마감을 놓쳤을 때 할 일 */
     @ColumnInfo(defaultValue = "LOCK")
     val missAction: MissAction = MissAction.LOCK,
-    /** NFC 인증에 쓸 태그 ([NfcTagEntity.id]). NFC 인증 과제에만 쓴다. */
+    /**
+     * 예전(DB 10까지) 태그 하나짜리 칸. 11부터는 [nfcTagIds]로 옮겨 쓰지 않는다.
+     * SQLite에서 칸을 지우려면 표를 통째로 다시 만들어야 해서 남겨 두기만 한다.
+     */
     val nfcTagId: Long? = null,
+    /** NFC 인증에 쓸 태그들 ([NfcTagEntity.id], 쉼표로 여러 개). 이 중 하나를 찍으면 통과. [nfcTagIdList]로 읽는다. */
+    @ColumnInfo(defaultValue = "")
+    val nfcTagIds: String = "",
     /**
      * 억제 화면·잠금 화면에 띄울 문구들 (줄바꿈으로 여러 개). 첫 문구는 가운데 크게, 모두 1분마다 화면을 가로질러 흘러간다.
      * 비어 있으면 기본 문구를 쓴다. [nagMessages]로 읽는다.
@@ -111,9 +117,9 @@ object NagContent {
 fun TaskEntity.enforcesOnMiss(): Boolean = missAction != MissAction.NOTIFY
 
 /** 과제를 저장하기 전에 확인할 것. 문제가 없으면 null. */
-fun saveProblem(method: VerifyMethod, hasGeoFence: Boolean, nfcTagId: Long?, missAction: MissAction): String? = when {
+fun saveProblem(method: VerifyMethod, hasGeoFence: Boolean, nfcTagCount: Int, missAction: MissAction): String? = when {
     method == VerifyMethod.LOCATION && !hasGeoFence -> "위치 인증은 장소를 지정해야 해요"
-    method == VerifyMethod.NFC && nfcTagId == null -> "NFC 인증은 찍을 태그를 골라야 해요"
+    method == VerifyMethod.NFC && nfcTagCount == 0 -> "NFC 인증은 찍을 태그를 하나 이상 골라야 해요"
     missAction !in method.allowedMissActions() -> "탭 체크는 놓쳐도 앱을 잠글 수 없어요. 억제 화면을 써 보세요"
     else -> null
 }
@@ -136,3 +142,32 @@ fun TaskEntity.fenceRadiusMeters(): Float? = geoRadiusMeters?.takeIf { hasGeoFen
 /** 쉼표로 구분한 라벨 목록. 이 중 하나만 사진에 보여도 통과한다. */
 fun TaskEntity.requiredLabels(): List<String> =
     requiredLabel?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+
+/** 이 과제에 고른 NFC 태그 id들 (고른 순서대로) */
+fun TaskEntity.nfcTagIdList(): List<Long> = NfcTagIds.parse(nfcTagIds)
+
+/** NFC 태그 id 목록을 한 칸에 쉼표로 담는다 (과제 표에 연결 표를 따로 두지 않으려고) */
+object NfcTagIds {
+    fun parse(value: String?): List<Long> =
+        value.orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.distinct()
+
+    fun join(ids: List<Long>): String = ids.distinct().joinToString(",")
+
+    /** [ids]에서 [tagId]를 뺀 목록 */
+    fun without(ids: List<Long>, tagId: Long): List<Long> = ids.filter { it != tagId }
+
+    /**
+     * 태그 하나를 지울 때 할 일. 그 태그만 쓰는 과제가 있으면 인증할 길이 사라지므로 지우지 못하게 하고([TagRemoval.blockedBy]),
+     * 다른 태그도 함께 쓰는 과제는 그 태그만 빼서 저장한다([TagRemoval.updated]).
+     */
+    fun planRemoval(tasks: List<TaskEntity>, tagId: Long): TagRemoval {
+        val using = tasks.filter { tagId in it.nfcTagIdList() }
+        val (only, shared) = using.partition { it.nfcTagIdList().size == 1 }
+        return TagRemoval(
+            blockedBy = only.map { it.title },
+            updated = shared.map { it.copy(nfcTagIds = join(without(it.nfcTagIdList(), tagId))) },
+        )
+    }
+}
+
+data class TagRemoval(val blockedBy: List<String>, val updated: List<TaskEntity>)

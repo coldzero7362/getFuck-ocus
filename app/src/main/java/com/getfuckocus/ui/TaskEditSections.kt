@@ -136,8 +136,8 @@ internal fun VerifyMethodPanel(
     onSelectMethod: (VerifyMethod) -> Unit,
     frozen: Boolean,
     nfcTags: List<NfcTagEntity>,
-    nfcTagId: Long?,
-    onPickTag: (Long) -> Unit,
+    nfcTagIds: List<Long>,
+    onToggleTag: (Long) -> Unit,
     onAddTag: () -> Unit,
     labels: List<String>,
     labelInput: String,
@@ -182,7 +182,7 @@ internal fun VerifyMethodPanel(
         )
 
         if (verifyMethod == VerifyMethod.NFC) {
-            SubHeader("찍을 태그", "이 과제는 고른 태그로만 체크돼요")
+            SubHeader("찍을 태그", "여러 개 고를 수 있어요 · 이 중 하나를 찍으면 체크돼요")
             if (nfcTags.isEmpty()) {
                 FocusNotice(
                     "등록한 태그가 없어요. 먼저 태그를 등록해 주세요",
@@ -199,9 +199,9 @@ internal fun VerifyMethodPanel(
                     nfcTags.forEach { tag ->
                         FocusChip(
                             tag.name,
-                            selected = nfcTagId == tag.id,
-                            onClick = { onPickTag(tag.id) },
-                            leadingIcon = if (nfcTagId == tag.id) Icons.Default.Check else null,
+                            selected = tag.id in nfcTagIds,
+                            onClick = { onToggleTag(tag.id) },
+                            leadingIcon = if (tag.id in nfcTagIds) Icons.Default.Check else null,
                             enabled = !frozen,
                         )
                     }

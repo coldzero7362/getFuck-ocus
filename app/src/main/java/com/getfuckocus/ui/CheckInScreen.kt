@@ -1,5 +1,6 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.data.nfcTagIdList
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -67,8 +68,8 @@ fun CheckInScreen(taskId: Long, onBack: () -> Unit) {
     val container = context.container
     val scope = rememberCoroutineScope()
     val task by produceState<TaskEntity?>(null, taskId) { value = container.taskDao.get(taskId) }
-    val tag by produceState<NfcTagEntity?>(null, task) {
-        value = task?.nfcTagId?.let { container.nfcTagDao.get(it) }
+    val tags by produceState(emptyList<NfcTagEntity>(), task) {
+        value = task?.nfcTagIdList().orEmpty().mapNotNull { container.nfcTagDao.get(it) }
     }
     var checking by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<CheckInResult?>(null) }
@@ -128,7 +129,7 @@ fun CheckInScreen(taskId: Long, onBack: () -> Unit) {
                 r != null && r.verdict == Verdict.Pass -> PassPanel(r, onBack)
                 else -> {
                     when (t.verifyMethod) {
-                        VerifyMethod.NFC -> NfcWaitPanel(tag, nfcAvailability, checking)
+                        VerifyMethod.NFC -> NfcWaitPanel(tags, nfcAvailability, checking)
                         VerifyMethod.LOCATION -> ActionPanel(
                             title = "정한 장소에서 체크해요",
                             body = "누르면 지금 위치가 정한 장소 " +
@@ -173,7 +174,8 @@ fun CheckInScreen(taskId: Long, onBack: () -> Unit) {
                     if (t.verifyMethod == VerifyMethod.NFC && context.isDebuggable()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                             FocusButton(
-                                "고른 태그 찍기", onClick = { run(t, tag?.uid) },
+                                // 여러 개면 아무거나 하나를 찍은 것처럼 (어느 것이든 통과하는지 시험)
+                                "고른 태그 찍기", onClick = { run(t, tags.randomOrNull()?.uid) },
                                 modifier = Modifier.weight(1f), style = FocusButtonStyle.Outline, height = 44.dp,
                             )
                             FocusButton(
@@ -216,13 +218,15 @@ private fun ActionPanel(
 }
 
 @Composable
-private fun NfcWaitPanel(tag: NfcTagEntity?, availability: NfcAvailability, busy: Boolean) {
+private fun NfcWaitPanel(tags: List<NfcTagEntity>, availability: NfcAvailability, busy: Boolean) {
     when (availability) {
         NfcAvailability.Unsupported -> FocusNotice("이 기기에는 NFC가 없어 태그를 읽을 수 없어요", tone = Tone.Warning)
         NfcAvailability.Off -> FocusNotice("NFC가 꺼져 있어요. 설정에서 켜고 돌아오면 바로 읽어요", tone = Tone.Warning)
         NfcAvailability.Ready -> Unit
     }
-    FocusPanel(title = "태그를 폰 뒷면에 대 주세요", subtitle = tag?.let { "'${it.name}' 태그" }, modifier = Modifier.fillMaxWidth()) {
+    FocusPanel(title = "태그를 폰 뒷면에 대 주세요", subtitle = tags.takeIf { it.isNotEmpty() }?.let { list ->
+            if (list.size == 1) "'${list[0].name}' 태그" else list.joinToString(", ") { "'${it.name}'" } + " 중 하나"
+        }, modifier = Modifier.fillMaxWidth()) {
         Column(
             Modifier.fillMaxWidth().padding(vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -230,7 +234,11 @@ private fun NfcWaitPanel(tag: NfcTagEntity?, availability: NfcAvailability, busy
         ) {
             if (availability == NfcAvailability.Ready || busy) FocusSpinner(Modifier.size(48.dp))
             Text(
-                if (busy) "확인하는 중…" else "이 과제에 고른 태그를 찍으면 바로 체크돼요",
+                when {
+                    busy -> "확인하는 중…"
+                    tags.size > 1 -> "고른 태그 중 아무거나 하나를 찍으면 바로 체크돼요"
+                    else -> "이 과제에 고른 태그를 찍으면 바로 체크돼요"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
             )

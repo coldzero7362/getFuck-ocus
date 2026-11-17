@@ -39,21 +39,32 @@ class VerifyMethodTest {
 
     @Test
     fun `저장 전 확인 - 위치 인증은 장소, NFC 인증은 태그가 있어야 한다`() {
-        assertNotNull(saveProblem(VerifyMethod.LOCATION, hasGeoFence = false, nfcTagId = null, MissAction.LOCK))
-        assertNull(saveProblem(VerifyMethod.LOCATION, hasGeoFence = true, nfcTagId = null, MissAction.LOCK))
-        assertNotNull(saveProblem(VerifyMethod.NFC, hasGeoFence = false, nfcTagId = null, MissAction.NAG))
-        assertNull(saveProblem(VerifyMethod.NFC, hasGeoFence = false, nfcTagId = 3, MissAction.NAG))
-        assertNotNull(saveProblem(VerifyMethod.TAP, hasGeoFence = false, nfcTagId = null, MissAction.LOCK))
-        assertNull(saveProblem(VerifyMethod.PHOTO, hasGeoFence = false, nfcTagId = null, MissAction.NOTIFY))
+        assertNotNull(saveProblem(VerifyMethod.LOCATION, hasGeoFence = false, nfcTagCount = 0, MissAction.LOCK))
+        assertNull(saveProblem(VerifyMethod.LOCATION, hasGeoFence = true, nfcTagCount = 0, MissAction.LOCK))
+        assertNotNull(saveProblem(VerifyMethod.NFC, hasGeoFence = false, nfcTagCount = 0, MissAction.NAG))
+        assertNull(saveProblem(VerifyMethod.NFC, hasGeoFence = false, nfcTagCount = 2, MissAction.NAG))
+        assertNotNull(saveProblem(VerifyMethod.TAP, hasGeoFence = false, nfcTagCount = 0, MissAction.LOCK))
+        assertNull(saveProblem(VerifyMethod.PHOTO, hasGeoFence = false, nfcTagCount = 0, MissAction.NOTIFY))
     }
 
     @Test
     fun `NFC 판정 - 고른 태그만 통과한다`() {
         val desk = NfcTagEntity(id = 3, uid = "04:AA:BB", name = "책상")
-        assertNull(ConditionChecks.tagReason(desk, "04:AA:BB"))
-        assertTrue(ConditionChecks.tagReason(desk, "04:CC:DD")!!.contains("'책상' 태그가 아니에요"))
-        assertNotNull(ConditionChecks.tagReason(desk, null))
-        assertNotNull(ConditionChecks.tagReason(null, "04:AA:BB"))
+        assertNull(ConditionChecks.tagReason(listOf(desk), "04:AA:BB"))
+        assertTrue(ConditionChecks.tagReason(listOf(desk), "04:CC:DD")!!.contains("'책상' 태그가 아니에요"))
+        assertNotNull(ConditionChecks.tagReason(listOf(desk), null))
+        assertNotNull(ConditionChecks.tagReason(emptyList(), "04:AA:BB"))
+    }
+
+    @Test
+    fun `NFC 판정 - 태그를 여러 개 고르면 그중 아무거나 통과한다`() {
+        val desk = NfcTagEntity(id = 3, uid = "04:AA:BB", name = "책상")
+        val door = NfcTagEntity(id = 5, uid = "04:EE:FF", name = "현관")
+        val tags = listOf(desk, door)
+        assertNull(ConditionChecks.tagReason(tags, "04:AA:BB"))
+        assertNull(ConditionChecks.tagReason(tags, "04:EE:FF"))
+        val reason = ConditionChecks.tagReason(tags, "04:00:00")!!
+        assertTrue(reason.contains("'책상'") && reason.contains("'현관'"))
     }
 
     @Test

@@ -70,10 +70,12 @@ object ConditionChecks {
     /**
      * NFC 인증 판정. [expected]는 과제에 고른 태그 (지워졌으면 null), [scannedUid]는 방금 찍은 태그 ID.
      */
-    fun tagReason(expected: NfcTagEntity?, scannedUid: String?): String? = when {
-        expected == null -> "이 과제에 고른 태그를 찾을 수 없어요. 과제 편집에서 태그를 다시 골라 주세요"
+    /** 고른 태그([expected]) 중 하나를 찍었으면 null, 아니면 실패 이유 */
+    fun tagReason(expected: List<NfcTagEntity>, scannedUid: String?): String? = when {
+        expected.isEmpty() -> "이 과제에 고른 태그를 찾을 수 없어요. 과제 편집에서 태그를 다시 골라 주세요"
         scannedUid == null -> "태그를 찍지 않았어요"
-        scannedUid != expected.uid -> "'${expected.name}' 태그가 아니에요. 이 과제에 고른 태그를 찍어 주세요"
+        expected.none { it.uid == scannedUid } ->
+            "${expected.joinToString(", ") { "'${it.name}'" }} 태그가 아니에요. 이 과제에 고른 태그를 찍어 주세요"
         else -> null
     }
 
