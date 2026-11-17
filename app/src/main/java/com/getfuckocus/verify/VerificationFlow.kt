@@ -1,5 +1,6 @@
 package com.getfuckocus.verify
 
+import com.getfuckocus.data.nfcTagIdList
 import androidx.camera.core.ImageCapture
 import com.getfuckocus.data.AttemptEntity
 import com.getfuckocus.data.NfcTagDao
@@ -89,7 +90,7 @@ class VerificationFlow(
             }
             if (checksPlace) addAll(ConditionChecks.placeReasons(task, location, wallNow))
             if (task.verifyMethod == VerifyMethod.NFC) {
-                ConditionChecks.tagReason(task.nfcTagId?.let { nfcTags.get(it) }, scannedUid)?.let { add(it) }
+                ConditionChecks.tagReason(task.nfcTagIdList().mapNotNull { nfcTags.get(it) }, scannedUid)?.let { add(it) }
             }
         }
         val verdict = if (reasons.isEmpty()) Verdict.Pass else Verdict.Fail(reasons)

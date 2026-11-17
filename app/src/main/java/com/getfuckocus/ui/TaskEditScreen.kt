@@ -1,5 +1,7 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.data.nfcTagIdList
+import com.getfuckocus.data.NfcTagIds
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -95,7 +97,9 @@ fun TaskEditScreen(
     // 새 과제는 가벼운 탭 체크 + 알림만으로 시작한다. 꼭 지킬 일만 더 센 인증과 억제 화면·잠금으로 바꾼다
     var verifyMethod by rememberSaveable { mutableStateOf(VerifyMethod.TAP) }
     var missAction by rememberSaveable { mutableStateOf(MissAction.NOTIFY) }
-    var nfcTagId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // NFC 인증에 쓸 태그들 (여러 개 중 하나를 찍으면 통과). 저장 상태에 담기 쉽게 쉼표 문자열로 둔다
+    var nfcTagIdsText by rememberSaveable { mutableStateOf("") }
+    val nfcTagIds = NfcTagIds.parse(nfcTagIdsText)
     // 억제 화면에 흘려보낼 문구·사진 (여러 개)
     val nagMessages = rememberSaveable(saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })) {
         mutableStateListOf<String>()
@@ -147,7 +151,7 @@ fun TaskEditScreen(
             remindBeforeMinutes = t.remindBeforeMinutes
             verifyMethod = t.verifyMethod
             missAction = t.missAction
-            nfcTagId = t.nfcTagId
+            nfcTagIdsText = NfcTagIds.join(t.nfcTagIdList())
             nagMessages.clear()
             nagMessages.addAll(t.nagMessages())
             nagImages.clear()
@@ -216,7 +220,9 @@ fun TaskEditScreen(
         // 탭 체크는 잠글 수 없으므로 잠금이었으면 한 단계 낮춘다
         if (missAction !in method.allowedMissActions()) missAction = MissAction.NAG
         // NFC를 고르면 태그가 하나뿐일 때 바로 골라 둔다
-        if (method == VerifyMethod.NFC && nfcTagId == null) nfcTagId = nfcTags.singleOrNull()?.id
+        if (method == VerifyMethod.NFC && nfcTagIds.isEmpty()) {
+            nfcTags.singleOrNull()?.let { nfcTagIdsText = NfcTagIds.join(listOf(it.id)) }
+        }
     }
 
     // 이번 편집에서 새로 넣은 이미지는 저장하지 않고 나가면 지운다 (원래 있던 이미지는 저장할 때 정리한다)
@@ -249,6 +255,9 @@ fun TaskEditScreen(
         }
     }
 
+    // 고른 것 중 아직 등록돼 있는 태그만 (그 사이 지운 태그는 빼고 저장한다)
+    val validTagIds = nfcTagIds.filter { id -> nfcTags.any { it.id == id } }
+
     fun save() {
         if (labelInput.isNotBlank() && !frozen) addLabel(labelInput)
         if (nagInput.isNotBlank()) addNagMessage(nagInput)
@@ -256,7 +265,7 @@ fun TaskEditScreen(
             title.isBlank() -> "과제 이름을 입력하세요"
             durationMinutes !in 1..TaskSchedule.MAX_DURATION_MINUTES -> "소요 시간은 1분 이상이어야 해요"
             (repeatDays and RepeatDays.EVERY_DAY) == 0 -> "반복할 요일을 하나 이상 골라 주세요"
-            !frozen -> saveProblem(verifyMethod, hasGeoFence = geo != null, nfcTagId, missAction)
+            !frozen -> saveProblem(verifyMethod, hasGeoFence = geo != null, validTagIds.size, missAction)
             else -> null
         }
         if (message != null) return
@@ -275,7 +284,8 @@ fun TaskEditScreen(
         val task = if (frozen) shared else shared.copy(
             verifyMethod = verifyMethod,
             missAction = missAction,
-            nfcTagId = if (verifyMethod == VerifyMethod.NFC) nfcTagId else null,
+            nfcTagId = null,
+            nfcTagIds = if (verifyMethod == VerifyMethod.NFC) NfcTagIds.join(validTagIds) else "",
             windowStartMinute = startMinute,
             durationMinutes = durationMinutes,
             repeatDays = repeatDays,
@@ -297,7 +307,7 @@ fun TaskEditScreen(
     // 저장하지 않은 변경 감지: 불러온 직후(새 과제는 처음 값)를 기준으로 삼는다
     fun snapshot(): String = listOf(
         title, iconKey, startMinute, durationMinutes, repeatDays, verifyMethod, remindAtStart, remindBeforeMinutes,
-        labels.toList(), labelInput, radiusMeters, geo, enabled, missAction, nfcTagId,
+        labels.toList(), labelInput, radiusMeters, geo, enabled, missAction, nfcTagIdsText,
         nagMessages.toList(), nagInput, nagImages.toList(),
     ).toString()
     var baseline by rememberSaveable { mutableStateOf<String?>(null) }
@@ -382,8 +392,10 @@ fun TaskEditScreen(
                 onSelectMethod = ::selectMethod,
                 frozen = frozen,
                 nfcTags = nfcTags,
-                nfcTagId = nfcTagId,
-                onPickTag = { nfcTagId = it },
+                nfcTagIds = nfcTagIds,
+                onToggleTag = { id ->
+                    nfcTagIdsText = NfcTagIds.join(if (id in nfcTagIds) NfcTagIds.without(nfcTagIds, id) else nfcTagIds + id)
+                },
                 onAddTag = onAddTag,
                 labels = labels,
                 labelInput = labelInput,
