@@ -1,18 +1,10 @@
 package com.getfuckocus.nfc
 
-import kotlin.random.Random
 
 /** 태그 고유 ID를 다루는 순수 함수와, 등록할 때 같은 태그를 두 번 찍어 확인하는 단계. */
 object NfcTags {
     /** [0x04, 0xA2] → "04:A2" */
     fun formatUid(bytes: ByteArray): String = bytes.joinToString(":") { "%02X".format(it) }
-
-    /**
-     * 디버그 빌드에서 실물 태그 없이 등록 흐름을 시험하려고 만드는 가짜 ID.
-     * 흔한 NTAG 스티커처럼 7바이트, 첫 바이트는 제조사 코드 04로 둔다.
-     */
-    fun fakeUid(random: Random = Random.Default): String =
-        formatUid(ByteArray(7).also { random.nextBytes(it); it[0] = 0x04 })
 
     /**
      * 태그를 찍을 때마다 다음 단계를 정한다.

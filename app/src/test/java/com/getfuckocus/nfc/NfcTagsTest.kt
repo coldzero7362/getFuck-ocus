@@ -16,13 +16,6 @@ class NfcTagsTest {
     }
 
     @Test
-    fun `가짜 태그는 04로 시작하는 7바이트이고 매번 다르다`() {
-        val uid = NfcTags.fakeUid(Random(1))
-        assertTrue(uid.matches(Regex("04(:[0-9A-F]{2}){6}")))
-        assertNotEquals(uid, NfcTags.fakeUid(Random(2)))
-    }
-
-    @Test
     fun `같은 태그를 두 번 찍으면 저장할 수 있다`() {
         val first = NfcTags.onScan(ScanState.Waiting(), a, registeredName = null)
         assertEquals(ScanState.Confirming(a), first)

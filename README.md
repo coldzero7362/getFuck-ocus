@@ -29,10 +29,23 @@ design/DESIGN.md     UI 디자인 언어 기준 문서 (`npx getdesign add ninte
 ```
 
 ## 브랜치
-- `main`: 항상 빌드되는 상태. 직접 커밋하지 않고 PR로만 병합한다 (PR마다 GitHub Actions가 `assembleDebug`를 돌린다).
-- 작업 브랜치: `feat/…`, `fix/…`, `ui/…`, `chore/…`. 주제 하나에 하나, 병합 후 삭제한다.
+- `develop`: 개발 브랜치. 여기서 **디버그 빌드**(`assembleDebug`)를 만들어 시험한다. 작업 브랜치는 모두 여기서 따고 여기로 병합한다.
+- `main`: 배포 브랜치. 여기서 **배포 빌드**(`assembleRelease`)를 만든다. 직접 커밋하지 않고, 배포할 때만 `develop`을 PR로 병합한다.
+- 작업 브랜치: `feat/…`, `fix/…`, `ui/…`, `chore/…`. `develop`에서 따서 주제 하나에 하나, 병합 후 삭제한다.
+- 배포 후 급한 수정은 `hotfix/…`를 `main`에서 따서 `main`과 `develop`에 모두 병합한다.
 - Room 스키마를 바꾸는 작업은 마이그레이션까지 한 브랜치에 담는다.
-- 폰에 깔 만한 시점마다 `v0.1.0` 같은 태그를 붙이고 `versionName`/`versionCode`를 올린다.
+- 배포할 때마다 `main`에 `v0.1.0` 같은 태그를 붙이고 `versionName`/`versionCode`를 올린다.
+- GitHub Actions: `develop`(과 그리로 가는 PR)은 디버그 테스트·빌드, `main`(과 그리로 가는 PR)은 배포 테스트·빌드를 돌린다.
+
+## 디버그 전용 코드
+코드는 두 브랜치가 같고, 디버그와 배포의 차이는 **빌드 종류별 소스 폴더**로 나눈다.
+```
+app/src/debug/     디버그 빌드에만 들어가는 코드 (예: devtools/DevTools.kt - 가짜 NFC 태그 버튼)
+app/src/release/   배포 빌드용 같은 이름의 빈 구현
+app/src/testDebug/ 디버그 빌드에서만 도는 테스트
+```
+- 시험용 버튼·가짜 데이터처럼 배포 APK에 있으면 안 되는 것은 `src/debug`에 두고, `src/release`에 같은 이름의 빈 구현을 둔다.
+- `main` 코드에서는 `DevTools.ENABLED`(디버그 true, 배포 false)나 위 함수들만 부른다. 실행 중 디버그 여부를 묻는 코드는 쓰지 않는다.
 
 ## 안전 원칙 (코드로 강제)
 - 본인 기기에서 본인이 설정. 원격 제어, 아이콘 숨김, 은밀한 실행 없음. 동작 중 상시 알림.

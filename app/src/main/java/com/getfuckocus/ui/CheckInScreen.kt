@@ -1,5 +1,6 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.devtools.CheckInTestButtons
 import com.getfuckocus.data.nfcTagIdList
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -41,11 +42,8 @@ import com.getfuckocus.data.VerifyMethod
 import com.getfuckocus.hasPermission
 import com.getfuckocus.nfc.NfcAvailability
 import com.getfuckocus.nfc.NfcTagScanner
-import com.getfuckocus.nfc.NfcTags
-import com.getfuckocus.nfc.isDebuggable
 import com.getfuckocus.task.TaskSchedule
 import com.getfuckocus.ui.components.FocusButton
-import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusNotice
 import com.getfuckocus.ui.components.FocusPanel
 import com.getfuckocus.ui.components.FocusSpinner
@@ -170,24 +168,9 @@ fun CheckInScreen(taskId: Long, onBack: () -> Unit) {
                             icon = Icons.Default.Warning,
                         )
                     }
-                    // 실물 태그 없이 시험하는 용도. 출시 빌드에는 보이지 않는다
-                    if (t.verifyMethod == VerifyMethod.NFC && context.isDebuggable()) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            FocusButton(
-                                // 여러 개면 아무거나 하나를 찍은 것처럼 (어느 것이든 통과하는지 시험)
-                                "고른 태그 찍기", onClick = { run(t, tags.randomOrNull()?.uid) },
-                                modifier = Modifier.weight(1f), style = FocusButtonStyle.Outline, height = 44.dp,
-                            )
-                            FocusButton(
-                                "다른 태그 찍기", onClick = { run(t, NfcTags.fakeUid()) },
-                                modifier = Modifier.weight(1f), style = FocusButtonStyle.Outline, height = 44.dp,
-                            )
-                        }
-                        Text(
-                            "디버그 빌드에서만 보이는 시험용 버튼이에요",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Chrome.chromeIndigo,
-                        )
+                    // 실물 태그 없이 시험하는 버튼. 디버그 빌드(src/debug)에만 있고 배포 빌드에서는 아무것도 그리지 않는다
+                    if (t.verifyMethod == VerifyMethod.NFC) {
+                        CheckInTestButtons(tags.map { it.uid }) { uid -> run(t, uid) }
                     }
                 }
             }
