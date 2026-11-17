@@ -61,6 +61,12 @@ data class TaskEntity(
     val nagImagePath: String? = null,
     /** 과제 아이콘 ([com.getfuckocus.ui.theme.TaskIcon]의 이름). null이면 아이콘 없이 보인다. */
     val iconKey: String? = null,
+    /**
+     * 스크린샷 인증에서 캡처에 꼭 보여야 하는 단어들 (쉼표로 여러 개, 예: "출근, 완료"). 모두 보여야 통과.
+     * [screenshotKeywordList]로 읽는다.
+     */
+    @ColumnInfo(defaultValue = "")
+    val screenshotKeywords: String = "",
 )
 
 enum class VerifyMethod {
@@ -75,6 +81,9 @@ enum class VerifyMethod {
 
     /** 등록한 NFC 태그를 찍어서 체크. 약통, 책상처럼 그 자리에 가야 하는 일과용. */
     NFC,
+
+    /** 다른 앱의 완료 화면을 캡처해 올려서 체크. 출퇴근 기록처럼 다른 앱에서 하는 일과용. */
+    SCREENSHOT,
 }
 
 /** 마감을 놓쳤을 때 할 일. 뒤로 갈수록 강하다. */
@@ -117,9 +126,17 @@ object NagContent {
 fun TaskEntity.enforcesOnMiss(): Boolean = missAction != MissAction.NOTIFY
 
 /** 과제를 저장하기 전에 확인할 것. 문제가 없으면 null. */
-fun saveProblem(method: VerifyMethod, hasGeoFence: Boolean, nfcTagCount: Int, missAction: MissAction): String? = when {
+fun saveProblem(
+    method: VerifyMethod,
+    hasGeoFence: Boolean,
+    nfcTagCount: Int,
+    missAction: MissAction,
+    screenshotKeywordCount: Int = 0,
+): String? = when {
     method == VerifyMethod.LOCATION && !hasGeoFence -> "위치 인증은 장소를 지정해야 해요"
     method == VerifyMethod.NFC && nfcTagCount == 0 -> "NFC 인증은 찍을 태그를 하나 이상 골라야 해요"
+    method == VerifyMethod.SCREENSHOT && screenshotKeywordCount == 0 ->
+        "스크린샷 인증은 캡처에 보여야 할 단어를 하나 이상 정해야 해요"
     missAction !in method.allowedMissActions() -> "탭 체크는 놓쳐도 앱을 잠글 수 없어요. 억제 화면을 써 보세요"
     else -> null
 }
@@ -171,3 +188,7 @@ object NfcTagIds {
 }
 
 data class TagRemoval(val blockedBy: List<String>, val updated: List<TaskEntity>)
+
+/** 스크린샷 인증 단어 목록 (쉼표로 구분, 빈칸은 버림) */
+fun TaskEntity.screenshotKeywordList(): List<String> =
+    screenshotKeywords.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct()

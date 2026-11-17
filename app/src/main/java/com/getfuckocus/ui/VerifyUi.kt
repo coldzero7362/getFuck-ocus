@@ -34,6 +34,7 @@ val VerifyMethod.title: String
         VerifyMethod.PHOTO -> "사진 인증"
         VerifyMethod.LOCATION -> "위치 인증"
         VerifyMethod.NFC -> "NFC 인증"
+        VerifyMethod.SCREENSHOT -> "스크린샷 인증"
     }
 
 val VerifyMethod.icon: ImageVector
@@ -42,6 +43,7 @@ val VerifyMethod.icon: ImageVector
         VerifyMethod.PHOTO -> PixelIcons.Camera
         VerifyMethod.LOCATION -> Icons.Default.LocationOn
         VerifyMethod.NFC -> PixelIcons.Nfc
+        VerifyMethod.SCREENSHOT -> PixelIcons.Screenshot
     }
 
 /** 인증 버튼 문구 */
@@ -51,6 +53,7 @@ val VerifyMethod.actionLabel: String
         VerifyMethod.PHOTO -> "촬영해서 인증"
         VerifyMethod.LOCATION -> "여기서 체크"
         VerifyMethod.NFC -> "태그 찍어 체크"
+        VerifyMethod.SCREENSHOT -> "캡처 올려 체크"
     }
 
 /** 인증 버튼 아이콘. 탭 체크는 체크 표시를, 나머지는 방식 아이콘을 쓴다 */

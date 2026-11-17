@@ -26,6 +26,8 @@ data class AttemptEntity(
     val reasons: String,
     @ColumnInfo(defaultValue = "PHOTO")
     val method: VerifyMethod = VerifyMethod.PHOTO,
+    /** 스크린샷 인증에 올린 이미지의 지문(SHA-256). 한 번 통과한 캡처를 다시 쓰지 못하게 한다 */
+    val imageHash: String? = null,
 )
 
 /** 어느 과제의 어느 회차(시작 날짜)가 통과했는지. */

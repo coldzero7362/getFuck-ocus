@@ -74,6 +74,8 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.androidx.exifinterface)
     implementation(libs.mlkit.image.labeling)
+    // 스크린샷 인증: 캡처 속 한국어 글자를 기기 안에서 읽는다
+    implementation(libs.mlkit.text.recognition.korean)
     implementation(libs.play.services.location)
     // 장소 고르기 지도. API 키 없이 OpenStreetMap 지도 그림을 받는다
     implementation(libs.osmdroid.android)

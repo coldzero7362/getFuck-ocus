@@ -34,6 +34,10 @@ interface TaskDao {
     @Insert
     suspend fun insertAttempt(attempt: AttemptEntity)
 
+    /** 이 지문의 이미지로 통과한 적이 있는지 (스크린샷 재사용 막기) */
+    @Query("SELECT EXISTS(SELECT 1 FROM attempts WHERE imageHash = :hash AND passed = 1)")
+    suspend fun imageHashUsed(hash: String): Boolean
+
     @Query("SELECT EXISTS(SELECT 1 FROM attempts WHERE taskId = :taskId AND dayKey = :dayKey AND passed = 1)")
     suspend fun passedOn(taskId: Long, dayKey: String): Boolean
 
