@@ -1,10 +1,11 @@
 name: Android CI
 
+# develop은 디버그 빌드, main은 배포 빌드를 돌린다 (README "브랜치" 참고)
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 # 같은 브랜치에 새 커밋이 오면 이전 빌드는 취소한다
 concurrency:
@@ -12,7 +13,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  debug:
+    # develop에 푸시했거나 develop으로 가는 PR
+    if: github.ref_name == 'develop' || github.base_ref == 'develop'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -25,7 +28,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit tests
+      - name: Unit tests (debug)
         run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Build debug APK
@@ -35,4 +38,32 @@ jobs:
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+
+  release:
+    # main에 푸시했거나 main으로 가는 PR
+    if: github.ref_name == 'main' || github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests (release)
+        run: ./gradlew testReleaseUnitTest --stacktrace
+
+      # 서명 키는 저장소에 두지 않으므로 서명 전 APK를 만든다 (서명은 기기에 깔기 전에 따로 한다)
+      - name: Build release APK
+        run: ./gradlew assembleRelease --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release-unsigned
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
           retention-days: 7

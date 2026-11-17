@@ -145,12 +145,18 @@ internal fun VerifyMethodPanel(
     onAddLabel: (String) -> Unit,
     onRemoveLabel: (String) -> Unit,
     suggestions: List<String>,
+    keywords: List<String>,
+    keywordInput: String,
+    onKeywordInput: (String) -> Unit,
+    onAddKeyword: (String) -> Unit,
+    onRemoveKeyword: (String) -> Unit,
 ) {
     FocusPanel(title = "인증 방식", index = "02", modifier = Modifier.fillMaxWidth()) {
         // 두 개씩 두 줄. 타일 이름 아래에 짧은 설명을 둔다
         listOf(
             listOf(VerifyMethod.TAP to "버튼 한 번", VerifyMethod.PHOTO to "카메라로 찍기"),
             listOf(VerifyMethod.LOCATION to "정한 곳에서", VerifyMethod.NFC to "태그 찍기"),
+            listOf(VerifyMethod.SCREENSHOT to "캡처 올리기"),
         ).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 row.forEach { (method, caption) ->
@@ -164,6 +170,8 @@ internal fun VerifyMethodPanel(
                         modifier = Modifier.weight(1f),
                     )
                 }
+                // 홀수 줄은 오른쪽을 비워 타일 폭을 다른 줄과 맞춘다
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
         Text(
@@ -176,6 +184,10 @@ internal fun VerifyMethodPanel(
                     "정해 둔 장소 근처에서 버튼을 눌러 체크해요. 출퇴근, 헬스장 가기에 맞아요. 아래에서 장소를 꼭 정해 주세요."
                 VerifyMethod.NFC ->
                     "등록한 NFC 태그를 폰에 대서 체크해요. 약통, 책상처럼 그 자리에 가야 하는 일에 맞아요."
+                VerifyMethod.SCREENSHOT ->
+                    "다른 앱의 완료 화면을 캡처해서 올려요. 출퇴근 기록처럼 다른 앱에서 하는 일에 맞아요. " +
+                        "인증 시간 안에 찍은 캡처에 아래 단어가 모두 보이고, 그 단어와 같은 줄에 찍힌 시각(예: 출근 08:22)이 " +
+                        "인증 시간 안이어야 통과해요."
             },
             style = MaterialTheme.typography.bodySmall,
             color = Chrome.chromeIndigo,
@@ -206,6 +218,56 @@ internal fun VerifyMethodPanel(
                         )
                     }
                     FocusChip("새 태그", selected = false, onClick = onAddTag, leadingIcon = Icons.Default.Add, enabled = !frozen)
+                }
+            }
+        }
+
+        if (verifyMethod == VerifyMethod.SCREENSHOT) {
+            SubHeader("캡처에 보일 단어", "필수 · 기록 시각 옆에 붙는 이름으로 (예: 출근). '출근하기' 같은 버튼 글자는 피해 주세요")
+            if (keywords.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    keywords.forEach { word ->
+                        FocusChip(
+                            word,
+                            selected = true,
+                            onClick = { onRemoveKeyword(word) },
+                            trailingIcon = if (frozen) null else Icons.Default.Close,
+                            enabled = !frozen,
+                        )
+                    }
+                }
+            }
+            FocusTextField(
+                keywordInput,
+                { input -> if (input.endsWith(",")) onAddKeyword(input) else onKeywordInput(input) },
+                label = "단어 추가",
+                placeholder = "예: 출근",
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onAddKeyword(keywordInput) }),
+                enabled = !frozen,
+                trailing = {
+                    FocusIconButton(
+                        Icons.Default.Add,
+                        contentDescription = "단어 추가",
+                        onClick = { onAddKeyword(keywordInput) },
+                        enabled = !frozen && keywordInput.isNotBlank(),
+                        tint = Chrome.carbon,
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            val quick = SCREENSHOT_KEYWORD_SUGGESTIONS.filter { s -> keywords.none { it.equals(s, ignoreCase = true) } }
+            if (quick.isNotEmpty() && !frozen) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    quick.forEach { s ->
+                        FocusChip(s, selected = false, onClick = { onAddKeyword(s) }, leadingIcon = Icons.Default.Add)
+                    }
                 }
             }
         }
@@ -885,3 +947,6 @@ internal suspend fun recentLabelSuggestions(dao: TaskDao): List<String> =
         .sortedByDescending { it.value }
         .take(10)
         .map { it.key }
+
+/** 스크린샷 인증에 자주 쓸 단어 (눌러서 바로 추가) */
+private val SCREENSHOT_KEYWORD_SUGGESTIONS = listOf("출근", "퇴근", "완료")

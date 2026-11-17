@@ -1,5 +1,7 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.devtools.TagAddTestButton
+import com.getfuckocus.devtools.DevTools
 import com.getfuckocus.data.TagRemoval
 import com.getfuckocus.data.NfcTagIds
 import android.content.Intent
@@ -99,7 +101,6 @@ import com.getfuckocus.nfc.NfcAvailability
 import com.getfuckocus.nfc.NfcTagScanner
 import com.getfuckocus.nfc.NfcTags
 import com.getfuckocus.nfc.ScanState
-import com.getfuckocus.nfc.isDebuggable
 import com.getfuckocus.ui.components.FocusButton
 import com.getfuckocus.ui.components.FocusButtonStyle
 import com.getfuckocus.ui.components.FocusCard
@@ -163,7 +164,6 @@ fun NfcTagListScreen(onAdd: () -> Unit, active: Boolean = true) {
             unknownNotice = null
         }
     }
-    val debug = remember { context.isDebuggable() }
 
     Scaffold(
         topBar = {
@@ -202,7 +202,7 @@ fun NfcTagListScreen(onAdd: () -> Unit, active: Boolean = true) {
                     onRename = { renaming = tag },
                     onDelete = { confirmDelete = tag },
                     // 실물 태그 없이 효과를 시험하는 디버그 빌드 전용: 카드를 길게 누르면 찍은 것처럼
-                    onDebugScan = if (debug) ({ onScanned(tag.uid) }) else null,
+                    onDebugScan = if (DevTools.ENABLED) ({ onScanned(tag.uid) }) else null,
                 )
             }
         }
@@ -728,18 +728,9 @@ fun NfcTagAddScreen(onDone: () -> Unit) {
                 }
             }
 
-            if (context.isDebuggable() && state !is ScanState.Ready) {
-                // 실물 태그가 없을 때 등록 흐름을 시험하는 용도. 출시 빌드에는 보이지 않는다.
-                // NFC가 없는 에뮬레이터에서 쓰는 도구라 NFC 미지원이어도 켜 둔다
-                FocusButton(
-                    "가짜 태그 찍기 (디버그 빌드 전용)",
-                    onClick = {
-                        val current = state
-                        handleScan(if (current is ScanState.Confirming) current.uid else NfcTags.fakeUid())
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    style = FocusButtonStyle.Outline,
-                )
+            if (state !is ScanState.Ready) {
+                // 실물 태그가 없을 때 등록 흐름을 시험하는 버튼. 디버그 빌드(src/debug)에만 있다
+                TagAddTestButton((state as? ScanState.Confirming)?.uid) { handleScan(it) }
             }
         }
     }

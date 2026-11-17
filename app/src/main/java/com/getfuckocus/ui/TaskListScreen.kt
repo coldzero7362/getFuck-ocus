@@ -198,11 +198,11 @@ fun TaskListScreen(
         }
         waitingForLocation = null
     }
-    /** 인증 방식에 맞게: 사진은 촬영 화면, NFC는 태그 화면, 탭·위치는 그 자리에서 체크 */
+    /** 인증 방식에 맞게: 사진은 촬영 화면, NFC·스크린샷은 체크 화면, 탭·위치는 그 자리에서 체크 */
     fun verify(task: TaskEntity) {
         when (task.verifyMethod) {
             VerifyMethod.PHOTO -> onCapture(task.id)
-            VerifyMethod.NFC -> onCheckScreen(task.id)
+            VerifyMethod.NFC, VerifyMethod.SCREENSHOT -> onCheckScreen(task.id)
             VerifyMethod.LOCATION ->
                 if (!context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
                     waitingForLocation = task

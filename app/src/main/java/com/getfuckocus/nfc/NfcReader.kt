@@ -3,7 +3,6 @@ package com.getfuckocus.nfc
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.pm.ApplicationInfo
 import android.nfc.NfcAdapter
 import android.os.Handler
 import android.os.Looper
@@ -22,9 +21,6 @@ fun nfcAvailability(context: Context): NfcAvailability {
     val adapter = NfcAdapter.getDefaultAdapter(context) ?: return NfcAvailability.Unsupported
     return if (adapter.isEnabled) NfcAvailability.Ready else NfcAvailability.Off
 }
-
-/** 디버그 빌드인지. 가짜 태그 버튼은 디버그 빌드에서만 보인다. */
-fun Context.isDebuggable(): Boolean = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
 /**
  * 이 화면이 앞에 나와 있는 동안에만 NFC 리더 모드를 켜서 태그 고유 ID를 읽는다.
