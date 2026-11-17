@@ -1,5 +1,9 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.ui.components.PlateKey
+import com.getfuckocus.ui.components.crtScreen
+import com.getfuckocus.ui.theme.phosphorGlow
+import com.getfuckocus.ui.theme.SkinState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -174,24 +178,25 @@ internal fun VerifyMethodPanel(
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-        Text(
-            when (verifyMethod) {
-                VerifyMethod.TAP ->
-                    "버튼 한 번이나 알림의 \"완료\"로 체크해요. 약 먹기처럼 가벼운 일과에 맞아요."
-                VerifyMethod.PHOTO ->
-                    "앱 카메라로 찍어서 인증해요. 장소와 사진에 보일 것도 정할 수 있어요."
-                VerifyMethod.LOCATION ->
-                    "정해 둔 장소 근처에서 버튼을 눌러 체크해요. 출퇴근, 헬스장 가기에 맞아요. 아래에서 장소를 꼭 정해 주세요."
-                VerifyMethod.NFC ->
-                    "등록한 NFC 태그를 폰에 대서 체크해요. 약통, 책상처럼 그 자리에 가야 하는 일에 맞아요."
-                VerifyMethod.SCREENSHOT ->
-                    "다른 앱의 완료 화면을 캡처해서 올려요. 출퇴근 기록처럼 다른 앱에서 하는 일에 맞아요. " +
-                        "인증 시간 안에 찍은 캡처에 아래 단어가 모두 보이고, 그 단어와 같은 줄에 찍힌 시각(예: 출근 08:22)이 " +
-                        "인증 시간 안이어야 통과해요."
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = Chrome.chromeIndigo,
-        )
+        val methodHelp = when (verifyMethod) {
+            VerifyMethod.TAP ->
+                "버튼 한 번이나 알림의 \"완료\"로 체크해요. 약 먹기처럼 가벼운 일과에 맞아요."
+            VerifyMethod.PHOTO ->
+                "앱 카메라로 찍어서 인증해요. 장소와 사진에 보일 것도 정할 수 있어요."
+            VerifyMethod.LOCATION ->
+                "정해 둔 장소 근처에서 버튼을 눌러 체크해요. 출퇴근, 헬스장 가기에 맞아요. 아래에서 장소를 꼭 정해 주세요."
+            VerifyMethod.NFC ->
+                "등록한 NFC 태그를 폰에 대서 체크해요. 약통, 책상처럼 그 자리에 가야 하는 일에 맞아요."
+            VerifyMethod.SCREENSHOT ->
+                "다른 앱의 완료 화면을 캡처해서 올려요. 출퇴근 기록처럼 다른 앱에서 하는 일에 맞아요. " +
+                    "인증 시간 안에 찍은 캡처에 아래 단어가 모두 보이고, 그 단어와 같은 줄에 찍힌 시각(예: 출근 08:22)이 " +
+                    "인증 시간 안이어야 통과해요."
+        }
+        if (SkinState.isCassette) {
+            CrtReadout(methodHelp)
+        } else {
+            Text(methodHelp, style = MaterialTheme.typography.bodySmall, color = Chrome.chromeIndigo)
+        }
 
         if (verifyMethod == VerifyMethod.NFC) {
             SubHeader("찍을 태그", "여러 개 고를 수 있어요 · 이 중 하나를 찍으면 체크돼요")
@@ -362,7 +367,9 @@ internal fun SchedulePanel(
     onRequestNotifications: () -> Unit,
 ) {
     FocusPanel(title = "일정 설정", index = "03", trailing = { CurrentTimeText() }, modifier = Modifier.fillMaxWidth()) {
-        FocusCard(
+        if (SkinState.isCassette) {
+            CrtStartTime(startMinute, durationMinutes, frozen, onChange = { onPick(TimeField.START) })
+        } else FocusCard(
             modifier = Modifier.fillMaxWidth(),
             color = Chrome.white,
             onClick = if (frozen) null else ({ onPick(TimeField.START) }),
@@ -508,6 +515,7 @@ internal fun PlacePanel(
                 modifier = Modifier.fillMaxWidth(),
                 icon = Icons.Default.LocationOn,
                 enabled = !frozen,
+                plated = true,
             )
             FocusButton(
                 "지금 있는 곳으로 정하기",
@@ -515,6 +523,7 @@ internal fun PlacePanel(
                 modifier = Modifier.fillMaxWidth(),
                 style = FocusButtonStyle.Outline,
                 enabled = !frozen,
+                plated = true,
             )
         } else {
             PlaceInfoBox(
@@ -569,6 +578,10 @@ private fun PlaceInfoBox(
     onChange: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    if (SkinState.isCassette) {
+        CrtPlaceInfo(lat, lng, radiusMeters, enabled, onChange, onRemove)
+        return
+    }
     Column(
         Modifier
             .fillMaxWidth()
@@ -610,6 +623,7 @@ private fun PlaceInfoBox(
                     icon = Icons.Default.LocationOn,
                     height = 44.dp,
                     enabled = enabled,
+                    plated = true,
                 )
                 FocusButton(
                     "초기화",
@@ -618,6 +632,7 @@ private fun PlaceInfoBox(
                     style = FocusButtonStyle.Outline,
                     height = 44.dp,
                     enabled = enabled,
+                    plated = true,
                 )
             }
         }
@@ -724,6 +739,7 @@ internal fun MissActionPanel(
                     icon = Icons.Default.Add,
                     height = 48.dp,
                     enabled = !importingImage,
+                    plated = true,
                 )
             }
         }
@@ -950,3 +966,140 @@ internal suspend fun recentLabelSuggestions(dao: TaskDao): List<String> =
 
 /** 스크린샷 인증에 자주 쓸 단어 (눌러서 바로 추가) */
 private val SCREENSHOT_KEYWORD_SUGGESTIONS = listOf("출근", "퇴근", "완료")
+
+
+/* ---- 카세트 스킨: 편집 화면의 CRT 칸 ---- */
+
+/** 설명 글을 단말기 출력처럼: 검은 CRT 칸에 형광 녹 글자, 앞에 ">" */
+@Composable
+private fun CrtReadout(text: String) {
+    val ink = Chrome.phosphor
+    Row(Modifier.fillMaxWidth().crtScreen(6.dp).padding(horizontal = 12.dp, vertical = 10.dp)) {
+        Text("> ", style = DigitStyle.copy(fontSize = 14.sp, shadow = phosphorGlow(ink)), color = ink)
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall.copy(shadow = phosphorGlow(ink)),
+            color = ink,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/**
+ * 시작 시각을 CRT 시계로: 큰 앰버 숫자, 아래에 마감 시각. 오른쪽 판 키로 바꾼다.
+ * 화면 자체를 눌러도 바꿀 수 있다 (편집이 막히면 둘 다 누를 수 없다).
+ */
+@Composable
+private fun CrtStartTime(startMinute: Int, durationMinutes: Int, frozen: Boolean, onChange: () -> Unit) {
+    val dim = Chrome.phosphorDim
+    val amber = Chrome.phosphorAmber
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Column(
+            Modifier
+                .weight(1f)
+                .crtScreen()
+                .then(if (frozen) Modifier else Modifier.clickable(onClickLabel = "시작 시각 바꾸기", onClick = onChange))
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Text(
+                "시작 시각",
+                style = MaterialTheme.typography.labelMedium.copy(shadow = phosphorGlow(dim)),
+                color = dim,
+            )
+            Text(
+                TaskSchedule.formatMinute(startMinute),
+                style = DigitStyle.copy(fontSize = 40.sp, shadow = phosphorGlow(amber)),
+                color = amber,
+            )
+            Text(
+                "~ " + TaskSchedule.formatMinute((startMinute + durationMinutes) % (24 * 60)) + " 마감",
+                style = DigitStyle.copy(fontSize = 14.sp, shadow = phosphorGlow(dim)),
+                color = dim,
+            )
+        }
+        if (!frozen) {
+            Spacer(Modifier.width(10.dp))
+            // 홈 화면 과제 카드의 키처럼 리벳 박은 판 위의 키
+            PlateKey(onClick = onChange, modifier = Modifier.size(60.dp), color = Chrome.white, onClickLabel = "시작 시각 바꾸기") {
+                Icon(Icons.Default.Edit, contentDescription = "시작 시각 바꾸기", tint = Chrome.carbon, modifier = Modifier.size(22.dp))
+            }
+        }
+    }
+}
+
+/**
+ * 정한 장소를 CRT 좌표 표시로: "> 정한 장소"와 반경, 아래에 위도·경도를 형광 숫자로.
+ * 화면 아래에 바꾸기·초기화 버튼은 그대로 둔다.
+ */
+@Composable
+private fun CrtPlaceInfo(
+    lat: Double,
+    lng: Double,
+    radiusMeters: Float,
+    enabled: Boolean,
+    onChange: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val ink = Chrome.phosphor
+    val dim = Chrome.phosphorDim
+    val amber = Chrome.phosphorAmber
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(
+            Modifier.fillMaxWidth().crtScreen().padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.LocationOn, contentDescription = null, tint = ink, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "정한 장소",
+                    style = MaterialTheme.typography.labelLarge.copy(shadow = phosphorGlow(ink)),
+                    color = ink,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "R ${radiusMeters.toInt()}m",
+                    style = DigitStyle.copy(fontSize = 14.sp, shadow = phosphorGlow(amber)),
+                    color = amber,
+                )
+            }
+            // 좌표를 장소 이름으로 바꾸려면 위치를 외부 서버로 보내야 해서, 편집 화면에서는 좌표만 보여 준다
+            listOf("LAT" to lat, "LNG" to lng).forEach { (label, value) ->
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        label,
+                        style = DigitStyle.copy(fontSize = 12.sp, shadow = phosphorGlow(dim)),
+                        color = dim,
+                        modifier = Modifier.width(36.dp),
+                    )
+                    Text(
+                        "%.5f".format(value),
+                        style = DigitStyle.copy(fontSize = 20.sp, shadow = phosphorGlow(ink)),
+                        color = ink,
+                    )
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            FocusButton(
+                "지도에서 바꾸기",
+                onClick = onChange,
+                modifier = Modifier.weight(1.4f),
+                style = FocusButtonStyle.Tonal,
+                icon = Icons.Default.LocationOn,
+                height = 44.dp,
+                enabled = enabled,
+                plated = true,
+            )
+            FocusButton(
+                "초기화",
+                onClick = onRemove,
+                modifier = Modifier.weight(1f),
+                style = FocusButtonStyle.Outline,
+                height = 44.dp,
+                enabled = enabled,
+                plated = true,
+            )
+        }
+    }
+}
