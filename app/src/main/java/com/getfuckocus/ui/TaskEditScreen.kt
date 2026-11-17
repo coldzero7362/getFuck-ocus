@@ -377,6 +377,7 @@ fun TaskEditScreen(
                     modifier = Modifier.fillMaxWidth(),
                     height = 56.dp,
                     icon = Icons.Default.Check,
+                    plated = true,
                 )
             }
         },
