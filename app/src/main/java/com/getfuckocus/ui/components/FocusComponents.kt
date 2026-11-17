@@ -22,6 +22,9 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -118,6 +121,8 @@ fun FocusButton(
     height: Dp = 52.dp,
     containerColor: Color? = null,
     contentColor: Color? = null,
+    /** 카세트 스킨에서 과제 카드에 붙은 버튼처럼, 리벳 박은 판 위의 키로 그린다 */
+    plated: Boolean = false,
 ) {
     val (defaultContainer, defaultContent) = when (style) {
         // 시그널 오렌지에 흰 글자는 대비가 부족해서 카본 글자를 쓴다
@@ -133,6 +138,47 @@ fun FocusButton(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val sink by animateDpAsState(if (pressed && enabled && raised) 1.dp else 0.dp, label = "buttonSink")
+
+    // 카세트 스킨, 과제 카드의 버튼: 리벳 박은 판 위의 단색 키
+    if (SkinState.isCassette && raised && plated) {
+        PlateKey(
+            onClick = onClick,
+            modifier = modifier,
+            color = container,
+            enabled = enabled,
+            faceModifier = Modifier.heightIn(min = height - 4.dp),
+            contentPadding = PaddingValues(horizontal = 18.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                if (icon != null) {
+                    Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(text, color = content, style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        return
+    }
+    // 카세트 스킨: 옆면이 보이는 두툼한 사각 키캡
+    if (SkinState.isCassette && raised) {
+        Keycap(
+            onClick = onClick,
+            modifier = modifier,
+            color = container,
+            enabled = enabled,
+            faceModifier = Modifier.heightIn(min = height),
+            contentPadding = PaddingValues(horizontal = 18.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                if (icon != null) {
+                    Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(text, color = content, style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        return
+    }
 
     Row(
         modifier = modifier
@@ -201,6 +247,13 @@ fun FocusPlayButton(
     containerColor: Color = Chrome.signal,
     iconScale: Float = 0.55f,
 ) {
+    if (SkinState.isCassette) {
+        // 과제 카드 옆 키: 리벳 박은 판 위의 단색 키 (판 테두리만큼 조금 크게)
+        PlateKey(onClick = onClick, modifier = modifier.size(size + 8.dp), color = containerColor, onClickLabel = contentDescription) {
+            Icon(icon, contentDescription = contentDescription, tint = Chrome.carbon, modifier = Modifier.size(size * iconScale * 0.85f))
+        }
+        return
+    }
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.92f else 1f, label = "playScale")
@@ -241,6 +294,17 @@ fun FocusFab(
     modifier: Modifier = Modifier,
     size: Dp = 64.dp,
 ) {
+    if (SkinState.isCassette) {
+        // 모따기 택티컬 스위치 + 상태 LED
+        ChamferSwitch(
+            onClick = onClick,
+            modifier = modifier.size(width = size, height = size + 4.dp),
+            onClickLabel = contentDescription,
+        ) {
+            Icon(icon, contentDescription = contentDescription, tint = Chrome.carbon, modifier = Modifier.size(size * 0.45f))
+        }
+        return
+    }
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val shadowOffset = 6.dp
@@ -521,6 +585,8 @@ fun FocusPanel(
     expanded: Boolean? = null,
     onToggle: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    /** 카세트 스킨에서 라벨 테이프 대신 제목 자리에 놓을 부품 (예: 테이프 카운터). 읽기 프로그램은 [title]을 읽는다 */
+    cassetteTitle: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val toggle = onToggle.takeIf { expanded != null }
@@ -560,7 +626,9 @@ fun FocusPanel(
                 Spacer(Modifier.width(10.dp))
             }
             Column(Modifier.weight(1f)) {
-                if (SkinState.isCassette) DymoLabel(title) else {
+                if (SkinState.isCassette && cassetteTitle != null) {
+                    Box(Modifier.clearAndSetSemantics { contentDescription = title; heading() }) { cassetteTitle() }
+                } else if (SkinState.isCassette) DymoLabel(title) else {
                     Text(title, style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
                 }
                 if (subtitle != null) {
@@ -568,6 +636,10 @@ fun FocusPanel(
                 }
             }
             trailing?.invoke()
+            // 카세트 스킨: 빈 오른쪽 끝에 작은 스피커 그릴
+            if (SkinState.isCassette && trailing == null && !collapsible) {
+                SpeakerGrille(Modifier.padding(start = 8.dp).width(50.dp).height(22.dp))
+            }
             if (collapsible) {
                 Icon(
                     if (expanded == true) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
@@ -607,7 +679,7 @@ fun FocusTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Chrome.carbon)
-                .halftone()
+                .then(if (SkinState.isCassette) Modifier.brushedRibs() else Modifier.halftone())
                 .statusBarsPadding()
                 .height(60.dp)
                 .padding(horizontal = 8.dp),
@@ -665,6 +737,8 @@ fun FocusTopBar(
                 }
             }
         }
+        // 카세트 스킨: 몸체에 두른 색 띠
+        if (SkinState.isCassette) RetroStripes()
     }
 }
 

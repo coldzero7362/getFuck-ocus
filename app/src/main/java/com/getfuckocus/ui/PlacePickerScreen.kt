@@ -1,5 +1,7 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.ui.components.Keycap
+import com.getfuckocus.ui.theme.SkinState
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -377,6 +379,8 @@ internal fun ScreenBezel(
             "© OpenStreetMap contributors",
             style = BezelLabel.copy(fontSize = 10.sp, letterSpacing = 0.3.sp),
             color = Chrome.sky.copy(alpha = 0.85f),
+            // 카세트 스킨은 판 모서리에 나사가 박혀 있어 그만큼 비켜 쓴다
+            modifier = Modifier.padding(start = if (SkinState.isCassette) 14.dp else 0.dp),
         )
     }
 }
@@ -642,6 +646,15 @@ private fun CenterPin(modifier: Modifier = Modifier) {
  */
 @Composable
 private fun MyLocationButton(loading: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    if (SkinState.isCassette) {
+        Keycap(
+            onClick = onClick,
+            modifier = modifier.size(width = 56.dp, height = 60.dp),
+            enabled = !loading,
+            onClickLabel = if (loading) "현재 위치 찾는 중" else "현재 위치로 이동",
+        ) { LocationGlyph(loading) }
+        return
+    }
     Box(
         modifier
             .size(52.dp)
@@ -652,7 +665,12 @@ private fun MyLocationButton(loading: Boolean, onClick: () -> Unit, modifier: Mo
             .clickable(enabled = !loading, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = if (loading) "현재 위치 찾는 중" else "현재 위치로 이동" },
         contentAlignment = Alignment.Center,
-    ) {
+    ) { LocationGlyph(loading) }
+}
+
+@Composable
+private fun LocationGlyph(loading: Boolean) {
+    run {
         if (loading) {
             FocusSpinner(Modifier.size(24.dp), color = Chrome.carbon, strokeWidth = 3.dp)
         } else {

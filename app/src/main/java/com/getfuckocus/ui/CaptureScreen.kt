@@ -1,5 +1,9 @@
 package com.getfuckocus.ui
 
+import androidx.compose.ui.unit.sp
+import com.getfuckocus.ui.theme.DigitStyle
+import com.getfuckocus.ui.theme.SkinState
+import com.getfuckocus.ui.components.Keycap
 import android.Manifest
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -288,6 +292,25 @@ private fun ConditionRow(task: TaskEntity) {
 /** 원형 셔터. 확인 중에는 바깥 테두리를 따라 꼬리가 달린 호가 빙글빙글 돈다. */
 @Composable
 private fun ShutterButton(enabled: Boolean, busy: Boolean, onClick: () -> Unit) {
+    // 카세트 스킨: 데크의 녹음 키처럼 빨간 점과 REC가 찍힌 사각 키
+    if (SkinState.isCassette) {
+        Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
+            Keycap(
+                onClick = onClick,
+                modifier = Modifier.size(width = 88.dp, height = 94.dp),
+                enabled = enabled,
+                depth = 8.dp,
+                onClickLabel = "촬영해서 인증",
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.size(14.dp).clip(CircleShape).background(if (busy) Chrome.amber else Chrome.redInk))
+                    Spacer(Modifier.height(4.dp))
+                    Text(if (busy) "WAIT" else "REC", style = DigitStyle.copy(fontSize = 16.sp), color = Chrome.carbon)
+                }
+            }
+        }
+        return
+    }
     val colors = MaterialTheme.colorScheme
     val active = enabled || busy
     val rotation by rememberInfiniteTransition(label = "shutterSpin").animateFloat(

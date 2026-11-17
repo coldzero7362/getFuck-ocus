@@ -1,5 +1,6 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.ui.components.CassetteNameplate
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -226,6 +227,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenAllowedApps: () -> Unit) {
                     onClick = { openAppDetails(context) },
                 )
             }
+            item { CassetteNameplate() }
         }
     }
 }

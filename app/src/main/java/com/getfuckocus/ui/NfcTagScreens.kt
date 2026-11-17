@@ -7,6 +7,15 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.unit.sp
 import com.getfuckocus.ui.components.FocusIconButton
+import com.getfuckocus.ui.components.CrtAlert
+import com.getfuckocus.ui.components.CrtMenu
+import com.getfuckocus.ui.components.CrtMenuItem
+import com.getfuckocus.ui.theme.SkinState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.translate
 import com.getfuckocus.ui.theme.Mulmaru
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -260,7 +269,8 @@ private const val SCAN_BLINK_MS = 420
 
 /**
  * 등록한 태그 한 장.
- * - 첫 줄: 이름(+ 연필 표시)과 등록일. 카드를 누르면 이름을 바꾼다 (어디에 붙인 태그인지 알아보게).
+ * - 카세트 스킨에서는 플로피 디스크 모양: 왼쪽 금속 셔터, 가운데 라벨 스티커, 오른쪽 아래 쓰기 방지 구멍.
+ * - 첫 줄: 이름(+ 연필 표시)과 오른쪽 끝에 등록일. 카드를 누르면 이름을 바꾼다 (어디에 붙인 태그인지 알아보게).
  * - 둘째 줄: 하드웨어 ID를 고정폭 글자로 작게, 자르지 않고 전부.
  * - 지우기는 실수로 누르지 않게 오른쪽 ⋮ 메뉴 안에 둔다 (누르면 확인 대화상자가 뜬다).
  * [scanKey]가 바뀔 때마다(이 태그가 찍힐 때마다) 초록 스캔 효과를 한 번 보여 준다.
@@ -287,10 +297,12 @@ private fun TagCard(
         blink.animateTo(0f, tween(SCAN_BLINK_MS))
     }
     var menuOpen by remember { mutableStateOf(false) }
+    val floppy = SkinState.isCassette
+    val registered = Instant.ofEpochMilli(tag.createdAt).atZone(ZoneId.systemDefault()).format(REGISTERED_FORMAT)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .plate(Chrome.platinum)
+            .then(if (floppy) Modifier.floppyBody() else Modifier.plate(Chrome.platinum))
             .combinedClickable(
                 onClickLabel = "이름 바꾸기",
                 onClick = onRename,
@@ -320,25 +332,39 @@ private fun TagCard(
                 }
                 if (blink.value > 0f) drawRect(SCAN_GREEN.copy(alpha = 0.35f * blink.value))
             }
-            .padding(start = 10.dp, top = 8.dp, end = 4.dp, bottom = 8.dp),
+            .padding(
+                start = 10.dp,
+                top = if (floppy) 10.dp else 8.dp,
+                end = 4.dp,
+                bottom = if (floppy) 10.dp else 8.dp,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SdCardIcon()
+        if (floppy) FloppyShutter() else SdCardIcon()
         Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .then(if (floppy) Modifier.floppyLabel() else Modifier),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // 이름 + 연필은 왼쪽에 붙이고, 등록일은 오른쪽 끝까지 민다
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        tag.name,
+                        style = MaterialTheme.typography.titleSmall.copy(fontFamily = Mulmaru),
+                        color = Chrome.carbon,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = Chrome.chromeIndigo, modifier = Modifier.size(14.dp))
+                }
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    tag.name,
-                    style = MaterialTheme.typography.titleSmall.copy(fontFamily = Mulmaru),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                Spacer(Modifier.width(4.dp))
-                Icon(Icons.Default.Edit, contentDescription = null, tint = Chrome.chromeIndigo, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.weight(1f))
-                Text(
-                    Instant.ofEpochMilli(tag.createdAt).atZone(ZoneId.systemDefault()).format(REGISTERED_FORMAT),
+                    registered,
                     style = MaterialTheme.typography.labelSmall,
                     color = Chrome.chromeIndigo,
                     maxLines = 1,
@@ -356,34 +382,152 @@ private fun TagCard(
                 Icons.Default.MoreVert,
                 contentDescription = "'${tag.name}' 메뉴",
                 onClick = { menuOpen = true },
-                tint = Chrome.carbon,
+                tint = if (floppy) FLOPPY_INK else Chrome.carbon,
             )
-            DropdownMenu(
-                expanded = menuOpen,
-                onDismissRequest = { menuOpen = false },
-                containerColor = Chrome.platinum,
-                shape = ChromeShapes.small,
-            ) {
-                DropdownMenuItem(
-                    text = { Text("이름 바꾸기", style = MaterialTheme.typography.bodyMedium) },
-                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = Chrome.carbon) },
-                    onClick = {
+            if (floppy) {
+                CrtMenu(expanded = menuOpen, onDismiss = { menuOpen = false }) {
+                    CrtMenuItem("이름 바꾸기", Icons.Default.Edit, Chrome.phosphor) {
                         menuOpen = false
                         onRename()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("삭제", style = MaterialTheme.typography.bodyMedium, color = Chrome.redInk) },
-                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Chrome.redInk) },
-                    onClick = {
+                    }
+                    CrtMenuItem("삭제", Icons.Default.Delete, CrtAlert) {
                         menuOpen = false
                         onDelete()
-                    },
-                )
+                    }
+                }
+            } else {
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                    containerColor = Chrome.platinum,
+                    shape = ChromeShapes.small,
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("이름 바꾸기", style = MaterialTheme.typography.bodyMedium) },
+                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = Chrome.carbon) },
+                        onClick = {
+                            menuOpen = false
+                            onRename()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("삭제", style = MaterialTheme.typography.bodyMedium, color = Chrome.redInk) },
+                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Chrome.redInk) },
+                        onClick = {
+                            menuOpen = false
+                            onDelete()
+                        },
+                    )
+                }
             }
         }
     }
 }
+
+/* ---- 카세트 스킨: 플로피 디스크 ---- */
+
+/** 플로피 몸체 색 (짙은 남회색 플라스틱)과 그 위 글자·아이콘 색 */
+private val FLOPPY_BODY = Color(0xFF2E3136)
+private val FLOPPY_INK = Color(0xFFC9C3B5)
+private val FLOPPY_METAL = Color(0xFFB4B7BA)
+
+/** 오른쪽 위 귀를 비스듬히 깎은 플로피 몸체 + 오른쪽 아래 쓰기 방지 구멍 */
+private fun Modifier.floppyBody(): Modifier = this
+    .drawBehind {
+        // 아래로 2dp 단단한 바닥 그림자
+        // 깎은 귀 모양 그대로 2dp 아래로 비켜 찍는다
+        val outline = FloppyShape.createOutline(size, layoutDirection, this)
+        translate(top = 2.dp.toPx()) { drawOutline(outline, Color.Black.copy(alpha = 0.55f)) }
+    }
+    .clip(FloppyShape)
+    .background(FLOPPY_BODY)
+    .drawWithContent {
+        drawContent()
+        // 쓰기 방지 구멍: 오른쪽 아래 작은 네모
+        val s = 7.dp.toPx()
+        val i = 6.dp.toPx()
+        drawRect(Color.Black, topLeft = Offset(size.width - i - s, size.height - i - s), size = Size(s, s))
+        // 몸체 위쪽 가장자리의 얇은 성형 선
+        drawRect(Color.White.copy(alpha = 0.10f), size = Size(size.width, 1.dp.toPx()))
+    }
+    .border(1.5.dp, Color.Black, FloppyShape)
+
+private val FloppyShape = CutCornerShape(topEnd = 12.dp)
+
+/** 라벨 스티커: 미색 종이 위에 색 띠 한 줄과 옅은 괘선 */
+private fun Modifier.floppyLabel(): Modifier = this
+    .clip(RoundedCornerShape(2.dp))
+    .background(Chrome.white)
+    .drawWithContent {
+        // 괘선
+        val step = 12.dp.toPx()
+        var y = 6.dp.toPx() + step
+        while (y < size.height) {
+            drawRect(Chrome.hairline.copy(alpha = 0.18f), topLeft = Offset(0f, y), size = Size(size.width, 1f))
+            y += step
+        }
+        drawContent()
+        // 위쪽 색 띠
+        drawRect(Chrome.signal, size = Size(size.width, 3.dp.toPx()))
+    }
+    .padding(start = 8.dp, end = 8.dp, top = 7.dp, bottom = 5.dp)
+
+/** 왼쪽 금속 셔터: 정사각 은색 판 위쪽에 NFC 무늬를 도트로 찍고, 아래쪽 가로 창으로 디스크 면이 보인다 */
+@Composable
+private fun FloppyShutter() {
+    Canvas(
+        Modifier
+            .size(46.dp)
+            .clip(RoundedCornerShape(2.dp))
+            .background(FLOPPY_METAL)
+            .border(1.dp, Color.Black.copy(alpha = 0.6f), RoundedCornerShape(2.dp)),
+    ) {
+        // 금속 윗변 반사
+        drawRect(Color.White.copy(alpha = 0.35f), size = Size(size.width, 1.dp.toPx()))
+
+        // NFC 무늬: 가운데 점과 양옆 두 겹 둥근 물결을 17×11 도트로
+        val px = 2.dp.toPx()
+        val gap = 0.3.dp.toPx()
+        val ox = (size.width - NFC_DOTS[0].length * px) / 2f
+        val oy = 5.dp.toPx()
+        NFC_DOTS.forEachIndexed { r, row ->
+            row.forEachIndexed { c, ch ->
+                if (ch == '#') {
+                    drawRect(
+                        FLOPPY_STAMP,
+                        topLeft = Offset(ox + c * px, oy + r * px),
+                        size = Size(px - gap, px - gap),
+                    )
+                }
+            }
+        }
+
+        // 아래쪽 가로 창과 그 안의 디스크 면
+        val w = size.width * 0.62f
+        val h = 8.dp.toPx()
+        val x = (size.width - w) / 2f
+        val y = size.height - h - 5.dp.toPx()
+        drawRect(Color(0xFF3A2A1E), topLeft = Offset(x, y), size = Size(w, h))
+        drawRect(Color.Black.copy(alpha = 0.5f), topLeft = Offset(x, y), size = Size(w, 1.5.dp.toPx()))
+    }
+}
+
+/** NFC 무늬 도트 (# = 찍힘) */
+private val NFC_DOTS = listOf(
+    "..#...........#..",
+    ".#.............#.",
+    ".#...#.....#...#.",
+    "#....#.....#....#",
+    "#...#..###..#...#",
+    "#...#..###..#...#",
+    "#...#..###..#...#",
+    "#....#.....#....#",
+    ".#...#.....#...#.",
+    ".#.............#.",
+    "..#...........#..",
+)
+
+private val FLOPPY_STAMP = Color(0xFF2F3236)
 
 /** 태그 이름 바꾸기. 비우거나 길게 쓰지 못하게 등록 화면과 같은 규칙을 쓴다 */
 @Composable

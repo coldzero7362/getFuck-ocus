@@ -1,5 +1,9 @@
 package com.getfuckocus.ui.theme
 
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -95,7 +99,7 @@ fun Modifier.plate(color: Color, shape: Shape = ChromeShapes.panel, bevel: Boole
             shape === ChromeShapes.panel -> Modifier.chamferBevel(PANEL_CUT)
             else -> Modifier.bevel()
         }
-    )
+    ).then(if (bevel && shape === ChromeShapes.panel && SkinState.isCassette) Modifier.screws() else Modifier)
 
 /** [ChromeShapes.panel]의 모서리를 깎은 길이 */
 private val PANEL_CUT = 10.dp
@@ -162,3 +166,35 @@ fun Modifier.halftone(dot: Color = Color(0x14FFFFFF), step: Dp = 5.dp, radius: D
             row++
         }
     }
+
+/** 카세트 스킨: 판 아래쪽 두 모서리에 일자 나사를 박는다. 홈 방향은 나사마다 조금씩 다르게 */
+fun Modifier.screws(inset: Dp = 11.dp, radius: Dp = 4.dp): Modifier = drawWithContent {
+    drawContent()
+    // 작은 판(칩·토스트 크기)에는 박지 않는다
+    if (size.height < 88.dp.toPx() || size.width < 120.dp.toPx()) return@drawWithContent
+    val i = inset.toPx()
+    val r = radius.toPx()
+    drawScrew(Offset(i, size.height - i), r, 35f)
+    drawScrew(Offset(size.width - i, size.height - i), r, -20f)
+}
+
+private fun DrawScope.drawScrew(center: Offset, r: Float, angle: Float) {
+    drawCircle(Color.Black.copy(alpha = 0.35f), radius = r + 1.dp.toPx(), center = center + Offset(0f, 1f))
+    drawCircle(
+        Brush.radialGradient(
+            0f to Color(0xFFF2EEE4),
+            1f to Color(0xFF9C9384),
+            center = center - Offset(r * 0.35f, r * 0.35f),
+            radius = r * 1.6f,
+        ),
+        radius = r,
+        center = center,
+    )
+    rotate(angle, pivot = center) {
+        drawRect(
+            Color(0xFF4A4239),
+            topLeft = Offset(center.x - r * 0.8f, center.y - r * 0.14f),
+            size = Size(r * 1.6f, r * 0.28f),
+        )
+    }
+}

@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
  */
 enum class Skin(val label: String, val caption: String) {
     NEWTRO("뉴트로", "2001년 게임기 메뉴 · 블루 라벤더"),
-    CASSETTE("카세트 퓨처리즘", "70~80년대 단말기 · 베이지 몸체와 CRT 화면"),
+    CASSETTE("카세트 퓨처리즘", "70~80년대 단말기 · 회갈색 철판과 CRT 화면"),
 }
 
 /** 한 스킨의 색. [Chrome]의 역할 이름을 그대로 따른다. */
@@ -80,36 +80,36 @@ internal val NewtroPalette = Palette(
     lockRaised = Color(0xFF232C4A),
 )
 
-/** 카세트 퓨처리즘: 퍼티 베이지 몸체, 짙은 갈색 패널, 검은 CRT에 형광 녹·앰버 글자, 번트 오렌지 키 */
+/** 카세트 퓨처리즘: 때 탄 산업용 회갈색 몸체, 짙은 갈색 패널, 검은 CRT에 형광 녹·앰버 글자, 번트 오렌지 키 */
 internal val CassettePalette = Palette(
-    signal = Color(0xFFE0662A),
-    amber = Color(0xFFF2B632),
-    navGold = Color(0xFFFFB23F),
-    canvas = Color(0xFFD6CDB8),
-    periwinkle = Color(0xFFCFC5AE),
-    sky = Color(0xFFE6DECB),
-    lavender = Color(0xFFE9E1CD),
-    ice = Color(0xFFC9E8CF),
-    chromeIndigo = Color(0xFF5A5043),
-    mutedIndigo = Color(0xFF7E7462),
-    platinum = Color(0xFFF4EFE3),
-    white = Color(0xFFFFFDF7),
+    signal = Color(0xFFD25A22),
+    amber = Color(0xFFE0A42A),
+    navGold = Color(0xFFF2A93A),
+    canvas = Color(0xFF9A9381),
+    periwinkle = Color(0xFFABA38F),
+    sky = Color(0xFFC4BCA8),
+    lavender = Color(0xFFCCC4B0),
+    ice = Color(0xFFB5D3BA),
+    chromeIndigo = Color(0xFF3F382F),
+    mutedIndigo = Color(0xFF554D40),
+    platinum = Color(0xFFDDD6C4),
+    white = Color(0xFFE9E3D4),
     carbon = Color(0xFF2B2620),
-    hairline = Color(0xFF8F8574),
+    hairline = Color(0xFF6E6656),
     teal = Color(0xFF1E6B3A),
     success = Color(0xFF3DBB6A),
     warning = Color(0xFFF2B632),
-    warningSoft = Color(0xFFF1E3B0),
+    warningSoft = Color(0xFFE3D39F),
     red = Color(0xFFC8442A),
-    redSoft = Color(0xFFF3D3C6),
+    redSoft = Color(0xFFE3C2B4),
     redInk = Color(0xFF8A2B12),
     highlight = Color(0x99FFFFFF),
     screen = Color(0xFF0E120F),
     phosphor = Color(0xFF7DFF9E),
     phosphorDim = Color(0xFF5FC57E),
     phosphorAmber = Color(0xFFFFB23F),
-    lockContent = Color(0xFFE9DFC8),
-    lockRaised = Color(0xFF3A332B),
+    lockContent = Color(0xFFDDD3BC),
+    lockRaised = Color(0xFF302A23),
 )
 
 /** 형광 글자처럼 살짝 번지게 한다 (CRT 칸 안의 글자에만) */

@@ -1,5 +1,22 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.ui.components.CassetteNameplate
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.Paint
+import android.graphics.BlurMaskFilter
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.foundation.Canvas
+import com.getfuckocus.ui.components.CrtAlert
+import com.getfuckocus.ui.components.PlateKey
+import com.getfuckocus.ui.theme.SkinState
+import com.getfuckocus.ui.theme.phosphorGlow
+import com.getfuckocus.ui.theme.scanlines
+import androidx.compose.foundation.shape.RoundedCornerShape
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,6 +61,14 @@ import com.getfuckocus.ui.components.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -297,6 +322,7 @@ fun TaskListScreen(
                     onStartNow = { confirmStart = task },
                 )
             }
+            if (loadedTasks?.isNotEmpty() == true) item { CassetteNameplate() }
         }
     }
 
@@ -438,11 +464,11 @@ private fun HeroCard(
             when {
                 inProgress != null -> FocusButton(
                     method.actionLabel, onClick = onVerify,
-                    modifier = Modifier.fillMaxWidth(), icon = method.actionIcon, height = 56.dp,
+                    modifier = Modifier.fillMaxWidth(), icon = method.actionIcon, height = 56.dp, plated = true,
                 )
                 else -> FocusButton(
                     "지금 바로 시작", onClick = onStartNow,
-                    modifier = Modifier.fillMaxWidth(), icon = Icons.Default.PlayArrow, height = 56.dp,
+                    modifier = Modifier.fillMaxWidth(), icon = Icons.Default.PlayArrow, height = 56.dp, plated = true,
                 )
             }
         }
@@ -464,6 +490,10 @@ private fun HeroTimeBox(
     to: String,
     progress: Float?,
 ) {
+    if (SkinState.isCassette) {
+        CrtHeroTimeBox(label, value, valueColor, from, to, progress)
+        return
+    }
     Column(
         Modifier
             .fillMaxWidth()
@@ -487,6 +517,50 @@ private fun HeroTimeBox(
             )
             Spacer(Modifier.weight(1f))
             Text("$to 마감", style = MaterialTheme.typography.labelMedium, color = Chrome.chromeIndigo)
+        }
+    }
+}
+
+/**
+ * 카세트 스킨의 시간 칸: 짙은 갈색 테에 끼운 검은 CRT. 라벨·시각은 흐린 형광 녹, 남은 시간은 번지는 앰버 숫자.
+ * 시작 전처럼 급하지 않은 값은 형광 녹으로 둔다.
+ */
+@Composable
+private fun CrtHeroTimeBox(
+    label: String,
+    value: String,
+    valueColor: Color,
+    from: String,
+    to: String,
+    progress: Float?,
+) {
+    val ink = if (valueColor == Chrome.redInk) Chrome.phosphorAmber else Chrome.phosphor
+    val dim = Chrome.phosphorDim
+    val small = MaterialTheme.typography.labelMedium.copy(shadow = phosphorGlow(dim))
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Chrome.carbon)
+            .padding(3.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(Chrome.screen)
+            .scanlines()
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(PixelIcons.Hourglass, contentDescription = null, tint = dim, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge.copy(shadow = phosphorGlow(dim)), color = dim)
+            Spacer(Modifier.weight(1f))
+            Text(value, style = DigitStyle.copy(fontSize = 34.sp, shadow = phosphorGlow(ink)), color = ink, maxLines = 1)
+        }
+        if (progress != null) FocusProgressBar(progress)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(if (progress != null) from else "$from 시작", style = small, color = dim)
+            Spacer(Modifier.weight(1f))
+            Text("$to 마감", style = small, color = dim)
         }
     }
 }
@@ -516,6 +590,10 @@ private fun TodayProgressStrip(entries: List<Pair<TaskEntity, TaskStatus>>, now:
         }
     }
     val done = todays.count { it == TaskStatus.Done }
+    if (SkinState.isCassette) {
+        CassetteTodayLeds(ordered, done, todays.size)
+        return
+    }
     Row(
         Modifier
             .fillMaxWidth()
@@ -550,6 +628,101 @@ private fun TodayProgressStrip(entries: List<Pair<TaskEntity, TaskStatus>>, now:
         Text("완료", style = MaterialTheme.typography.labelMedium, color = Chrome.chromeIndigo)
     }
 }
+
+/**
+ * 카세트 스킨의 오늘 진행 줄: 검은 패널에 박은 LED 램프 한 줄.
+ * 완료는 녹색, 시간 초과는 빨강으로 켜지고, 진행 중은 앰버로 천천히 깜빡인다. 시작 전은 꺼진 렌즈.
+ */
+@Composable
+private fun CassetteTodayLeds(ordered: List<TaskStatus>, done: Int, total: Int) {
+    val transition = rememberInfiniteTransition(label = "led")
+    val pulse by transition.animateFloat(
+        0.35f, 1f,
+        infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
+        label = "ledPulse",
+    )
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .plate(Chrome.periwinkle, ChromeShapes.small)
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "오늘 과제 ${total}개 중 ${done}개 완료" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("오늘", style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
+        Spacer(Modifier.width(12.dp))
+        Row(
+            Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Chrome.carbon)
+                .padding(2.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(LED_PANEL)
+                .padding(horizontal = 8.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ordered.forEach { s ->
+                val (color, level) = when (s) {
+                    TaskStatus.Done -> Chrome.phosphor to 1f
+                    TaskStatus.Missed -> CrtAlert to 1f
+                    is TaskStatus.InProgress -> Chrome.phosphorAmber to pulse
+                    else -> Color.Unspecified to 0f
+                }
+                LedLamp(color, level, Modifier.weight(1f).height(9.dp))
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Text("$done", style = DigitStyle.copy(fontSize = 22.sp), color = Chrome.carbon)
+        Text("/$total", style = DigitStyle.copy(fontSize = 16.sp), color = Chrome.chromeIndigo)
+        Spacer(Modifier.width(4.dp))
+        Text("완료", style = MaterialTheme.typography.labelMedium, color = Chrome.chromeIndigo)
+    }
+}
+
+/**
+ * 직사각 LED 렌즈 하나. [level] 0이면 꺼진 렌즈, 1이면 다 켜진 상태(주변 번짐 포함).
+ * 렌즈 위쪽엔 작은 반사광을 찍어 플라스틱 덮개처럼 보이게 한다.
+ */
+@Composable
+private fun LedLamp(color: Color, level: Float, modifier: Modifier) {
+    Canvas(modifier) {
+        val r = CornerRadius(2.dp.toPx())
+        if (level > 0f) {
+            // 주변으로 번지는 빛: 렌즈 모양을 흐리게 번지게 찍는다
+            drawIntoCanvas { canvas ->
+                val glow = Paint().asFrameworkPaint().apply {
+                    isAntiAlias = true
+                    this.color = color.copy(alpha = 0.75f * level).toArgb()
+                    maskFilter = BlurMaskFilter(6.dp.toPx(), BlurMaskFilter.Blur.NORMAL)
+                }
+                canvas.nativeCanvas.drawRoundRect(0f, 0f, size.width, size.height, r.x, r.y, glow)
+            }
+            // 렌즈: 꺼진 색 위에 켜진 색을 밝기만큼
+            drawRoundRect(LED_OFF, cornerRadius = r)
+            drawRoundRect(color.copy(alpha = level), cornerRadius = r)
+            // 가운데 더 밝은 심
+            drawRoundRect(
+                Color.White.copy(alpha = 0.35f * level),
+                topLeft = Offset(size.width * 0.2f, size.height * 0.35f),
+                size = Size(size.width * 0.6f, size.height * 0.3f),
+                cornerRadius = r,
+            )
+        } else {
+            drawRoundRect(LED_OFF, cornerRadius = r)
+        }
+        // 덮개 테와 반사광
+        drawRoundRect(Color.Black.copy(alpha = 0.6f), cornerRadius = r, style = Stroke(1.dp.toPx()))
+        drawRect(
+            Color.White.copy(alpha = if (level > 0f) 0.45f else 0.12f),
+            topLeft = Offset(3.dp.toPx(), 1.5.dp.toPx()),
+            size = Size(size.width * 0.25f, 1.dp.toPx()),
+        )
+    }
+}
+
+private val LED_PANEL = Color(0xFF141210)
+private val LED_OFF = Color(0xFF3A332C)
 
 /** 잠기거나 억제 화면이 걸린 동안의 맨 위 카드. 일반 홈과 같은 판 구조에 빨간 탭으로 상태만 바꿔 보여 준다. */
 @Composable
@@ -601,13 +774,13 @@ private fun LockHeroCard(
             // 앱 안에서는 잠금 화면을 거치지 않고 바로 인증한다
             FocusButton(
                 "지금 인증하기", onClick = onVerifyNow,
-                modifier = Modifier.fillMaxWidth(), icon = method.actionIcon, height = 56.dp,
+                modifier = Modifier.fillMaxWidth(), icon = method.actionIcon, height = 56.dp, plated = true,
             )
             // 비상 해제와 긴급전화는 잠금 화면에만 있으므로 그리로 가는 길은 남겨 둔다
             FocusButton(
                 "비상 해제 · 긴급전화", onClick = onOpenLock,
                 modifier = Modifier.fillMaxWidth(), style = FocusButtonStyle.Outline,
-                icon = Icons.Default.Lock, height = 48.dp,
+                icon = Icons.Default.Lock, height = 48.dp, plated = true,
             )
         }
     }
@@ -758,6 +931,12 @@ private fun CardAction(
             icon = method.actionIcon, iconScale = iconScale, containerColor = Chrome.amber,
         )
         // 완료 원: 위는 밝게, 아래는 그늘지게 둘러 살짝 튀어나온 단추처럼
+        // 카세트: 판 위 키가 눌린 채 걸린 완료 표시
+        status == TaskStatus.Done && SkinState.isCassette -> PlateKey(
+            onClick = {}, modifier = Modifier.size(60.dp), color = Chrome.ice, latched = true,
+        ) {
+            Icon(PixelIcons.Check, contentDescription = "완료", tint = Chrome.teal, modifier = Modifier.size(28.dp))
+        }
         status == TaskStatus.Done -> Box(
             Modifier
                 .size(52.dp)
@@ -805,14 +984,61 @@ private fun StatusBadge(status: TaskStatus) {
         is TaskStatus.RestDay -> BadgeStyle("쉬는 날", Icons.Default.Home, Chrome.sky, Chrome.carbon)
         is TaskStatus.InProgress -> BadgeStyle("진행 중", Icons.Default.PlayArrow, Chrome.amber, Chrome.carbon)
         TaskStatus.Done -> BadgeStyle("완료", PixelIcons.CheckCircle, Chrome.ice, Chrome.teal)
-        TaskStatus.Missed -> BadgeStyle("놓침", Icons.Default.Warning, Chrome.redSoft, Chrome.redInk)
+        TaskStatus.Missed -> BadgeStyle("시간 초과", Icons.Default.Warning, Chrome.redSoft, Chrome.redInk)
         TaskStatus.Disabled -> BadgeStyle("꺼짐", Icons.Default.Close, Chrome.white, Chrome.hairline)
+    }
+    if (SkinState.isCassette) {
+        CrtStatusBadge(status, style.text)
+        return
     }
     // 상태 배지도 위 밝은 선 + 아래 그늘로 살짝 튀어나온 명찰처럼
     Pill(
         style.text, style.container, style.content, icon = style.icon,
         modifier = Modifier.bevel(highlight = Color(0xB3FFFFFF), shadow = Color(0x40000000), highlightWidth = 1.dp, shadowWidth = 2.dp),
     )
+}
+
+/**
+ * 카세트 스킨의 상태 배지: 판에 박힌 작은 검은 단말기 화면에 "> 상태" 한 줄.
+ * 지금 손써야 하는 상태(진행 중, 시간 초과)는 커서가 깜빡인다.
+ */
+@Composable
+private fun CrtStatusBadge(status: TaskStatus, text: String) {
+    val ink = when (status) {
+        is TaskStatus.InProgress -> Chrome.phosphorAmber
+        TaskStatus.Missed -> CrtAlert
+        TaskStatus.Done -> Chrome.phosphor
+        TaskStatus.Disabled -> Chrome.phosphorDim.copy(alpha = 0.55f)
+        else -> Chrome.phosphorDim
+    }
+    val blinking = status is TaskStatus.InProgress || status == TaskStatus.Missed
+    val cursorOn = if (blinking) {
+        val t = rememberInfiniteTransition(label = "cursor")
+        val v by t.animateFloat(
+            0f, 1f,
+            infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart),
+            label = "cursorBlink",
+        )
+        v < 0.5f
+    } else false
+    val glyph = DigitStyle.copy(fontSize = 15.sp, shadow = phosphorGlow(ink))
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(Chrome.carbon)
+            .padding(2.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .background(Chrome.screen)
+            .scanlines()
+            .padding(start = 8.dp, end = 6.dp, top = 4.dp, bottom = 4.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "상태: $text" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("> ", style = glyph, color = ink.copy(alpha = 0.7f))
+        Text(text, style = glyph, color = ink)
+        // 커서 자리는 늘 차지해서 깜빡여도 폭이 흔들리지 않는다
+        Text("_", style = glyph, color = if (blinking && cursorOn) ink else Color.Transparent)
+    }
 }
 
 /** 인증 방식·장소·사진 조건을 아이콘과 짧은 라벨로. 좁은 화면에서는 다음 줄로 넘긴다. */

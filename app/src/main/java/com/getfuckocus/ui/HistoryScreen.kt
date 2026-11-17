@@ -1,5 +1,20 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.ui.components.CassetteNameplate
+import com.getfuckocus.ui.components.CrtAlert
+import com.getfuckocus.ui.components.BankInk
+import com.getfuckocus.ui.components.BankKey
+import com.getfuckocus.ui.components.KeyBank
+import com.getfuckocus.ui.components.TapeCounter
+import com.getfuckocus.ui.components.TapeDrums
+import com.getfuckocus.ui.components.crtScreen
+import com.getfuckocus.ui.theme.SkinState
+import com.getfuckocus.ui.theme.phosphorGlow
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -120,6 +135,7 @@ fun HistoryScreen() {
             item { DayDetailPanel(selected, activeTasks, attempts, now, passes) }
             // 부가 통계는 달력과 그날 기록 아래에 둔다
             item { StreakPanel(activeTasks, now, passes) }
+            item { CassetteNameplate() }
         }
     }
 }
@@ -155,7 +171,17 @@ private fun StreakPanel(tasks: List<TaskEntity>, now: ZonedDateTime, passes: Pas
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    Pill(
+                    if (SkinState.isCassette) {
+                        // 카세트 데크의 테이프 카운터처럼 숫자 드럼으로
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clearAndSetSemantics { contentDescription = "${streak}일 연속" },
+                        ) {
+                            TapeCounter(streak)
+                            Spacer(Modifier.width(6.dp))
+                            Text("일 연속", style = MaterialTheme.typography.labelMedium, color = Chrome.chromeIndigo)
+                        }
+                    } else Pill(
                         "${streak}일 연속",
                         if (streak > 0) Chrome.amber else Chrome.white,
                         Chrome.carbon,
@@ -192,7 +218,32 @@ private fun CalendarPanel(
     FocusPanel(
         title = "${month.year}년 ${month.monthValue}월",
         icon = Icons.Default.DateRange,
+        // 카세트 스킨: 연도·달을 테이프 카운터 드럼으로
+        cassetteTitle = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TapeCounter(month.year, digits = 4)
+                Text(" 년 ", style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
+                TapeCounter(month.monthValue, digits = 2)
+                Text(" 월", style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
+            }
+        },
         trailing = {
+            if (SkinState.isCassette) {
+                // 카세트 스킨: 붙은 납작한 키 두 개
+                KeyBank(caption = null) {
+                    BankKey(onClick = { onMonthChange(month.minusMonths(1)) }, onClickLabel = "이전 달") {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "이전 달", tint = BankInk, modifier = Modifier.size(18.dp))
+                    }
+                    BankKey(
+                        onClick = { onMonthChange(month.plusMonths(1)) },
+                        onClickLabel = "다음 달",
+                        enabled = month.isBefore(thisMonth),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "다음 달", tint = BankInk, modifier = Modifier.size(18.dp))
+                    }
+                }
+                return@FocusPanel
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 MonthButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "이전 달", enabled = true) {
                     onMonthChange(month.minusMonths(1))
@@ -222,13 +273,33 @@ private fun CalendarPanel(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             FocusStatBox(
-                label = "놓침",
+                label = "시간 초과",
                 value = "${missedCount}회",
                 icon = Icons.Default.Close,
                 valueColor = Chrome.redInk,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
             )
         }
+        if (SkinState.isCassette) {
+            CrtCalendar(month, selected, onSelect, tasks, now, passes)
+        } else {
+            ClassicCalendar(month, selected, onSelect, tasks, now, passes)
+        }
+    }
+}
+
+/** 뉴트로 스킨의 달력: 요일 줄, 결과 색으로 칠한 날짜 칸, 범례 */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ClassicCalendar(
+    month: YearMonth,
+    selected: LocalDate,
+    onSelect: (LocalDate) -> Unit,
+    tasks: List<TaskEntity>,
+    now: ZonedDateTime,
+    passes: PassIndex,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             DayOfWeek.entries.forEach { day ->
                 Text(
@@ -274,13 +345,142 @@ private fun CalendarPanel(
     }
 }
 
+/**
+ * 카세트 스킨의 달력: 검은 CRT 화면에 형광 글자로 찍은 날짜 격자.
+ * 결과는 글자색과 기호로 함께 구분하고, 오늘은 반전(형광 바탕에 검은 글자), 고른 날은 앰버 테로 표시한다.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CrtCalendar(
+    month: YearMonth,
+    selected: LocalDate,
+    onSelect: (LocalDate) -> Unit,
+    tasks: List<TaskEntity>,
+    now: ZonedDateTime,
+    passes: PassIndex,
+) {
+    Column(
+        Modifier.fillMaxWidth().crtScreen().padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            DayOfWeek.entries.forEach { day ->
+                Text(
+                    TaskSchedule.dayName(day),
+                    style = MaterialTheme.typography.labelMedium.copy(shadow = phosphorGlow(Chrome.phosphorDim)),
+                    color = Chrome.phosphorDim,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        val leading = month.atDay(1).dayOfWeek.value - 1
+        val cells = leading + month.lengthOfMonth()
+        for (week in 0 until (cells + 6) / 7) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (col in 0 until 7) {
+                    val dayOfMonth = week * 7 + col - leading + 1
+                    if (dayOfMonth in 1..month.lengthOfMonth()) {
+                        val date = month.atDay(dayOfMonth)
+                        CrtDayCell(
+                            date = date,
+                            result = History.dayResult(tasks, date, now, passes),
+                            selected = date == selected,
+                            today = date == now.toLocalDate(),
+                            onClick = { onSelect(date) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+        Spacer(
+            Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp)
+                .background(Chrome.phosphorDim.copy(alpha = 0.3f))
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf(DayResult.PASSED, DayResult.PARTIAL, DayResult.MISSED).forEach { result ->
+                val style = dayStyle(result)
+                CrtLegend(style.label, crtInk(result), style.icon)
+            }
+            CrtLegend("오늘", Chrome.phosphor, null, inverse = true)
+            CrtLegend("선택한 날", Chrome.phosphorAmber, null, framed = true)
+        }
+    }
+}
+
+/** CRT 화면에서 결과별 글자색 */
+private fun crtInk(result: DayResult): Color = when (result) {
+    DayResult.PASSED -> Chrome.phosphor
+    DayResult.PARTIAL -> Chrome.phosphorAmber
+    DayResult.MISSED -> CrtAlert
+    DayResult.PENDING -> Chrome.phosphorDim
+    DayResult.NONE -> Chrome.phosphorDim.copy(alpha = 0.55f)
+    DayResult.FUTURE -> Chrome.phosphorDim.copy(alpha = 0.22f)
+}
+
+@Composable
+private fun CrtDayCell(
+    date: LocalDate,
+    result: DayResult,
+    selected: Boolean,
+    today: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    val style = dayStyle(result)
+    val ink = crtInk(result)
+    val lit = result == DayResult.PASSED || result == DayResult.PARTIAL || result == DayResult.MISSED
+    val shape = RoundedCornerShape(3.dp)
+    Box(
+        modifier = modifier
+            .aspectRatio(0.86f)
+            .clip(shape)
+            .background(if (lit) ink.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.03f))
+            .border(if (selected) 2.dp else 1.dp, if (selected) Chrome.phosphorAmber else ink.copy(alpha = 0.28f), shape)
+            .clickable(onClickLabel = "${date.monthValue}월 ${date.dayOfMonth}일 기록 보기", onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                "${date.dayOfMonth}",
+                style = DigitStyle.copy(fontSize = 15.sp, shadow = if (today) null else phosphorGlow(ink)),
+                color = if (today) Chrome.screen else ink,
+                textAlign = TextAlign.Center,
+                modifier = if (today) Modifier.background(Chrome.phosphor).padding(horizontal = 4.dp) else Modifier,
+            )
+            val icon = style.icon
+            if (icon != null) {
+                Icon(icon, contentDescription = style.label, tint = ink, modifier = Modifier.size(12.dp))
+            } else {
+                Spacer(Modifier.size(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CrtLegend(label: String, ink: Color, icon: ImageVector?, inverse: Boolean = false, framed: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        when {
+            icon != null -> Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.size(12.dp))
+            inverse -> Box(Modifier.size(12.dp).background(ink))
+            framed -> Box(Modifier.size(12.dp).border(2.dp, ink))
+        }
+        Spacer(Modifier.width(5.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium.copy(shadow = phosphorGlow(ink)), color = ink)
+    }
+}
+
 private data class DayStyle(val label: String, val container: Color, val content: Color, val icon: ImageVector?)
 
 /** 결과는 색과 아이콘을 함께 쓴다 (색만으로 구분하지 않는다) */
 private fun dayStyle(result: DayResult): DayStyle = when (result) {
     DayResult.PASSED -> DayStyle("통과", Chrome.ice, Chrome.teal, Icons.Default.CheckCircle)
     DayResult.PARTIAL -> DayStyle("일부", Chrome.warningSoft, Chrome.carbon, Icons.Default.Warning)
-    DayResult.MISSED -> DayStyle("놓침", Chrome.redSoft, Chrome.redInk, Icons.Default.Close)
+    DayResult.MISSED -> DayStyle("시간 초과", Chrome.redSoft, Chrome.redInk, Icons.Default.Close)
     DayResult.PENDING -> DayStyle("마감 전", Chrome.sky, Chrome.carbon, PixelIcons.Hourglass)
     DayResult.NONE -> DayStyle("없음", Chrome.white, Chrome.hairline, null)
     DayResult.FUTURE -> DayStyle("", Chrome.white.copy(alpha = 0.45f), Chrome.hairline, null)
@@ -363,11 +563,26 @@ private fun DayDetailPanel(
     val missedN = occurrences.count { it.second == OccurrenceResult.MISSED }
     FocusPanel(
         title = "${date.monthValue}월 ${date.dayOfMonth}일 ${TaskSchedule.dayName(date.dayOfWeek)}요일",
-        subtitle = if (occurrences.isEmpty()) null else "과제 ${occurrences.size}개 · 통과 $passedN · 놓침 $missedN",
+        subtitle = if (occurrences.isEmpty()) null else "과제 ${occurrences.size}개 · 통과 $passedN · 시간 초과 $missedN",
         icon = PixelIcons.Flag,
+        // 카세트 스킨: 날짜를 드럼 카운터로 (월 2칸 · 일 2칸 · 요일 1칸)
+        cassetteTitle = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TapeCounter(date.monthValue, digits = 2)
+                Text(" 월 ", style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
+                TapeCounter(date.dayOfMonth, digits = 2)
+                Text(" 일 ", style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
+                TapeDrums(TaskSchedule.dayName(date.dayOfWeek))
+                Text(" 요일", style = MaterialTheme.typography.titleSmall, color = Chrome.carbon)
+            }
+        },
     ) {
         if (occurrences.isEmpty()) {
             Text("이날은 과제가 없었어요", style = MaterialTheme.typography.bodyMedium, color = Chrome.chromeIndigo)
+        }
+        if (SkinState.isCassette) {
+            occurrences.forEach { (task, result) -> CrtOccurrenceLog(task, result, attempts.filter { it.taskId == task.id }) }
+            return@FocusPanel
         }
         occurrences.forEach { (task, result) ->
             Column(
@@ -399,12 +614,79 @@ private fun DayDetailPanel(
     }
 }
 
+/**
+ * 카세트 스킨의 그날 기록: 과제 하나를 단말기 출력 한 덩어리로. 첫 줄은 "> 과제 이름 [결과]",
+ * 아래로 인증 시도가 시각순 로그 줄로 찍히고 실패 이유는 들여쓴 줄로 붙는다.
+ */
+@Composable
+private fun CrtOccurrenceLog(task: TaskEntity, result: OccurrenceResult, attempts: List<AttemptEntity>) {
+    val (tag, tagInk) = when (result) {
+        OccurrenceResult.PASSED -> "통과" to Chrome.phosphor
+        OccurrenceResult.LATE -> "늦게 통과" to Chrome.phosphorAmber
+        OccurrenceResult.MISSED -> "시간 초과" to CrtAlert
+        OccurrenceResult.PENDING -> "마감 전" to Chrome.phosphorDim
+        OccurrenceResult.NONE -> "" to Chrome.phosphorDim
+    }
+    val head = Chrome.phosphor
+    Column(
+        Modifier.fillMaxWidth().crtScreen(6.dp).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "> ${task.title}",
+                style = DigitStyle.copy(fontSize = 16.sp, shadow = phosphorGlow(head)),
+                color = head,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("[$tag]", style = DigitStyle.copy(fontSize = 14.sp, shadow = phosphorGlow(tagInk)), color = tagInk)
+        }
+        if (attempts.isEmpty()) {
+            Text("  인증 시도 없음", style = DigitStyle.copy(fontSize = 13.sp), color = Chrome.phosphorDim.copy(alpha = 0.75f))
+        }
+        attempts.forEach { CrtAttemptLine(it) }
+    }
+}
+
+@Composable
+private fun CrtAttemptLine(attempt: AttemptEntity) {
+    val time = Instant.ofEpochMilli(attempt.capturedAt).atZone(ZoneId.systemDefault())
+    val photo = attempt.method == VerifyMethod.PHOTO
+    val ink = if (attempt.passed) Chrome.phosphor else CrtAlert
+    Row(verticalAlignment = Alignment.Top) {
+        if (photo) {
+            AttemptThumbnail(attempt.photoPath, size = 40.dp)
+            Spacer(Modifier.width(10.dp))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                "${TaskSchedule.formatMinute(time.hour * 60 + time.minute)}  ${attempt.method.title}  " +
+                    if (attempt.passed) "통과" else "실패",
+                style = DigitStyle.copy(fontSize = 14.sp, shadow = phosphorGlow(ink)),
+                color = ink,
+            )
+            attempt.reasons.lineSequence().filter { it.isNotBlank() }.take(3).forEach {
+                Text(
+                    "  └ $it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Chrome.phosphorDim,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun ResultPill(result: OccurrenceResult) {
     when (result) {
         OccurrenceResult.PASSED -> Pill("통과", Chrome.ice, Chrome.teal, icon = Icons.Default.CheckCircle)
         OccurrenceResult.LATE -> Pill("늦게 통과", Chrome.amber, Chrome.carbon, icon = Icons.Default.Warning)
-        OccurrenceResult.MISSED -> Pill("놓침", Chrome.redSoft, Chrome.redInk, icon = Icons.Default.Close)
+        OccurrenceResult.MISSED -> Pill("시간 초과", Chrome.redSoft, Chrome.redInk, icon = Icons.Default.Close)
         OccurrenceResult.PENDING -> Pill("마감 전", Chrome.sky, Chrome.carbon, icon = PixelIcons.Hourglass)
         OccurrenceResult.NONE -> Unit
     }
@@ -457,7 +739,7 @@ private fun MethodMark(method: VerifyMethod, passed: Boolean) {
 
 /** 보존 기간이 지나 사진이 지워졌으면 빈 칸으로 둔다. */
 @Composable
-private fun AttemptThumbnail(path: String) {
+private fun AttemptThumbnail(path: String, size: Dp = 52.dp) {
     val bitmap by produceState<ImageBitmap?>(null, path) {
         value = if (path.isEmpty()) null else withContext(Dispatchers.IO) {
             runCatching {
@@ -469,7 +751,7 @@ private fun AttemptThumbnail(path: String) {
     }
     Box(
         Modifier
-            .size(52.dp)
+            .size(size)
             .clip(ChromeShapes.small)
             .background(Chrome.carbon),
         contentAlignment = Alignment.Center,

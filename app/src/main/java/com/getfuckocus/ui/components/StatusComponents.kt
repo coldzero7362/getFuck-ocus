@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -318,6 +319,10 @@ fun FocusSectionLabel(text: String, modifier: Modifier = Modifier, count: Int? =
                     .background(Chrome.carbon)
                     .padding(horizontal = 7.dp, vertical = 2.dp),
             )
+        }
+        // 카세트 스킨: 남은 자리에 계기판 눈금
+        if (SkinState.isCassette) {
+            TickRuler(Modifier.weight(1f).padding(start = 14.dp).height(12.dp))
         }
     }
 }
