@@ -1,5 +1,6 @@
 package com.getfuckocus
 
+import com.getfuckocus.verify.ScreenshotReader
 import android.content.Context
 import com.getfuckocus.data.AppDatabase
 import com.getfuckocus.lock.LockController
@@ -31,6 +32,7 @@ class AppContainer(context: Context) {
     val verificationFlow = VerificationFlow(
         taskDao, nfcTagDao, evidenceCollector, PhotoVerifier(), lockController, deviceClock,
         AchievementRecorder(taskDao, achievementDao, deviceClock),
+        ScreenshotReader(appContext),
     )
     val photoRetention = PhotoRetention(appContext, taskDao)
     /** 요청 간격 제한과 캐시를 앱 전체에서 함께 쓰도록 하나만 둔다 */

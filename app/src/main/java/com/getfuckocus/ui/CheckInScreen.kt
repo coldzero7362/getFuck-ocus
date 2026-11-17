@@ -1,5 +1,10 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.ui.theme.PixelIcons
+import com.getfuckocus.verify.ScreenshotCheckResult
+import com.getfuckocus.data.screenshotKeywordList
+import androidx.activity.result.PickVisualMediaRequest
+import android.net.Uri
 import com.getfuckocus.devtools.CheckInTestButtons
 import com.getfuckocus.data.nfcTagIdList
 import android.Manifest
@@ -59,6 +64,7 @@ import kotlinx.coroutines.launch
  * - 탭 체크: 버튼을 누르면 체크
  * - 위치: 버튼을 누르면 지금 위치를 재서 정한 장소 근처인지 본다
  * - NFC: 화면이 떠 있는 동안 태그를 기다렸다가, 이 과제에 고른 태그인지 본다
+ * - 스크린샷: 갤러리에서 다른 앱의 완료 화면 캡처를 골라, 찍은 시각과 캡처 속 글자를 본다
  */
 @Composable
 fun CheckInScreen(taskId: Long, onBack: () -> Unit) {
@@ -73,6 +79,22 @@ fun CheckInScreen(taskId: Long, onBack: () -> Unit) {
     var result by remember { mutableStateOf<CheckInResult?>(null) }
     // 장소 밖 실패 화면을 닫았는지. 다시 체크하면 새 결과로 또 띄운다
     var missDismissed by remember { mutableStateOf(false) }
+    var shotResult by remember { mutableStateOf<ScreenshotCheckResult?>(null) }
+
+    fun runShot(t: TaskEntity, uri: Uri) {
+        if (checking) return
+        checking = true
+        scope.launch {
+            shotResult = container.verificationFlow.checkScreenshot(t, uri)
+            checking = false
+        }
+    }
+    // 사진 선택기: 저장소 권한 없이 고른 이미지 하나만 읽는다
+    val screenshotPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val t = task
+        if (uri != null && t != null) runShot(t, uri)
+    }
+    fun pickScreenshot() = screenshotPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
 
     fun run(t: TaskEntity, scannedUid: String? = null) {
         if (checking) return
@@ -123,8 +145,23 @@ fun CheckInScreen(taskId: Long, onBack: () -> Unit) {
         ) {
             if (t == null) return@Column
             val r = result
+            val shot = shotResult
             when {
                 r != null && r.verdict == Verdict.Pass -> PassPanel(r, onBack)
+                shot != null && shot.verdict == Verdict.Pass ->
+                    PassPanel(CheckInResult(Verdict.Pass, late = false, releasedLock = shot.releasedLock), onBack)
+                t.verifyMethod == VerifyMethod.SCREENSHOT -> {
+                    ScreenshotPanel(t.screenshotKeywordList(), busy = checking, onPick = ::pickScreenshot)
+                    (shot?.verdict as? Verdict.Fail)?.let { fail ->
+                        FocusNotice(
+                            fail.reasons.joinToString("\n"),
+                            title = "체크하지 못했어요",
+                            tone = Tone.Danger,
+                            icon = Icons.Default.Warning,
+                        )
+                        ReadTextPanel(shot.text)
+                    }
+                }
                 else -> {
                     when (t.verifyMethod) {
                         VerifyMethod.NFC -> NfcWaitPanel(tags, nfcAvailability, checking)
@@ -199,6 +236,44 @@ private fun ActionPanel(
         )
     }
 }
+
+/** 스크린샷 인증 안내: 무엇을 캡처해 와야 하는지와 고르기 버튼 */
+@Composable
+private fun ScreenshotPanel(keywords: List<String>, busy: Boolean, onPick: () -> Unit) {
+    FocusPanel(title = "완료 화면 캡처를 골라 주세요", modifier = Modifier.fillMaxWidth()) {
+        Text(
+            "인증 시간 안에 찍은 캡처에 " + keywords.joinToString(", ") { "'$it'" } + " 글자와 " +
+                "그 옆에 기록된 시각이 보이면 체크돼요. 캡처는 기기 안에서만 읽어요.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        FocusButton(
+            if (busy) "캡처 읽는 중…" else "캡처 고르기",
+            onClick = onPick,
+            modifier = Modifier.fillMaxWidth(),
+            icon = PixelIcons.Screenshot,
+            height = 60.dp,
+            enabled = !busy,
+        )
+    }
+}
+
+/** 실패했을 때 캡처에서 실제로 읽힌 글자. 단어를 어떻게 정해야 할지 가늠하게 해 준다 */
+@Composable
+private fun ReadTextPanel(text: String) {
+    FocusPanel(
+        title = "캡처에서 읽은 글자",
+        subtitle = "단어가 다르게 읽혔다면 과제 편집에서 단어를 바꿔 보세요",
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text.trim().ifEmpty { "읽힌 글자가 없어요" }.take(READ_TEXT_PREVIEW),
+            style = MaterialTheme.typography.bodySmall,
+            color = Chrome.chromeIndigo,
+        )
+    }
+}
+
+private const val READ_TEXT_PREVIEW = 600
 
 @Composable
 private fun NfcWaitPanel(tags: List<NfcTagEntity>, availability: NfcAvailability, busy: Boolean) {

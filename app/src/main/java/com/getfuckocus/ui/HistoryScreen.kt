@@ -654,7 +654,8 @@ private fun CrtOccurrenceLog(task: TaskEntity, result: OccurrenceResult, attempt
 @Composable
 private fun CrtAttemptLine(attempt: AttemptEntity) {
     val time = Instant.ofEpochMilli(attempt.capturedAt).atZone(ZoneId.systemDefault())
-    val photo = attempt.method == VerifyMethod.PHOTO
+    // 사진·스크린샷 인증은 올린 이미지를 작게 보여 준다
+    val photo = attempt.method == VerifyMethod.PHOTO || attempt.method == VerifyMethod.SCREENSHOT
     val ink = if (attempt.passed) Chrome.phosphor else CrtAlert
     Row(verticalAlignment = Alignment.Top) {
         if (photo) {
@@ -695,14 +696,15 @@ private fun ResultPill(result: OccurrenceResult) {
 @Composable
 private fun AttemptRow(attempt: AttemptEntity) {
     val time = Instant.ofEpochMilli(attempt.capturedAt).atZone(ZoneId.systemDefault())
-    val photo = attempt.method == VerifyMethod.PHOTO
+    // 사진·스크린샷 인증은 올린 이미지를 작게 보여 준다
+    val photo = attempt.method == VerifyMethod.PHOTO || attempt.method == VerifyMethod.SCREENSHOT
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (photo) AttemptThumbnail(attempt.photoPath) else MethodMark(attempt.method, attempt.passed)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 "${TaskSchedule.formatMinute(time.hour * 60 + time.minute)} · " +
-                    (if (photo) "" else "${attempt.method.title} ") + (if (attempt.passed) "통과" else "실패"),
+                    (if (attempt.method == VerifyMethod.PHOTO) "" else "${attempt.method.title} ") + (if (attempt.passed) "통과" else "실패"),
                 style = MaterialTheme.typography.labelLarge,
                 color = if (attempt.passed) Chrome.teal else Chrome.redInk,
             )

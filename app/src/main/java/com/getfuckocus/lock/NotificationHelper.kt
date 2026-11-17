@@ -63,6 +63,7 @@ object NotificationHelper {
             VerifyMethod.PHOTO -> "사진으로 인증하세요"
             VerifyMethod.LOCATION -> "정한 장소에서 체크하세요"
             VerifyMethod.NFC -> "NFC 태그를 찍어 체크하세요"
+            VerifyMethod.SCREENSHOT -> "완료 화면을 캡처해 올려 주세요"
         }
         val (title, text) = when (kind) {
             ReminderKind.START -> "'${task.title}' 시작했어요" to "${deadlineText}까지 $how."

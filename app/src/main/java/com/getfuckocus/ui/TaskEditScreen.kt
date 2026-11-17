@@ -1,5 +1,6 @@
 package com.getfuckocus.ui
 
+import com.getfuckocus.data.screenshotKeywordList
 import com.getfuckocus.data.nfcTagIdList
 import com.getfuckocus.data.NfcTagIds
 import android.Manifest
@@ -126,6 +127,11 @@ fun TaskEditScreen(
         mutableStateListOf<String>()
     }
     var labelInput by rememberSaveable { mutableStateOf("") }
+    // 스크린샷 인증: 캡처에 꼭 보여야 할 단어들
+    val keywords = rememberSaveable(saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })) {
+        mutableStateListOf<String>()
+    }
+    var keywordInput by rememberSaveable { mutableStateOf("") }
     var radiusMeters by rememberSaveable { mutableFloatStateOf(DEFAULT_RADIUS_M) }
     var geo by rememberSaveable { mutableStateOf<Pair<Double, Double>?>(null) }
     var enabled by rememberSaveable { mutableStateOf(true) }
@@ -158,6 +164,8 @@ fun TaskEditScreen(
             nagImages.addAll(t.nagImagePaths())
             labels.clear()
             labels.addAll(t.requiredLabels())
+            keywords.clear()
+            keywords.addAll(t.screenshotKeywordList())
             radiusMeters = t.geoRadiusMeters ?: DEFAULT_RADIUS_M
             geo = if (t.geoLat != null && t.geoLng != null) t.geoLat to t.geoLng else null
             enabled = t.enabled
@@ -206,6 +214,13 @@ fun TaskEditScreen(
     }
     fun openPlacePicker() = onPickPlace(geo?.let { PickedPlace(it.first, it.second, radiusMeters) })
 
+    fun addKeyword(text: String) {
+        val value = text.replace(",", " ").trim().take(KEYWORD_MAX_LENGTH)
+        if (value.isNotEmpty() && keywords.none { it.equals(value, ignoreCase = true) } && keywords.size < KEYWORD_MAX) {
+            keywords += value
+        }
+        keywordInput = ""
+    }
     fun addLabel(text: String) {
         val value = text.trim().trimEnd(',')
         if (value.isNotEmpty() && labels.none { it.equals(value, ignoreCase = true) }) labels += value
@@ -260,12 +275,13 @@ fun TaskEditScreen(
 
     fun save() {
         if (labelInput.isNotBlank() && !frozen) addLabel(labelInput)
+        if (keywordInput.isNotBlank() && !frozen) addKeyword(keywordInput)
         if (nagInput.isNotBlank()) addNagMessage(nagInput)
         message = when {
             title.isBlank() -> "과제 이름을 입력하세요"
             durationMinutes !in 1..TaskSchedule.MAX_DURATION_MINUTES -> "소요 시간은 1분 이상이어야 해요"
             (repeatDays and RepeatDays.EVERY_DAY) == 0 -> "반복할 요일을 하나 이상 골라 주세요"
-            !frozen -> saveProblem(verifyMethod, hasGeoFence = geo != null, validTagIds.size, missAction)
+            !frozen -> saveProblem(verifyMethod, hasGeoFence = geo != null, validTagIds.size, missAction, keywords.size)
             else -> null
         }
         if (message != null) return
@@ -293,6 +309,7 @@ fun TaskEditScreen(
             geoLng = geo?.second.takeIf { usesPlace },
             geoRadiusMeters = if (geo != null && usesPlace) radiusMeters else null,
             requiredLabel = labels.joinToString(", ").ifEmpty { null },
+            screenshotKeywords = keywords.joinToString(", "),
             enabled = enabled,
         )
         scope.launch {
@@ -307,7 +324,7 @@ fun TaskEditScreen(
     // 저장하지 않은 변경 감지: 불러온 직후(새 과제는 처음 값)를 기준으로 삼는다
     fun snapshot(): String = listOf(
         title, iconKey, startMinute, durationMinutes, repeatDays, verifyMethod, remindAtStart, remindBeforeMinutes,
-        labels.toList(), labelInput, radiusMeters, geo, enabled, missAction, nfcTagIdsText,
+        labels.toList(), labelInput, radiusMeters, geo, enabled, missAction, nfcTagIdsText, keywords.toList(), keywordInput,
         nagMessages.toList(), nagInput, nagImages.toList(),
     ).toString()
     var baseline by rememberSaveable { mutableStateOf<String?>(null) }
@@ -402,6 +419,11 @@ fun TaskEditScreen(
                 onLabelInput = { labelInput = it },
                 onAddLabel = ::addLabel,
                 onRemoveLabel = { labels.remove(it) },
+                keywords = keywords,
+                keywordInput = keywordInput,
+                onKeywordInput = { keywordInput = it },
+                onAddKeyword = ::addKeyword,
+                onRemoveKeyword = { keywords.remove(it) },
                 suggestions = suggestions,
             )
 
@@ -518,3 +540,7 @@ fun TaskEditScreen(
         }
     }
 }
+
+/** 스크린샷 인증 단어: 개수와 길이 상한 */
+private const val KEYWORD_MAX = 5
+private const val KEYWORD_MAX_LENGTH = 20
